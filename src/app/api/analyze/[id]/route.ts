@@ -37,7 +37,7 @@ export async function GET(
   }
 
   // Enrich track matches with full track data
-  const enrichedMatches = video.analysis.trackMatches.map((match) => {
+  const enrichedMatches = video.analysis.trackMatches.map((match: { id: string; analysisId: string; trackId: string; matchScore: number; rank: number; createdAt: Date }) => {
     const trackData = tracks.find((t) => t.id === match.trackId);
     return {
       ...match,
