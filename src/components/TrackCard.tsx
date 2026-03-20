@@ -56,21 +56,21 @@ export function TrackCard({
         isBestMatch ? "border-[#c8b97a] shadow-[#c8b97a]/10 shadow-lg" : "border-[#2A2A2A]"
       }`}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <span className="text-[#3a3a5a] font-mono text-sm w-5 text-center">
+      <div className="flex items-start justify-between mb-3 gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-[#3a3a5a] font-mono text-sm w-5 text-center flex-shrink-0">
             {rank}
           </span>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-white font-semibold">{track.title}</h3>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-white font-semibold truncate">{track.title}</h3>
               {isBestMatch && (
-                <span className="bg-[#c8b97a] text-[#0a0a0f] text-xs px-2 py-0.5 rounded-full font-bold">
+                <span className="bg-[#c8b97a] text-[#0a0a0f] text-xs px-2 py-0.5 rounded-full font-bold flex-shrink-0">
                   Best Match
                 </span>
               )}
             </div>
-            <p className="text-[#a0a0b8] text-sm">{track.artist}</p>
+            <p className="text-[#a0a0b8] text-sm truncate">{track.artist}</p>
           </div>
         </div>
         <ScoreBadge score={track.match_score} />
@@ -113,10 +113,10 @@ export function TrackCard({
         </div>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 mt-1">
         <button
           onClick={() => setShowPlayer(!showPlayer)}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#1E1E1E] hover:bg-[#2A2A2A] text-white rounded-lg text-sm font-medium transition-colors border border-[#2A2A2A]"
+          className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-[#1E1E1E] hover:bg-[#2A2A2A] text-white rounded-lg text-sm font-medium transition-colors border border-[#2A2A2A]"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
             {showPlayer ? (

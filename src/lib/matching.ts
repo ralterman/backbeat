@@ -1,4 +1,5 @@
-import { tracks, Track } from "@/data/tracks";
+import { Track } from "@/data/tracks";
+import { fetchMatchedTracks } from "./epidemic-sound";
 
 export interface VideoAnalysis {
   mood_tags: string[];
@@ -31,35 +32,30 @@ function jaccardSimilarity(a: string[], b: string[]): number {
 }
 
 /**
- * Score a track against the video analysis result.
- * Returns a value 0–100.
+ * Score a single track against a video analysis result (0–100).
+ * Used by mock mode and exposed for testing.
  */
 export function scoreTrack(track: Track, analysis: VideoAnalysis): ScoredTrack {
-  // Mood similarity (0-1)
   const moodScore =
     jaccardSimilarity(track.mood_tags, [
       ...analysis.mood_tags,
       ...analysis.scene_tags,
     ]) * 100;
 
-  // BPM compatibility (0-1)
-  // Score full points if track BPM falls within the detected range; graceful falloff outside
   const { min: bpmMin, max: bpmMax } = analysis.bpm_range;
   let bpmScore: number;
   if (track.bpm >= bpmMin && track.bpm <= bpmMax) {
     bpmScore = 100;
   } else {
     const midpoint = (bpmMin + bpmMax) / 2;
-    const range = Math.max(bpmMax - bpmMin, 20); // floor range to avoid division issues
+    const range = Math.max(bpmMax - bpmMin, 20);
     const distance = Math.abs(track.bpm - midpoint);
     bpmScore = Math.max(0, 100 - (distance / range) * 100);
   }
 
-  // Energy compatibility – closer to video energy = better (0-100)
   const energyDiff = Math.abs(track.energy_score - analysis.energy_score);
   const energyScore = Math.max(0, 100 - energyDiff * 12);
 
-  // Genre match (0 or 100, with partial credit via substring)
   const recGenresLower = analysis.recommended_genres.map((g) => g.toLowerCase());
   const trackGenreLower = track.genre.toLowerCase();
   let genreScore = 0;
@@ -73,7 +69,6 @@ export function scoreTrack(track: Track, analysis: VideoAnalysis): ScoredTrack {
     genreScore = 60;
   }
 
-  // Weighted average
   const weights = { mood: 0.35, bpm: 0.2, energy: 0.3, genre: 0.15 };
   const finalScore =
     moodScore * weights.mood +
@@ -94,13 +89,14 @@ export function scoreTrack(track: Track, analysis: VideoAnalysis): ScoredTrack {
 }
 
 /**
- * Return the top N tracks sorted by match score.
+ * Return the top N matched tracks for a given video analysis.
+ *
+ * Delegates to epidemic-sound.ts which auto-selects mock vs live mode
+ * based on the EPIDEMIC_SOUND_API_KEY environment variable.
  */
-export function matchTracks(
+export async function matchTracks(
   analysis: VideoAnalysis,
   topN: number = 5
-): ScoredTrack[] {
-  const scored = tracks.map((track) => scoreTrack(track, analysis));
-  scored.sort((a, b) => b.match_score - a.match_score);
-  return scored.slice(0, topN);
+): Promise<ScoredTrack[]> {
+  return fetchMatchedTracks(analysis, topN);
 }

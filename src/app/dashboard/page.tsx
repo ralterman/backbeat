@@ -74,18 +74,18 @@ export default async function DashboardPage({
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div className="flex flex-col gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-          <p className="text-[#a0a0b8] mt-1">
+          <p className="text-[#a0a0b8] mt-1 text-sm">
             Welcome back, {session.user.name ?? session.user.email}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl px-4 py-2.5">
+          <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl px-4 py-2.5 flex-1 sm:flex-none">
             <p className="text-xs text-[#a0a0b8] mb-1 capitalize">{plan.toLowerCase()} plan</p>
             <div className="flex items-center gap-2">
-              <div className="flex-1 w-24 bg-[#1E1E1E] rounded-full h-1.5">
+              <div className="flex-1 sm:w-24 bg-[#1E1E1E] rounded-full h-1.5">
                 <div
                   className={`h-1.5 rounded-full transition-all ${
                     usagePct >= 80 ? "bg-red-500" : usagePct >= 60 ? "bg-yellow-500" : "bg-[#c8b97a]"
@@ -93,14 +93,14 @@ export default async function DashboardPage({
                   style={{ width: `${Math.min(100, usagePct)}%` }}
                 />
               </div>
-              <span className="text-[#c8b97a] text-sm font-medium">{remaining}/{limit}</span>
+              <span className="text-[#c8b97a] text-sm font-medium whitespace-nowrap">{remaining}/{limit}</span>
             </div>
             <p className="text-xs text-[#6a6a8a] mt-0.5">analyses remaining</p>
           </div>
           {plan === "FREE" && (
             <Link
               href="/pricing"
-              className="bg-white hover:bg-[#f0f0f0] text-[#0a0a0f] text-sm px-4 py-2.5 rounded-xl transition-colors font-bold"
+              className="bg-white hover:bg-[#f0f0f0] text-[#0a0a0f] text-sm px-4 py-2.5 rounded-xl transition-colors font-bold whitespace-nowrap"
             >
               Upgrade
             </Link>

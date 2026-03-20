@@ -145,7 +145,7 @@ export default function LandingPage() {
           <p className="text-[#3a3a5a] text-sm mt-6">No credit card required — analyze your first video free</p>
 
           {/* Mock UI preview */}
-          <div className="mt-16 max-w-4xl mx-auto bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-6 shadow-2xl shadow-black/60">
+          <div className="hidden sm:block mt-16 max-w-4xl mx-auto bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-6 shadow-2xl shadow-black/60">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-3 h-3 rounded-full bg-red-400/50" />
               <div className="w-3 h-3 rounded-full bg-yellow-400/50" />

@@ -53,7 +53,7 @@ export default function SignUpPage() {
         </div>
 
         <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl p-8">
-          <div className="flex gap-2 mb-6">
+          <div className="flex gap-2 mb-6 flex-wrap sm:flex-nowrap">
             {[
               { icon: "🎬", text: "1 free analysis" },
               { icon: "🎵", text: "Top 3 tracks" },

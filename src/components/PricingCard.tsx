@@ -35,9 +35,9 @@ export function PricingCard({
 }: PricingCardProps) {
   return (
     <div
-      className={`relative flex flex-col rounded-2xl p-8 border transition-all ${
+      className={`relative flex flex-col rounded-2xl p-6 sm:p-8 border transition-all ${
         highlighted
-          ? "border-[#c8b97a] bg-[#0d0d1a]/60 shadow-2xl shadow-[#c8b97a]/10 scale-105"
+          ? "border-[#c8b97a] bg-[#0d0d1a]/60 shadow-2xl shadow-[#c8b97a]/10 sm:scale-105"
           : "border-[#2A2A2A] bg-[#141414]"
       }`}
     >

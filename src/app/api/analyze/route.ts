@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
     // Match tracks — free users get top 3, paid users get top 5
     const plan = await getUserPlan(userId);
     const topN = plan === "FREE" ? 3 : 5;
-    const topTracks = matchTracks(analysisResult, topN);
+    const topTracks = await matchTracks(analysisResult, topN);
 
     // Save analysis
     const analysis = await prisma.analysis.create({

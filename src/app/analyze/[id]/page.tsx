@@ -120,12 +120,12 @@ export default function AnalysisResultsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="flex items-center gap-3 mb-8">
+      <div className="flex items-center gap-2 mb-6 flex-wrap">
         <Link
           href="/dashboard"
           className="text-[#a0a0b8] hover:text-white transition-colors flex items-center gap-1.5 text-sm"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Dashboard
@@ -215,7 +215,7 @@ export default function AnalysisResultsPage() {
           <span className="text-[#6a6a8a] text-sm">Sorted by match score</span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {matches.map((match) => (
             <TrackCard
               key={match.id}
