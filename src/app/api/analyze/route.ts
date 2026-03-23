@@ -6,15 +6,8 @@ import { matchTracks } from "@/lib/matching";
 import { incrementUsage, getUserPlan } from "@/lib/usage";
 import { s3Client, INPUT_BUCKET } from "@/lib/s3";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
-import ffmpeg from "fluent-ffmpeg";
+import { getFFmpeg } from "@/lib/ffmpeg-wasm";
 import { Readable } from "stream";
-import * as fs from "fs";
-import * as path from "path";
-import * as os from "os";
-
-if (process.env.FFMPEG_PATH) {
-  ffmpeg.setFfmpegPath(process.env.FFMPEG_PATH);
-}
 
 async function streamToBuffer(stream: Readable): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -26,46 +19,36 @@ async function streamToBuffer(stream: Readable): Promise<Buffer> {
 }
 
 async function extractFrames(videoBuffer: Buffer, videoId: string): Promise<string[]> {
-  const tmpDir = path.join(os.tmpdir(), `backbeat-${videoId}`);
-  fs.mkdirSync(tmpDir, { recursive: true });
+  const ffmpeg = await getFFmpeg();
+  const inputName = `input-${videoId}.mp4`;
 
-  const inputPath = path.join(tmpDir, "input.mp4");
-  fs.writeFileSync(inputPath, videoBuffer);
+  await ffmpeg.writeFile(inputName, new Uint8Array(videoBuffer));
 
-  return new Promise((resolve, reject) => {
-    const frames: string[] = [];
+  try {
+    await ffmpeg.exec([
+      "-i", inputName,
+      "-vf", "fps=1/3,scale=512:-1",
+      "-frames:v", "10",
+      "-f", "image2",
+      `frame-${videoId}-%03d.jpg`,
+    ]);
+  } finally {
+    try { await ffmpeg.deleteFile(inputName); } catch {}
+  }
 
-    ffmpeg(inputPath)
-      .outputOptions([
-        "-vf", "fps=1/3,scale=512:-1",  // 1 frame per 3 seconds, 512px wide
-        "-frames:v", "10",               // max 10 frames
-        "-f", "image2",
-      ])
-      .output(path.join(tmpDir, "frame-%03d.jpg"))
-      .on("end", () => {
-        try {
-          const files = fs.readdirSync(tmpDir)
-            .filter((f) => f.startsWith("frame-") && f.endsWith(".jpg"))
-            .sort();
+  const frames: string[] = [];
+  for (let i = 1; i <= 10; i++) {
+    const name = `frame-${videoId}-${String(i).padStart(3, "0")}.jpg`;
+    try {
+      const data = await ffmpeg.readFile(name) as Uint8Array;
+      frames.push(Buffer.from(data).toString("base64"));
+      await ffmpeg.deleteFile(name);
+    } catch {
+      break;
+    }
+  }
 
-          for (const file of files) {
-            const buf = fs.readFileSync(path.join(tmpDir, file));
-            frames.push(buf.toString("base64"));
-          }
-
-          // Cleanup
-          try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
-          resolve(frames);
-        } catch (err) {
-          reject(err);
-        }
-      })
-      .on("error", (err) => {
-        try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
-        reject(err);
-      })
-      .run();
-  });
+  return frames;
 }
 
 export async function POST(req: NextRequest) {
