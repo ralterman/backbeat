@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["sharp"],
+  serverExternalPackages: ["sharp", "fluent-ffmpeg", "ffmpeg-static"],
   experimental: {
     serverActions: {
       bodySizeLimit: "600mb",

@@ -4,10 +4,16 @@ import { prisma } from "@/lib/prisma";
 import { analyzeVideoFrames } from "@/lib/analyze";
 import { matchTracks } from "@/lib/matching";
 import { incrementUsage, getUserPlan } from "@/lib/usage";
-import { s3Client, INPUT_BUCKET } from "@/lib/s3";
+import { s3Client } from "@/lib/s3";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
-import { getFFmpeg } from "@/lib/ffmpeg-wasm";
+import ffmpeg from "fluent-ffmpeg";
+import ffmpegPath from "ffmpeg-static";
 import { Readable } from "stream";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
+
+if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 async function streamToBuffer(stream: Readable): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -19,36 +25,39 @@ async function streamToBuffer(stream: Readable): Promise<Buffer> {
 }
 
 async function extractFrames(videoBuffer: Buffer, videoId: string): Promise<string[]> {
-  const ffmpeg = await getFFmpeg();
-  const inputName = `input-${videoId}.mp4`;
+  const tmpDir = path.join(os.tmpdir(), `backbeat-${videoId}`);
+  fs.mkdirSync(tmpDir, { recursive: true });
+  const inputPath = path.join(tmpDir, "input.mp4");
+  fs.writeFileSync(inputPath, videoBuffer);
 
-  await ffmpeg.writeFile(inputName, new Uint8Array(videoBuffer));
-
-  try {
-    await ffmpeg.exec([
-      "-i", inputName,
-      "-vf", "fps=1/3,scale=512:-1",
-      "-frames:v", "10",
-      "-f", "image2",
-      `frame-${videoId}-%03d.jpg`,
-    ]);
-  } finally {
-    try { await ffmpeg.deleteFile(inputName); } catch {}
-  }
-
-  const frames: string[] = [];
-  for (let i = 1; i <= 10; i++) {
-    const name = `frame-${videoId}-${String(i).padStart(3, "0")}.jpg`;
-    try {
-      const data = await ffmpeg.readFile(name) as Uint8Array;
-      frames.push(Buffer.from(data).toString("base64"));
-      await ffmpeg.deleteFile(name);
-    } catch {
-      break;
-    }
-  }
-
-  return frames;
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .outputOptions([
+        "-vf", "fps=1/3,scale=512:-1",
+        "-frames:v", "10",
+        "-f", "image2",
+      ])
+      .output(path.join(tmpDir, "frame-%03d.jpg"))
+      .on("end", () => {
+        try {
+          const files = fs.readdirSync(tmpDir)
+            .filter((f) => f.startsWith("frame-") && f.endsWith(".jpg"))
+            .sort();
+          const frames = files.map((f) =>
+            fs.readFileSync(path.join(tmpDir, f)).toString("base64")
+          );
+          try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
+          resolve(frames);
+        } catch (err) {
+          reject(err);
+        }
+      })
+      .on("error", (err) => {
+        try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
+        reject(err);
+      })
+      .run();
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -85,35 +94,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ status: "completed", analysis, matches });
   }
 
-  // Mark as analyzing
   await prisma.video.update({
     where: { id: videoId },
     data: { status: "ANALYZING" },
   });
 
   try {
-    // Download video from S3
     const s3Obj = await s3Client.send(
       new GetObjectCommand({ Bucket: video.s3Bucket, Key: video.s3Key })
     );
     const videoBuffer = await streamToBuffer(s3Obj.Body as Readable);
 
-    // Extract frames
     const frames = await extractFrames(videoBuffer, videoId);
 
     if (frames.length === 0) {
       throw new Error("No frames could be extracted from the video");
     }
 
-    // Call Claude
     const analysisResult = await analyzeVideoFrames(frames);
 
-    // Match tracks — free users get top 3, paid users get top 5
     const plan = await getUserPlan(userId);
     const topN = plan === "FREE" ? 3 : 5;
     const topTracks = await matchTracks(analysisResult, topN);
 
-    // Save analysis
     const analysis = await prisma.analysis.create({
       data: {
         videoId,
@@ -125,7 +128,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Save track matches
     await prisma.trackMatch.createMany({
       data: topTracks.map((track, i) => ({
         analysisId: analysis.id,
@@ -135,18 +137,13 @@ export async function POST(req: NextRequest) {
       })),
     });
 
-    // Mark video as analyzed & increment usage
     await prisma.video.update({
       where: { id: videoId },
       data: { status: "ANALYZED" },
     });
     await incrementUsage(userId, "analysis");
 
-    return NextResponse.json({
-      status: "completed",
-      analysis,
-      matches: topTracks,
-    });
+    return NextResponse.json({ status: "completed", analysis, matches: topTracks });
   } catch (err) {
     await prisma.video.update({
       where: { id: videoId },

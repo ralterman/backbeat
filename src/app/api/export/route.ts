@@ -5,9 +5,15 @@ import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3"
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getUserPlan } from "@/lib/usage";
 import { tracks } from "@/data/tracks";
-import { getFFmpeg } from "@/lib/ffmpeg-wasm";
+import ffmpeg from "fluent-ffmpeg";
+import ffmpegPath from "ffmpeg-static";
 import { Readable } from "stream";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
 import { randomUUID } from "crypto";
+
+if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 async function streamToBuffer(stream: Readable): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -24,44 +30,66 @@ async function mergeVideoAudio(
   exportId: string,
   hasWatermark: boolean
 ): Promise<Buffer> {
-  const ffmpeg = await getFFmpeg();
-  const inputVideo = `input-${exportId}.mp4`;
-  const inputAudio = `audio-${exportId}.mp3`;
-  const outputFile = `output-${exportId}.mp4`;
+  const tmpDir = path.join(os.tmpdir(), `backbeat-export-${exportId}`);
+  fs.mkdirSync(tmpDir, { recursive: true });
 
-  await ffmpeg.writeFile(inputVideo, new Uint8Array(videoBuffer));
-  await ffmpeg.writeFile(inputAudio, new Uint8Array(audioBuffer));
+  const videoPath = path.join(tmpDir, "input.mp4");
+  const audioPath = path.join(tmpDir, "audio.mp3");
+  const outputPath = path.join(tmpDir, "output.mp4");
 
-  const args: string[] = [
-    "-i", inputVideo,
-    "-i", inputAudio,
-    "-af", "afade=t=in:st=0:d=2,afade=t=out:st=28:d=2,loudnorm=I=-14:TP=-1:LRA=11",
-    "-map", "0:v:0",
-    "-map", "1:a:0",
-  ];
+  fs.writeFileSync(videoPath, videoBuffer);
+  fs.writeFileSync(audioPath, audioBuffer);
 
-  if (hasWatermark) {
-    // Re-encode video to burn in the watermark text
-    args.push(
-      "-vf", "drawtext=text='BACKBEAT WATERMARK':fontcolor=white@0.3:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2",
-      "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-    );
-  } else {
-    args.push("-c:v", "copy");
-  }
+  return new Promise((resolve, reject) => {
+    let cmd = ffmpeg(videoPath)
+      .addInput(audioPath)
+      .audioFilters([
+        "afade=t=in:st=0:d=2",
+        "afade=t=out:st=28:d=2",
+        "loudnorm=I=-14:TP=-1:LRA=11",
+      ]);
 
-  args.push("-c:a", "aac", "-shortest", outputFile);
+    if (hasWatermark) {
+      cmd = cmd
+        .videoFilters([
+          "drawtext=text='BACKBEAT WATERMARK':fontcolor=white@0.3:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2",
+        ])
+        .outputOptions([
+          "-map 0:v:0",
+          "-map 1:a:0",
+          "-c:v libx264",
+          "-preset fast",
+          "-crf 23",
+          "-c:a aac",
+          "-shortest",
+        ]);
+    } else {
+      cmd = cmd.outputOptions([
+        "-map 0:v:0",
+        "-map 1:a:0",
+        "-c:v copy",
+        "-c:a aac",
+        "-shortest",
+      ]);
+    }
 
-  try {
-    await ffmpeg.exec(args);
-  } finally {
-    try { await ffmpeg.deleteFile(inputVideo); } catch {}
-    try { await ffmpeg.deleteFile(inputAudio); } catch {}
-  }
-
-  const data = await ffmpeg.readFile(outputFile) as Uint8Array;
-  await ffmpeg.deleteFile(outputFile);
-  return Buffer.from(data);
+    cmd
+      .output(outputPath)
+      .on("end", () => {
+        try {
+          const buf = fs.readFileSync(outputPath);
+          try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
+          resolve(buf);
+        } catch (err) {
+          reject(err);
+        }
+      })
+      .on("error", (err) => {
+        try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
+        reject(err);
+      })
+      .run();
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -103,21 +131,17 @@ export async function POST(req: NextRequest) {
   });
 
   try {
-    // Download video from S3
     const s3Obj = await s3Client.send(
       new GetObjectCommand({ Bucket: video.s3Bucket, Key: video.s3Key })
     );
     const videoBuffer = await streamToBuffer(s3Obj.Body as Readable);
 
-    // Download audio from track preview URL
     const audioRes = await fetch(track.preview_url);
     if (!audioRes.ok) throw new Error(`Failed to fetch audio: ${audioRes.status}`);
     const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
 
-    // Merge using WASM FFmpeg
     const outputBuffer = await mergeVideoAudio(videoBuffer, audioBuffer, exportId, hasWatermark);
 
-    // Upload merged file to output S3
     const outputKey = `exports/${userId}/${exportId}.mp4`;
     await s3Client.send(
       new PutObjectCommand({

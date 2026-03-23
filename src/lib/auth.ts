@@ -13,7 +13,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
     ResendProvider({
       apiKey: process.env.RESEND_API_KEY!,
-      from: process.env.EMAIL_FROM ?? "noreply@backbeat.app",
+      from: process.env.EMAIL_FROM ?? "hello@backbeat.me",
     }),
   ],
   session: {
