@@ -62,6 +62,7 @@ export function SyncedPreviewPlayer({
   const [trackVolume, setTrackVolume] = useState(0.85);
   const [ready, setReady] = useState(false);
   const [hasBestSection, setHasBestSection] = useState(false);
+  const [videoAspect, setVideoAspect] = useState("16/9");
 
   const effectiveDuration = isFreeUser ? Math.min(FREE_CAP, duration) : duration;
 
@@ -101,6 +102,9 @@ export function SyncedPreviewPlayer({
       audioOffsetRef.current = offset;
       aud.currentTime = offset;
       if (offset > 1) setHasBestSection(true);
+      if (vid.videoWidth && vid.videoHeight) {
+        setVideoAspect(`${vid.videoWidth}/${vid.videoHeight}`);
+      }
       setDuration(vidDuration);
       setReady(true);
     };
@@ -152,8 +156,11 @@ export function SyncedPreviewPlayer({
     <div className="bg-[#141414] border border-[#c8b97a]/30 rounded-2xl overflow-hidden shadow-2xl shadow-black/60">
       <audio ref={audioRef} src={track.preview_url} preload="auto" />
 
-      {/* Video */}
-      <div className="relative bg-black aspect-video">
+      {/* Video — aspect ratio adapts to portrait or landscape */}
+      <div
+        className="relative bg-black w-full"
+        style={{ aspectRatio: videoAspect, maxHeight: "70vh" }}
+      >
         <video
           ref={videoRef}
           src={videoUrl}
