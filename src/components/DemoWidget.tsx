@@ -88,31 +88,59 @@ export function DemoWidget() {
         gain.gain.value = 0;
         gain.connect(ctx.destination);
 
-        // Cmaj7 pad: C3 E3 G3 B3
-        [130.81, 164.81, 196.0, 246.94].forEach((freq, i) => {
-          const osc  = ctx.createOscillator();
-          const g    = ctx.createGain();
-          const lfo  = ctx.createOscillator();
-          const lfoG = ctx.createGain();
-          osc.type         = i % 2 === 0 ? "sine" : "triangle";
-          osc.frequency.value = freq;
-          lfo.frequency.value = 0.06 + i * 0.022;
-          lfoG.gain.value  = freq * 0.003;
-          lfo.connect(lfoG);
-          lfoG.connect(osc.frequency);
-          g.gain.value     = 0.055;
-          osc.connect(g);
-          g.connect(gain);
-          lfo.start(); osc.start();
+        // Lowpass filter for warmth
+        const filter = ctx.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.value = 900;
+        filter.Q.value = 0.7;
+        filter.connect(gain);
+
+        // Simple delay reverb
+        const delay   = ctx.createDelay(2);
+        const delayFb = ctx.createGain();
+        const dlpf    = ctx.createBiquadFilter();
+        delay.delayTime.value = 0.45;
+        delayFb.gain.value    = 0.28;
+        dlpf.type = "lowpass";
+        dlpf.frequency.value = 800;
+        delay.connect(dlpf);
+        dlpf.connect(delayFb);
+        delayFb.connect(delay);
+        delay.connect(gain);
+
+        // Slow volume swell (breathing)
+        const swellLfo  = ctx.createOscillator();
+        const swellGain = ctx.createGain();
+        swellLfo.frequency.value = 0.12;
+        swellGain.gain.value     = 0.016;
+        swellLfo.connect(swellGain);
+        swellLfo.start();
+
+        // Cmaj7 — C4 E4 G4 B4 (one octave higher than before, no more hum)
+        [261.63, 329.63, 392.0, 493.88].forEach((freq, i) => {
+          [-4, 4].forEach((detune) => {
+            const osc = ctx.createOscillator();
+            const g   = ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.value = freq;
+            osc.detune.value    = detune;
+            g.gain.value        = i === 0 ? 0.06 : 0.04;
+            swellGain.connect(g.gain);
+            osc.connect(g);
+            g.connect(filter);
+            g.connect(delay);
+            osc.start();
+          });
         });
+
         audioRef.current = { ctx, gain };
       }
       const { ctx, gain } = audioRef.current;
       ctx.resume().then(() => {
-        gain.gain.setTargetAtTime(0.16, ctx.currentTime, 0.9);
+        gain.gain.setTargetAtTime(0.22, ctx.currentTime, 1.2);
       });
     } else {
-      audioRef.current?.gain.gain.setTargetAtTime(0, audioRef.current.ctx.currentTime, 0.5);
+      audioRef.current?.gain.gain.setTargetAtTime(0, audioRef.current.ctx.currentTime, 0.6);
     }
     setMuted(!muted);
   };
