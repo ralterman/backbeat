@@ -176,9 +176,9 @@ export function DemoWidget() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div ref={containerRef} className="hidden sm:block mt-16 max-w-5xl mx-auto" style={{ opacity }}>
+    <div ref={containerRef} className="block mt-10 sm:mt-16 max-w-5xl mx-auto px-3 sm:px-0" style={{ opacity }}>
       <audio ref={audioElRef} src="https://archive.org/download/DWK312/Centz_-_14_-_Neon_Noir.mp3" preload="auto" loop />
-      <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-6 shadow-2xl shadow-black/60">
+      <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-3 sm:p-6 shadow-2xl shadow-black/60">
 
         {/* Window chrome */}
         <div className="flex items-center gap-2 mb-4">
@@ -212,14 +212,13 @@ export function DemoWidget() {
           </button>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
 
           {/* ── LEFT PANEL — portrait video column ── */}
-          <div className="flex flex-col gap-2 flex-shrink-0" style={{ width: 300 }}>
+          <div className="flex flex-col gap-2 sm:flex-shrink-0 w-[140px] sm:w-[300px] mx-auto sm:mx-0">
             <div
-              className="rounded-xl overflow-hidden relative"
+              className="rounded-xl overflow-hidden relative w-full"
               style={{
-                width: 300,
                 aspectRatio: "9/16",
                 background: "#0a0a0a",
                 border: `1px solid rgba(200,185,122,${borderGlow})`,
@@ -332,7 +331,7 @@ export function DemoWidget() {
 
             {/* Analyzing animation */}
             {phase === 2 && (
-              <div className="flex flex-col items-center justify-center h-full gap-2 py-6">
+              <div className="flex flex-col items-center justify-center min-h-[120px] h-full gap-2 py-6">
                 <div className="flex items-end gap-0.5 h-6">
                   {[0.4, 0.8, 1.0, 0.6, 0.9, 0.5, 0.75].map((base, i) => (
                     <div
