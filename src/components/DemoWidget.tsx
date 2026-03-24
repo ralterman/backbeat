@@ -296,34 +296,6 @@ export function DemoWidget() {
               )}
             </div>
 
-            {/* Export button — desktop only (keeps left column height fixed on mobile) */}
-            {showExport && (
-              <button
-                className="hidden sm:block w-full rounded-lg py-2 text-[12px] font-semibold"
-                style={{
-                  background: exportDone ? "rgba(34,197,94,0.12)" : "rgba(200,185,122,0.10)",
-                  border: exportDone
-                    ? "1px solid rgba(34,197,94,0.4)"
-                    : `1px solid rgba(200,185,122,${pulseBorder})`,
-                  color: exportDone ? "#4ade80" : "#c8b97a",
-                  transition: "background 0.4s, border-color 0.3s, color 0.4s",
-                }}
-              >
-                {exportSpin ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span
-                      className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#c8b97a] border-t-transparent"
-                      style={{ animation: "spin 0.7s linear infinite" }}
-                    />
-                    Exporting...
-                  </span>
-                ) : exportDone ? (
-                  "✓  Ready to download — city-timelapse-backbeat.mp4"
-                ) : (
-                  "Export with this track"
-                )}
-              </button>
-            )}
           </div>
 
           {/* ── RIGHT PANEL ── */}
@@ -435,6 +407,35 @@ export function DemoWidget() {
             ))}
           </div>
         </div>
+
+        {/* Export button — always in DOM so it reserves space; visible via opacity */}
+        <button
+          className="w-full rounded-lg py-2 text-[12px] font-semibold mt-2"
+          style={{
+            opacity: showExport ? 1 : 0,
+            pointerEvents: showExport ? "auto" : "none",
+            background: exportDone ? "rgba(34,197,94,0.12)" : "rgba(200,185,122,0.10)",
+            border: exportDone
+              ? "1px solid rgba(34,197,94,0.4)"
+              : `1px solid rgba(200,185,122,${pulseBorder})`,
+            color: exportDone ? "#4ade80" : "#c8b97a",
+            transition: "opacity 0.4s, background 0.4s, border-color 0.3s, color 0.4s",
+          }}
+        >
+          {exportSpin ? (
+            <span className="flex items-center justify-center gap-2">
+              <span
+                className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#c8b97a] border-t-transparent"
+                style={{ animation: "spin 0.7s linear infinite" }}
+              />
+              Exporting...
+            </span>
+          ) : exportDone ? (
+            "✓  Ready to download — city-timelapse-backbeat.mp4"
+          ) : (
+            "Export with this track"
+          )}
+        </button>
       </div>
 
       {/* Spin keyframe */}
