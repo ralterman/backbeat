@@ -24,16 +24,73 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             from: process.env.EMAIL_FROM ?? "hello@backbeat.me",
             to: email,
             subject: "Sign in to Backbeat",
-            html: `
-              <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
-                <h2 style="color:#C8A96E;margin-bottom:8px">Sign in to Backbeat</h2>
-                <p style="color:#666;margin-bottom:24px">Click the button below to sign in. This link expires in 24 hours.</p>
-                <a href="${url}" style="display:inline-block;background:#ffffff;color:#0a0a0f;font-weight:700;padding:12px 28px;border-radius:10px;text-decoration:none">
-                  Sign in to Backbeat
-                </a>
-                <p style="color:#999;font-size:12px;margin-top:24px">Or copy this link: ${url}</p>
-              </div>
-            `,
+            html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:48px 16px">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px">
+
+        <!-- Logo -->
+        <tr><td align="center" style="padding-bottom:32px">
+          <table cellpadding="0" cellspacing="0"><tr><td>
+            <div style="display:inline-flex;align-items:center;gap:10px">
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="18" cy="18" r="16" fill="#C8A96E" fill-opacity="0.15"/>
+                <circle cx="18" cy="18" r="15.5" stroke="#C8A96E" stroke-width="1.25"/>
+                <circle cx="18" cy="18" r="5.5" fill="#C8A96E"/>
+                <polygon points="16.5,15.5 16.5,20.5 21.5,18" fill="#0A0A0A"/>
+              </svg>
+              <span style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.5px">Backbeat</span>
+            </div>
+          </td></tr></table>
+        </td></tr>
+
+        <!-- Card -->
+        <tr><td style="background:#141414;border:1px solid #2a2a2a;border-radius:16px;padding:40px 36px">
+
+          <p style="margin:0 0 8px;color:#C8A96E;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Magic link</p>
+          <h1 style="margin:0 0 16px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2">Your sign-in link is ready</h1>
+          <p style="margin:0 0 32px;color:#a0a0b8;font-size:15px;line-height:1.6">
+            Click the button below to sign in to Backbeat. This link expires in <strong style="color:#ffffff">24 hours</strong> and can only be used once.
+          </p>
+
+          <!-- CTA button -->
+          <table cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">
+            <a href="${url}"
+               style="display:inline-block;background:#C8A96E;color:#0a0a0a;font-size:15px;font-weight:700;padding:14px 36px;border-radius:10px;text-decoration:none;letter-spacing:0.01em">
+              Sign in to Backbeat →
+            </a>
+          </td></tr></table>
+
+          <!-- Divider -->
+          <table cellpadding="0" cellspacing="0" width="100%" style="margin:32px 0">
+            <tr>
+              <td style="border-top:1px solid #2a2a2a"></td>
+            </tr>
+          </table>
+
+          <p style="margin:0 0 8px;color:#6a6a8a;font-size:12px">Didn't request this? You can safely ignore this email.</p>
+          <p style="margin:0;color:#6a6a8a;font-size:12px">If the button doesn't work, copy and paste this link:</p>
+          <p style="margin:8px 0 0;word-break:break-all">
+            <a href="${url}" style="color:#C8A96E;font-size:12px;text-decoration:none">${url}</a>
+          </p>
+
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td align="center" style="padding-top:24px">
+          <p style="margin:0;color:#3a3a5a;font-size:12px">
+            Sent by <a href="https://backbeat.me" style="color:#3a3a5a;text-decoration:underline">backbeat.me</a> · AI-powered music for your videos
+          </p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
           });
           if (error) {
             console.error("[auth] Resend error:", JSON.stringify(error));
