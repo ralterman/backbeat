@@ -31,11 +31,11 @@ const GENRE_COLORS: Record<string, string> = {
 
 function ScoreBadge({ score }: { score: number }) {
   const color =
-    score >= 80 ? "text-[#c8b97a]" : score >= 60 ? "text-[#A89B6A]" : "text-[#6b6b8a]";
+    score >= 80 ? "text-[#c8b97a]" : score >= 60 ? "text-[#A89B6A]" : "text-[#9090aa]";
   return (
     <div className="text-right">
       <span className={`text-2xl font-bold ${color}`}>{score}</span>
-      <span className="text-[#6b6b8a] text-xs ml-1">/ 100</span>
+      <span className="text-[#9090aa] text-xs ml-1">/ 100</span>
     </div>
   );
 }
@@ -62,7 +62,7 @@ export function TrackCard({
     >
       <div className="flex items-start justify-between mb-3 gap-2">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="text-[#6b6b8a] font-mono text-sm w-5 text-center flex-shrink-0">
+          <span className="text-[#9090aa] font-mono text-sm w-5 text-center flex-shrink-0">
             {rank}
           </span>
           <div className="min-w-0">
@@ -154,7 +154,7 @@ export function TrackCard({
         <button
           onClick={() => onExport?.(track.id)}
           disabled={isExporting}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white hover:bg-[#f0f0f0] disabled:bg-[#1E1E1E] disabled:text-[#6b6b8a] text-[#0a0a0f] rounded-lg text-sm font-bold transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white hover:bg-[#f0f0f0] disabled:bg-[#1E1E1E] disabled:text-[#9090aa] text-[#0a0a0f] rounded-lg text-sm font-bold transition-colors"
         >
           {isExporting ? (
             <>

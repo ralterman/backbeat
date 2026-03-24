@@ -152,7 +152,7 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          <p className="text-[#6b6b8a] text-sm mt-6">No credit card required — analyze your first video free</p>
+          <p className="text-[#9090aa] text-sm mt-6">No credit card required — analyze your first video free</p>
 
           <DemoWidget />
         </div>

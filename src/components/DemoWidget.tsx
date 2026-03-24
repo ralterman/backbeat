@@ -186,7 +186,7 @@ export function DemoWidget() {
           <div className="w-3 h-3 rounded-full bg-yellow-400/50" />
           <div className="w-3 h-3 rounded-full bg-green-400/50" />
           <div className="flex-1 bg-[#1E1E1E] rounded-lg h-5 ml-2 flex items-center px-3">
-            <span className="text-[#6b6b8a] text-[10px]">backbeat.me/dashboard</span>
+            <span className="text-[#9090aa] text-[10px]">backbeat.me/dashboard</span>
           </div>
           {/* Mute toggle */}
           <button
@@ -212,10 +212,10 @@ export function DemoWidget() {
           </button>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex gap-3">
 
           {/* ── LEFT PANEL — portrait video column ── */}
-          <div className="flex flex-col gap-2 sm:flex-shrink-0 w-[140px] sm:w-[300px] mx-auto sm:mx-0">
+          <div className="flex flex-col gap-2 flex-shrink-0 w-[110px] sm:w-[300px]">
             <div
               className="rounded-xl overflow-hidden relative w-full"
               style={{
@@ -262,10 +262,10 @@ export function DemoWidget() {
                           d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                       </svg>
                       <span className="text-[#a0a0b8] text-xs font-medium">demo-video.mp4</span>
-                      <span className="text-[#6b6b8a] text-[10px]">58 MB</span>
+                      <span className="text-[#9090aa] text-[10px]">58 MB</span>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center gap-2 text-[#6b6b8a]">
+                    <div className="flex flex-col items-center gap-2 text-[#9090aa]">
                       <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                           d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -296,10 +296,10 @@ export function DemoWidget() {
               )}
             </div>
 
-            {/* Export button */}
+            {/* Export button — desktop only (keeps left column height fixed on mobile) */}
             {showExport && (
               <button
-                className="w-full rounded-lg py-2 text-[12px] font-semibold"
+                className="hidden sm:block w-full rounded-lg py-2 text-[12px] font-semibold"
                 style={{
                   background: exportDone ? "rgba(34,197,94,0.12)" : "rgba(200,185,122,0.10)",
                   border: exportDone
@@ -327,7 +327,7 @@ export function DemoWidget() {
           </div>
 
           {/* ── RIGHT PANEL ── */}
-          <div className="flex-1 space-y-1.5 overflow-hidden min-w-0 h-[250px] sm:h-auto">
+          <div className="flex-1 space-y-1.5 overflow-hidden min-w-0">
 
             {/* Analyzing animation */}
             {phase === 2 && (
@@ -356,7 +356,7 @@ export function DemoWidget() {
                   transition: "opacity 0.4s ease-out, transform 0.4s ease-out",
                 }}
               >
-                <div className="text-[#6b6b8a] text-[9px] uppercase tracking-wide mb-1">{item.label}</div>
+                <div className="text-[#9090aa] text-[9px] uppercase tracking-wide mb-1">{item.label}</div>
                 {item.type === "bar" ? (
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
@@ -419,12 +419,12 @@ export function DemoWidget() {
                         ))}
                       </div>
                     ) : (
-                      <span className="text-[#6b6b8a] text-[9px]">{track.genre} · {track.bpm} BPM</span>
+                      <span className="text-[#9090aa] text-[9px]">{track.genre} · {track.bpm} BPM</span>
                     )}
                   </div>
                   <span
                     className="text-[11px] font-bold ml-2 shrink-0"
-                    style={{ color: i === 0 ? "#c8b97a" : i === 1 ? "#9a8a55" : "#6b6b8a" }}
+                    style={{ color: i === 0 ? "#c8b97a" : i === 1 ? "#9a8a55" : "#9090aa" }}
                   >
                     {tkScores[i]}%
                   </span>

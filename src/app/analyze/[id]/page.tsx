@@ -151,7 +151,7 @@ export default function AnalysisResultsPage() {
           </svg>
           Dashboard
         </Link>
-        <span className="text-[#6b6b8a]">/</span>
+        <span className="text-[#9090aa]">/</span>
         <span className="text-white text-sm">Analysis Results</span>
       </div>
 
