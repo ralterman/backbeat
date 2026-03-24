@@ -26,9 +26,24 @@ function norm(v: number, lo: number, hi: number)   { return clamp((v - lo) / (hi
 export function DemoWidget() {
   const [t, setT]       = useState(0);
   const [muted, setMuted] = useState(true);
-  const rafRef  = useRef<number>(0);
+  const rafRef   = useRef<number>(0);
   const startRef = useRef<number | null>(null);
   const audioRef = useRef<{ ctx: AudioContext; gain: GainNode } | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // ── Force video play (autoPlay can be silently blocked by browsers) ────────
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid) return;
+    vid.muted = true;
+    vid.play().catch(() => {
+      // Retry once on user interaction if initially blocked
+      const retry = () => { vid.play().catch(() => {}); };
+      document.addEventListener("click", retry, { once: true });
+      document.addEventListener("touchstart", retry, { once: true });
+    });
+    vid.addEventListener("error", (e) => console.error("Demo video error:", e));
+  }, []);
 
   // ── Animation loop ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -196,21 +211,27 @@ export function DemoWidget() {
             >
               {/* Real video — plays continuously underneath all overlays */}
               <video
+                ref={videoRef}
                 src="/demo-video.mp4"
                 autoPlay
                 muted
                 loop
                 playsInline
-                className="absolute inset-0 w-full h-full object-cover rounded-xl"
                 style={{
-                  opacity: phase === 1 ? 0.18 : phase >= 2 && phase <= 6 ? 0.85 : 0,
+                  position: "absolute",
+                  top: 0, left: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  zIndex: 0,
+                  opacity: phase === 1 ? 0.25 : phase >= 2 && phase <= 6 ? 1 : 0,
                   transition: "opacity 0.8s ease",
                 }}
               />
 
               {/* Phase 1: upload zone overlay (sits on top of dimmed video) */}
               {phase === 1 && (
-                <div className="absolute inset-0 border-2 border-dashed border-[#2A2A2A] rounded-xl flex flex-col items-center justify-center">
+                <div className="absolute inset-0 border-2 border-dashed border-[#2A2A2A] rounded-xl flex flex-col items-center justify-center" style={{ zIndex: 1 }}>
                   {fileVisible ? (
                     <div
                       className="flex flex-col items-center gap-1.5"
@@ -240,7 +261,7 @@ export function DemoWidget() {
 
               {/* Play button (phases 2–6, once thumbnail is visible) */}
               {thumbVisible && phase <= 6 && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 1 }}>
                   <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
                     <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M8 5v14l11-7z" />
@@ -251,7 +272,7 @@ export function DemoWidget() {
 
               {/* Upload progress overlay */}
               {phase === 2 && (
-                <div className="absolute inset-0 bg-black/30 rounded-xl flex flex-col justify-end p-4">
+                <div className="absolute inset-0 bg-black/30 rounded-xl flex flex-col justify-end p-4" style={{ zIndex: 1 }}>
                   <div className="flex justify-between text-[10px] mb-1.5">
                     <span className="text-[#a0a0b8]">demo-video.mp4</span>
                     <span className="text-[#c8b97a] font-semibold">{uploadPct}%</span>
@@ -291,7 +312,7 @@ export function DemoWidget() {
                     Exporting...
                   </span>
                 ) : exportDone ? (
-                  "✓  Ready to download — tokyo-vlog-backbeat.mp4"
+                  "✓  Ready to download — demo-video-backbeat.mp4"
                 ) : (
                   "Export with this track"
                 )}
