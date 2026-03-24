@@ -107,7 +107,10 @@ export function DemoWidget() {
         });
         audioRef.current = { ctx, gain };
       }
-      audioRef.current.gain.gain.setTargetAtTime(0.16, audioRef.current.ctx.currentTime, 0.9);
+      const { ctx, gain } = audioRef.current;
+      ctx.resume().then(() => {
+        gain.gain.setTargetAtTime(0.16, ctx.currentTime, 0.9);
+      });
     } else {
       audioRef.current?.gain.gain.setTargetAtTime(0, audioRef.current.ctx.currentTime, 0.5);
     }
