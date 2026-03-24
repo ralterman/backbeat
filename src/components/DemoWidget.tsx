@@ -212,10 +212,10 @@ export function DemoWidget() {
           </button>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
 
           {/* ── LEFT PANEL — portrait video column ── */}
-          <div className="flex flex-col gap-2 flex-shrink-0 w-[110px] sm:w-[300px]">
+          <div className="flex flex-col gap-2 sm:flex-shrink-0 w-[180px] sm:w-[300px] mx-auto sm:mx-0">
             <div
               className="rounded-xl overflow-hidden relative w-full"
               style={{
@@ -327,9 +327,9 @@ export function DemoWidget() {
           </div>
 
           {/* ── RIGHT PANEL ── */}
-          {/* h-[196px] on mobile pins it to the same height as the 110px-wide 9:16 video,
-              so phase transitions never change the widget height on mobile */}
-          <div className="flex-1 space-y-1.5 overflow-hidden min-w-0 h-[196px] sm:h-auto">
+          {/* h-[340px] on mobile exceeds max content (measured 331px scrollHeight),
+              locking the widget height so phase transitions never shift the page */}
+          <div className="flex-1 space-y-1.5 overflow-hidden min-w-0 h-[340px] sm:h-auto">
 
             {/* Analyzing animation */}
             {phase === 2 && (
