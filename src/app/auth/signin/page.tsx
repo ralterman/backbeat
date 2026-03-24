@@ -32,13 +32,24 @@ function SignInForm() {
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await signIn("resend", { email, callbackUrl, redirect: false });
-    setEmailSent(true);
-    setLoading(false);
+    setSendError(null);
+    try {
+      const result = await signIn("resend", { email, callbackUrl, redirect: false });
+      if (result?.error) {
+        setSendError(result.error);
+      } else {
+        setEmailSent(true);
+      }
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogleSignIn = () => {
@@ -47,10 +58,12 @@ function SignInForm() {
 
   return (
     <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl p-8">
-      {error && (
+      {(error || sendError) && (
         <div className="mb-6 bg-red-900/20 border border-red-800/30 rounded-lg px-4 py-3 text-red-400 text-sm">
           {error === "OAuthAccountNotLinked"
             ? "This email is already associated with a different sign-in method."
+            : sendError
+            ? `Send failed: ${sendError}`
             : "Authentication failed. Please try again."}
         </div>
       )}
