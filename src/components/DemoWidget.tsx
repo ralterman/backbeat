@@ -28,8 +28,8 @@ export function DemoWidget() {
   const [muted, setMuted] = useState(true);
   const rafRef   = useRef<number>(0);
   const startRef = useRef<number | null>(null);
-  const audioRef = useRef<{ ctx: AudioContext; gain: GainNode } | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const audioElRef  = useRef<HTMLAudioElement | null>(null);
+  const videoRef    = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const musicActiveRef = useRef(false);
 
@@ -111,135 +111,73 @@ export function DemoWidget() {
     0.22 + 0.65 * ((Math.sin(t / 270 + i * 0.75) + 1) / 2)
   );
 
-  // ── Phase-gated music: only plays while tracks are shown (t 9000–21000) ──
+  // ── Phase-gated music: plays only while tracks are shown (t 9000–21000) ──
   useEffect(() => {
-    const audio = audioRef.current;
+    const audio = audioElRef.current;
     if (!audio) return;
-    const { ctx, gain } = audio;
     const inMusicZone = t >= 9000 && t <= 21000;
     const shouldPlay = !muted && inMusicZone;
     if (shouldPlay === musicActiveRef.current) return;
     musicActiveRef.current = shouldPlay;
     if (shouldPlay) {
-      gain.gain.setTargetAtTime(0.18, ctx.currentTime, 0.8);
+      audio.volume = 0.75;
+      audio.play().catch(() => {});
     } else {
-      gain.gain.setTargetAtTime(0, ctx.currentTime, 0.4);
+      audio.pause();
+      audio.currentTime = 0;
     }
   }, [t, muted]);
 
-  // ── Silence audio when tab is hidden ─────────────────────────────────────
+  // ── Silence when tab hidden ───────────────────────────────────────────────
   useEffect(() => {
-    const onVisibilityChange = () => {
-      const audio = audioRef.current;
+    const onVisibility = () => {
+      const audio = audioElRef.current;
       if (!audio) return;
       if (document.hidden) {
-        audio.ctx.suspend();
-      } else if (!muted) {
-        audio.ctx.resume();
+        audio.pause();
+      } else if (!muted && musicActiveRef.current) {
+        audio.play().catch(() => {});
       }
     };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [muted]);
 
-  // ── Silence audio when demo scrolls out of view or component unmounts ────
+  // ── Reset loop + mute when demo scrolls out of view ──────────────────────
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        const audio = audioRef.current;
-        if (!audio) return;
         if (!entry.isIntersecting) {
-          audio.ctx.suspend();
+          const audio = audioElRef.current;
+          if (audio) { audio.pause(); audio.currentTime = 0; }
           musicActiveRef.current = false;
-        } else if (!muted) {
-          audio.ctx.resume();
+          startRef.current = null; // resets animation loop to t=0
+          setMuted(true);
         }
       },
       { threshold: 0.1 }
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [muted]);
+  }, []);
 
-  // ── Stop audio on unmount (page navigation) ───────────────────────────────
+  // ── Stop audio on unmount / page navigation ───────────────────────────────
   useEffect(() => {
-    return () => { audioRef.current?.ctx.suspend(); };
+    return () => {
+      const audio = audioElRef.current;
+      if (audio) { audio.pause(); audio.currentTime = 0; }
+    };
   }, []);
 
   // ── Audio ─────────────────────────────────────────────────────────────────
-  const toggleMute = () => {
-    if (muted) {
-      if (!audioRef.current) {
-        const ctx  = new AudioContext();
-        const gain = ctx.createGain();
-        gain.gain.value = 0; // phase effect controls gain, not here
-        gain.connect(ctx.destination);
-
-        // Bandpass + lowpass chain for punchy synth tone
-        const lpf = ctx.createBiquadFilter();
-        lpf.type = "lowpass";
-        lpf.frequency.value = 1800;
-        lpf.Q.value = 1.4;           // slight resonance = synth character
-        lpf.connect(gain);
-
-        // Short slapback delay for rhythm reinforcement
-        const delay   = ctx.createDelay(1);
-        const delayFb = ctx.createGain();
-        delay.delayTime.value = 60 / 125 / 2; // 8th-note at 125 BPM = 0.24s
-        delayFb.gain.value    = 0.22;
-        delay.connect(delayFb);
-        delayFb.connect(delay);
-        delay.connect(gain);
-
-        // Rhythmic pulse LFO at 125 BPM (2.083 Hz) — driving electronic feel
-        const pulseLfo  = ctx.createOscillator();
-        const pulseGain = ctx.createGain();
-        pulseLfo.type = "sine";
-        pulseLfo.frequency.value = 125 / 60;
-        pulseGain.gain.value     = 0.025;    // subtle — modulates per-osc gain
-        pulseLfo.connect(pulseGain);
-        pulseLfo.start();
-
-        // Filter sweep LFO (slow, adds movement)
-        const sweepLfo  = ctx.createOscillator();
-        const sweepGain = ctx.createGain();
-        sweepLfo.frequency.value = 0.2;
-        sweepGain.gain.value     = 500;
-        sweepLfo.connect(sweepGain);
-        sweepGain.connect(lpf.frequency);
-        sweepLfo.start();
-
-        // Dm7 chord — D3 F3 A3 C4 — minor = cinematic tension, not too dark
-        // Sawtooth for roots (buzzy), square for upper voices (bright but contained)
-        const chord = [146.83, 174.61, 220.0, 261.63];
-        chord.forEach((freq, i) => {
-          [-6, 6].forEach((detune) => {
-            const osc = ctx.createOscillator();
-            const g   = ctx.createGain();
-            osc.type            = i < 2 ? "sawtooth" : "square";
-            osc.frequency.value = freq;
-            osc.detune.value    = detune;
-            g.gain.value        = i === 0 ? 0.038 : 0.028;
-            pulseGain.connect(g.gain);   // rhythmic pulse on each voice
-            osc.connect(g);
-            g.connect(lpf);
-            g.connect(delay);
-            osc.start();
-          });
-        });
-
-        audioRef.current = { ctx, gain };
-      }
-      audioRef.current.ctx.resume();
-    }
-    setMuted(!muted);
-  };
+  const toggleMute = () => setMuted((prev) => !prev);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div ref={containerRef} className="hidden sm:block mt-16 max-w-4xl mx-auto" style={{ opacity }}>
+      <audio ref={audioElRef} src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3" preload="auto" loop />
       <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-6 shadow-2xl shadow-black/60">
 
         {/* Window chrome */}
@@ -277,11 +215,11 @@ export function DemoWidget() {
         <div className="flex gap-3">
 
           {/* ── LEFT PANEL — portrait video column ── */}
-          <div className="flex flex-col gap-2 flex-shrink-0" style={{ width: 148 }}>
+          <div className="flex flex-col gap-2 flex-shrink-0" style={{ width: 200 }}>
             <div
               className="rounded-xl overflow-hidden relative"
               style={{
-                width: 148,
+                width: 200,
                 aspectRatio: "9/16",
                 background: "#0a0a0a",
                 border: `1px solid rgba(200,185,122,${borderGlow})`,
