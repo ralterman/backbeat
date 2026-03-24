@@ -26,7 +26,7 @@ export default function RootLayout({
         <SessionProvider>
           <Navbar />
           <main className="flex-1">{children}</main>
-          <footer className="border-t border-[#1E1E1E] py-8 text-center text-[#3a3a5a] text-sm">
+          <footer className="border-t border-[#1E1E1E] py-8 text-center text-[#6b6b8a] text-sm">
             <p>© {new Date().getFullYear()} Backbeat. AI-powered music for video creators.</p>
           </footer>
         </SessionProvider>

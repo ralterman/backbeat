@@ -176,7 +176,7 @@ export function DemoWidget() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div ref={containerRef} className="block mt-10 sm:mt-16 max-w-5xl mx-auto px-3 sm:px-0" style={{ opacity }}>
+    <div ref={containerRef} className="block mt-10 sm:mt-16 max-w-3xl mx-auto px-3 sm:px-0" style={{ opacity }}>
       <audio ref={audioElRef} src="https://archive.org/download/DWK312/Centz_-_14_-_Neon_Noir.mp3" preload="auto" loop />
       <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-3 sm:p-6 shadow-2xl shadow-black/60">
 
@@ -186,7 +186,7 @@ export function DemoWidget() {
           <div className="w-3 h-3 rounded-full bg-yellow-400/50" />
           <div className="w-3 h-3 rounded-full bg-green-400/50" />
           <div className="flex-1 bg-[#1E1E1E] rounded-lg h-5 ml-2 flex items-center px-3">
-            <span className="text-[#3a3a5a] text-[10px]">backbeat.me/dashboard</span>
+            <span className="text-[#6b6b8a] text-[10px]">backbeat.me/dashboard</span>
           </div>
           {/* Mute toggle */}
           <button
@@ -262,10 +262,10 @@ export function DemoWidget() {
                           d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                       </svg>
                       <span className="text-[#a0a0b8] text-xs font-medium">demo-video.mp4</span>
-                      <span className="text-[#3a3a5a] text-[10px]">58 MB</span>
+                      <span className="text-[#6b6b8a] text-[10px]">58 MB</span>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center gap-2 text-[#3a3a5a]">
+                    <div className="flex flex-col items-center gap-2 text-[#6b6b8a]">
                       <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                           d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -327,7 +327,7 @@ export function DemoWidget() {
           </div>
 
           {/* ── RIGHT PANEL ── */}
-          <div className="flex-1 space-y-1.5 overflow-hidden min-w-0">
+          <div className="flex-1 space-y-1.5 overflow-hidden min-w-0 h-[250px] sm:h-auto">
 
             {/* Analyzing animation */}
             {phase === 2 && (
@@ -356,7 +356,7 @@ export function DemoWidget() {
                   transition: "opacity 0.4s ease-out, transform 0.4s ease-out",
                 }}
               >
-                <div className="text-[#3a3a5a] text-[9px] uppercase tracking-wide mb-1">{item.label}</div>
+                <div className="text-[#6b6b8a] text-[9px] uppercase tracking-wide mb-1">{item.label}</div>
                 {item.type === "bar" ? (
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
@@ -419,12 +419,12 @@ export function DemoWidget() {
                         ))}
                       </div>
                     ) : (
-                      <span className="text-[#3a3a5a] text-[9px]">{track.genre} · {track.bpm} BPM</span>
+                      <span className="text-[#6b6b8a] text-[9px]">{track.genre} · {track.bpm} BPM</span>
                     )}
                   </div>
                   <span
                     className="text-[11px] font-bold ml-2 shrink-0"
-                    style={{ color: i === 0 ? "#c8b97a" : i === 1 ? "#9a8a55" : "#3a3a5a" }}
+                    style={{ color: i === 0 ? "#c8b97a" : i === 1 ? "#9a8a55" : "#6b6b8a" }}
                   >
                     {tkScores[i]}%
                   </span>
