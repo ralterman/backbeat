@@ -329,7 +329,7 @@ export function DemoWidget() {
           {/* ── RIGHT PANEL ── */}
           {/* h-[340px] on mobile exceeds max content (measured 331px scrollHeight),
               locking the widget height so phase transitions never shift the page */}
-          <div className="flex-1 space-y-1.5 overflow-hidden min-w-0 h-[340px] sm:h-auto">
+          <div className="sm:flex-1 space-y-1.5 overflow-hidden min-w-0 h-[340px] sm:h-auto">
 
             {/* Analyzing animation */}
             {phase === 2 && (
