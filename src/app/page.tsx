@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PricingCard } from "@/components/PricingCard";
+import { DemoWidget } from "@/components/DemoWidget";
 
 const features = [
   {
@@ -144,36 +145,7 @@ export default function LandingPage() {
 
           <p className="text-[#3a3a5a] text-sm mt-6">No credit card required — analyze your first video free</p>
 
-          {/* Mock UI preview */}
-          <div className="hidden sm:block mt-16 max-w-4xl mx-auto bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-6 shadow-2xl shadow-black/60">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-3 h-3 rounded-full bg-red-400/50" />
-              <div className="w-3 h-3 rounded-full bg-yellow-400/50" />
-              <div className="w-3 h-3 rounded-full bg-green-400/50" />
-              <div className="flex-1 bg-[#1E1E1E] rounded-lg h-5 ml-2" />
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2 bg-[#1E1E1E]/60 rounded-xl h-48 flex items-center justify-center">
-                <div className="text-[#3a3a5a] text-sm text-center">
-                  <svg className="w-8 h-8 mx-auto mb-2 text-[#252535]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  Video Preview
-                </div>
-              </div>
-              <div className="space-y-2">
-                {["98", "87", "74", "68", "52"].map((score, i) => (
-                  <div key={i} className="bg-[#1E1E1E]/60 rounded-lg px-3 py-2 flex items-center justify-between">
-                    <div className="space-y-1">
-                      <div className={`h-2 rounded bg-[#2A2A2A] ${i === 0 ? "w-20" : i === 1 ? "w-16" : "w-14"}`} />
-                      <div className="h-1.5 w-10 rounded bg-[#1E1E1E]" />
-                    </div>
-                    <span className={`text-xs font-bold ${i === 0 ? "text-[#c8b97a]" : "text-[#3a3a5a]"}`}>{score}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <DemoWidget />
         </div>
       </section>
 
