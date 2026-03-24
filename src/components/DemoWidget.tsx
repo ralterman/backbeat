@@ -327,7 +327,9 @@ export function DemoWidget() {
           </div>
 
           {/* ── RIGHT PANEL ── */}
-          <div className="flex-1 space-y-1.5 overflow-hidden min-w-0">
+          {/* h-[196px] on mobile pins it to the same height as the 110px-wide 9:16 video,
+              so phase transitions never change the widget height on mobile */}
+          <div className="flex-1 space-y-1.5 overflow-hidden min-w-0 h-[196px] sm:h-auto">
 
             {/* Analyzing animation */}
             {phase === 2 && (
