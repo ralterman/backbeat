@@ -204,7 +204,7 @@ export default function LandingPage() {
               {
                 step: "02",
                 title: "AI analysis",
-                desc: "Claude extracts frames and detects mood, energy, scene type, and ideal BPM range.",
+                desc: "Our AI extracts keyframes and analyzes mood, energy, scene type, and ideal BPM range in seconds.",
               },
               {
                 step: "03",
