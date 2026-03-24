@@ -194,9 +194,23 @@ export function DemoWidget() {
                 transition: "border-color 0.6s",
               }}
             >
-              {/* Phase 1: upload zone */}
+              {/* Real video — plays continuously underneath all overlays */}
+              <video
+                src="/demo-video.mp4"
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover rounded-xl"
+                style={{
+                  opacity: phase === 1 ? 0.18 : phase >= 2 && phase <= 6 ? 0.85 : 0,
+                  transition: "opacity 0.8s ease",
+                }}
+              />
+
+              {/* Phase 1: upload zone overlay (sits on top of dimmed video) */}
               {phase === 1 && (
-                <div className="absolute inset-0 border-2 border-dashed border-[#2A2A2A] rounded-xl bg-[#1E1E1E]/60 flex flex-col items-center justify-center">
+                <div className="absolute inset-0 border-2 border-dashed border-[#2A2A2A] rounded-xl flex flex-col items-center justify-center">
                   {fileVisible ? (
                     <div
                       className="flex flex-col items-center gap-1.5"
@@ -224,18 +238,7 @@ export function DemoWidget() {
                 </div>
               )}
 
-              {/* Phase 2+: gradient thumbnail */}
-              {phase >= 2 && (
-                <div
-                  className="absolute inset-0 rounded-xl"
-                  style={{
-                    background: "linear-gradient(135deg, #ff8c42 0%, #ff5c8a 40%, #9b59b6 70%, #f39c12 100%)",
-                    filter: "blur(1.5px) brightness(0.65)",
-                  }}
-                />
-              )}
-
-              {/* Play button */}
+              {/* Play button (phases 2–6, once thumbnail is visible) */}
               {thumbVisible && phase <= 6 && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
