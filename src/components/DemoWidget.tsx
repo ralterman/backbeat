@@ -30,6 +30,7 @@ export function DemoWidget() {
   const startRef = useRef<number | null>(null);
   const audioRef = useRef<{ ctx: AudioContext; gain: GainNode } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const musicActiveRef = useRef(false);
 
   // ── Video: show first frame immediately, then play continuously ───────────
   useEffect(() => {
@@ -109,13 +110,44 @@ export function DemoWidget() {
     0.22 + 0.65 * ((Math.sin(t / 270 + i * 0.75) + 1) / 2)
   );
 
+  // ── Phase-gated music: only plays while tracks are shown (t 9000–21000) ──
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const { ctx, gain } = audio;
+    const inMusicZone = t >= 9000 && t <= 21000;
+    const shouldPlay = !muted && inMusicZone;
+    if (shouldPlay === musicActiveRef.current) return;
+    musicActiveRef.current = shouldPlay;
+    if (shouldPlay) {
+      gain.gain.setTargetAtTime(0.18, ctx.currentTime, 0.8);
+    } else {
+      gain.gain.setTargetAtTime(0, ctx.currentTime, 0.4);
+    }
+  }, [t, muted]);
+
+  // ── Silence audio when tab is hidden ─────────────────────────────────────
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      const audio = audioRef.current;
+      if (!audio) return;
+      if (document.hidden) {
+        audio.ctx.suspend();
+      } else if (!muted) {
+        audio.ctx.resume();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [muted]);
+
   // ── Audio ─────────────────────────────────────────────────────────────────
   const toggleMute = () => {
     if (muted) {
       if (!audioRef.current) {
         const ctx  = new AudioContext();
         const gain = ctx.createGain();
-        gain.gain.value = 0;
+        gain.gain.value = 0; // phase effect controls gain, not here
         gain.connect(ctx.destination);
 
         // Bandpass + lowpass chain for punchy synth tone
@@ -173,12 +205,7 @@ export function DemoWidget() {
 
         audioRef.current = { ctx, gain };
       }
-      const { ctx, gain } = audioRef.current;
-      ctx.resume().then(() => {
-        gain.gain.setTargetAtTime(0.18, ctx.currentTime, 0.8);
-      });
-    } else {
-      audioRef.current?.gain.gain.setTargetAtTime(0, audioRef.current.ctx.currentTime, 0.6);
+      audioRef.current.ctx.resume();
     }
     setMuted(!muted);
   };
@@ -227,7 +254,8 @@ export function DemoWidget() {
             <div
               className="rounded-xl overflow-hidden relative"
               style={{
-                height: 192,
+                height: 260,
+                background: "#0a0a0a",
                 border: `1px solid rgba(200,185,122,${borderGlow})`,
                 transition: "border-color 0.6s",
               }}
@@ -246,7 +274,7 @@ export function DemoWidget() {
                   top: 0, left: 0,
                   width: "100%",
                   height: "100%",
-                  objectFit: "cover",
+                  objectFit: "contain",
                   zIndex: 0,
                   opacity: phase === 1 ? 0.25 : phase >= 2 && phase <= 6 ? 1 : 0,
                   transition: "opacity 0.8s ease",
