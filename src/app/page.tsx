@@ -51,12 +51,12 @@ const features = [
     icon: (
       <svg className="w-6 h-6 text-[#C8A96E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-          d="M13 10V3L4 14h7v7l9-11h-7z" />
+          d="M5 3l1.5 1.5M12 3v2m4.5-1.5L15 5M3 12h2m14 0h2M5.5 18.5L7 17M17 7l1.5-1.5M12 19v2m-5-2.5L8.5 17M12 8a4 4 0 100 8 4 4 0 000-8z" />
       </svg>
     ),
-    title: "Powered by Claude AI",
+    title: "Instant results",
     description:
-      "Built on Anthropic's Claude — the most nuanced AI available for understanding visual context and creative intent.",
+      "Upload your video and get matched tracks in under 20 seconds. No manual searching, no guesswork — just the right music, right away.",
   },
   {
     icon: (
@@ -107,9 +107,13 @@ export default function LandingPage() {
         <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[#C8A96E]/4 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-28 text-center">
-          <div className="inline-flex items-center gap-2 bg-[#C8A96E]/8 border border-[#C8A96E]/20 rounded-full px-4 py-2 mb-8">
-            <div className="w-2 h-2 bg-[#C8A96E] rounded-full animate-pulse" />
-            <span className="text-[#C8A96E] text-sm font-medium">Powered by Claude AI</span>
+          <div className="flex justify-center mb-8">
+            <span className="flex items-center gap-2 text-[#c8b97a] font-semibold" style={{ fontSize: "19px", fontFamily: "inherit" }}>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">
+                <circle cx="5" cy="5" r="5" />
+              </svg>
+              Backbeat
+            </span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-tight mb-6">
