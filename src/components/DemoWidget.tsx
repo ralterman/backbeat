@@ -5,19 +5,19 @@ import { useEffect, useRef, useState } from "react";
 const LOOP = 24000; // total loop duration ms
 
 const TRACKS = [
-  { name: "Golden Hour Drift", artist: "Mellow Wave",    genre: "Lo-fi / Chill",    bpm: 98,  score: 98 },
-  { name: "Tokyo Lights",      artist: "Studio Bloom",   genre: "Cinematic",         bpm: 110, score: 91 },
-  { name: "Wanderlust",        artist: "Oak & Pine",     genre: "Indie / Acoustic",  bpm: 95,  score: 85 },
-  { name: "City Pulse",        artist: "Neon Drift",     genre: "Electronic",        bpm: 112, score: 78 },
-  { name: "Sunday Stroll",     artist: "The Afternoons", genre: "Ambient",           bpm: 88,  score: 71 },
+  { name: "Neon Freeway",      artist: "Pulse Collective", genre: "Electronic / Cinematic", bpm: 128, score: 97 },
+  { name: "City Never Sleeps", artist: "Urban Wave",       genre: "Synthwave",              bpm: 124, score: 92 },
+  { name: "Midnight Drive",    artist: "Chrome Theory",    genre: "Electronic",             bpm: 135, score: 86 },
+  { name: "Downtown Rush",     artist: "The Grid",         genre: "Cinematic / Upbeat",     bpm: 122, score: 79 },
+  { name: "Lights & Motion",   artist: "Neon Atlas",       genre: "Lo-fi Electronic",       bpm: 118, score: 72 },
 ];
 
 const ANALYSIS = [
-  { label: "Mood",       value: "Warm & adventurous",                         type: "mood" },
-  { label: "Energy",     value: 7,                                             type: "bar"  },
-  { label: "Pace",       value: "Moderate",                                   type: "text" },
-  { label: "Scene",      value: ["Outdoor", "Urban", "People", "Golden hour"], type: "tags" },
-  { label: "BPM range",  value: "95–115",                                     type: "text" },
+  { label: "Mood",       value: "Energetic & cinematic",                        type: "mood" },
+  { label: "Energy",     value: 9,                                              type: "bar"  },
+  { label: "Pace",       value: "Fast",                                         type: "text" },
+  { label: "Scene",      value: ["Urban", "Driving", "Night city", "Timelapse"], type: "tags" },
+  { label: "BPM range",  value: "120–140",                                      type: "text" },
 ] as const;
 
 function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
@@ -31,17 +31,32 @@ export function DemoWidget() {
   const audioRef = useRef<{ ctx: AudioContext; gain: GainNode } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // ── Force video play (autoPlay can be silently blocked by browsers) ────────
+  // ── Video: show first frame immediately, then play continuously ───────────
   useEffect(() => {
     const vid = videoRef.current;
     if (!vid) return;
     vid.muted = true;
-    vid.play().catch(() => {
-      // Retry once on user interaction if initially blocked
-      const retry = () => { vid.play().catch(() => {}); };
-      document.addEventListener("click", retry, { once: true });
-      document.addEventListener("touchstart", retry, { once: true });
-    });
+
+    // Seek to 0.1s as soon as metadata loads — browser renders that frame
+    // immediately even before play() is called, so no black screen on load.
+    const onMeta = () => { vid.currentTime = 0.1; };
+    vid.addEventListener("loadedmetadata", onMeta, { once: true });
+
+    const tryPlay = () =>
+      vid.play().catch(() => {
+        const retry = () => vid.play().catch(() => {});
+        document.addEventListener("click", retry, { once: true });
+        document.addEventListener("touchstart", retry, { once: true });
+      });
+
+    // If metadata already loaded (cached), seek + play immediately
+    if (vid.readyState >= 1) {
+      vid.currentTime = 0.1;
+      tryPlay();
+    } else {
+      vid.addEventListener("loadedmetadata", tryPlay, { once: true });
+    }
+
     vid.addEventListener("error", (e) => console.error("Demo video error:", e));
   }, []);
 
@@ -103,46 +118,54 @@ export function DemoWidget() {
         gain.gain.value = 0;
         gain.connect(ctx.destination);
 
-        // Lowpass filter for warmth
-        const filter = ctx.createBiquadFilter();
-        filter.type = "lowpass";
-        filter.frequency.value = 900;
-        filter.Q.value = 0.7;
-        filter.connect(gain);
+        // Bandpass + lowpass chain for punchy synth tone
+        const lpf = ctx.createBiquadFilter();
+        lpf.type = "lowpass";
+        lpf.frequency.value = 1800;
+        lpf.Q.value = 1.4;           // slight resonance = synth character
+        lpf.connect(gain);
 
-        // Simple delay reverb
-        const delay   = ctx.createDelay(2);
+        // Short slapback delay for rhythm reinforcement
+        const delay   = ctx.createDelay(1);
         const delayFb = ctx.createGain();
-        const dlpf    = ctx.createBiquadFilter();
-        delay.delayTime.value = 0.45;
-        delayFb.gain.value    = 0.28;
-        dlpf.type = "lowpass";
-        dlpf.frequency.value = 800;
-        delay.connect(dlpf);
-        dlpf.connect(delayFb);
+        delay.delayTime.value = 60 / 125 / 2; // 8th-note at 125 BPM = 0.24s
+        delayFb.gain.value    = 0.22;
+        delay.connect(delayFb);
         delayFb.connect(delay);
         delay.connect(gain);
 
-        // Slow volume swell (breathing)
-        const swellLfo  = ctx.createOscillator();
-        const swellGain = ctx.createGain();
-        swellLfo.frequency.value = 0.12;
-        swellGain.gain.value     = 0.016;
-        swellLfo.connect(swellGain);
-        swellLfo.start();
+        // Rhythmic pulse LFO at 125 BPM (2.083 Hz) — driving electronic feel
+        const pulseLfo  = ctx.createOscillator();
+        const pulseGain = ctx.createGain();
+        pulseLfo.type = "sine";
+        pulseLfo.frequency.value = 125 / 60;
+        pulseGain.gain.value     = 0.025;    // subtle — modulates per-osc gain
+        pulseLfo.connect(pulseGain);
+        pulseLfo.start();
 
-        // Cmaj7 — C4 E4 G4 B4 (one octave higher than before, no more hum)
-        [261.63, 329.63, 392.0, 493.88].forEach((freq, i) => {
-          [-4, 4].forEach((detune) => {
+        // Filter sweep LFO (slow, adds movement)
+        const sweepLfo  = ctx.createOscillator();
+        const sweepGain = ctx.createGain();
+        sweepLfo.frequency.value = 0.2;
+        sweepGain.gain.value     = 500;
+        sweepLfo.connect(sweepGain);
+        sweepGain.connect(lpf.frequency);
+        sweepLfo.start();
+
+        // Dm7 chord — D3 F3 A3 C4 — minor = cinematic tension, not too dark
+        // Sawtooth for roots (buzzy), square for upper voices (bright but contained)
+        const chord = [146.83, 174.61, 220.0, 261.63];
+        chord.forEach((freq, i) => {
+          [-6, 6].forEach((detune) => {
             const osc = ctx.createOscillator();
             const g   = ctx.createGain();
-            osc.type = "sine";
+            osc.type            = i < 2 ? "sawtooth" : "square";
             osc.frequency.value = freq;
             osc.detune.value    = detune;
-            g.gain.value        = i === 0 ? 0.06 : 0.04;
-            swellGain.connect(g.gain);
+            g.gain.value        = i === 0 ? 0.038 : 0.028;
+            pulseGain.connect(g.gain);   // rhythmic pulse on each voice
             osc.connect(g);
-            g.connect(filter);
+            g.connect(lpf);
             g.connect(delay);
             osc.start();
           });
@@ -152,7 +175,7 @@ export function DemoWidget() {
       }
       const { ctx, gain } = audioRef.current;
       ctx.resume().then(() => {
-        gain.gain.setTargetAtTime(0.22, ctx.currentTime, 1.2);
+        gain.gain.setTargetAtTime(0.18, ctx.currentTime, 0.8);
       });
     } else {
       audioRef.current?.gain.gain.setTargetAtTime(0, audioRef.current.ctx.currentTime, 0.6);
@@ -312,7 +335,7 @@ export function DemoWidget() {
                     Exporting...
                   </span>
                 ) : exportDone ? (
-                  "✓  Ready to download — demo-video-backbeat.mp4"
+                  "✓  Ready to download — city-timelapse-backbeat.mp4"
                 ) : (
                   "Export with this track"
                 )}
