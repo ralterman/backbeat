@@ -410,7 +410,7 @@ export function DemoWidget() {
 
         {/* Export button — always in DOM so it reserves space; visible via opacity */}
         <button
-          className="w-full rounded-lg py-2 text-[12px] font-semibold mt-2"
+          className="w-full rounded-lg text-[12px] font-semibold mt-2 h-[34px] overflow-hidden flex items-center justify-center"
           style={{
             opacity: showExport ? 1 : 0,
             pointerEvents: showExport ? "auto" : "none",
