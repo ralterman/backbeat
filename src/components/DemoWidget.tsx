@@ -176,8 +176,8 @@ export function DemoWidget() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div ref={containerRef} className="hidden sm:block mt-16 max-w-4xl mx-auto" style={{ opacity }}>
-      <audio ref={audioElRef} src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3" preload="auto" loop />
+    <div ref={containerRef} className="hidden sm:block mt-16 max-w-5xl mx-auto" style={{ opacity }}>
+      <audio ref={audioElRef} src="https://archive.org/download/kalaido-hanging-lanterns_202101/%28FREE%29%20Lo-fi%20Type%20Beat%20-%20Rain.mp3" preload="auto" loop />
       <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-6 shadow-2xl shadow-black/60">
 
         {/* Window chrome */}
@@ -215,11 +215,11 @@ export function DemoWidget() {
         <div className="flex gap-3">
 
           {/* ── LEFT PANEL — portrait video column ── */}
-          <div className="flex flex-col gap-2 flex-shrink-0" style={{ width: 200 }}>
+          <div className="flex flex-col gap-2 flex-shrink-0" style={{ width: 300 }}>
             <div
               className="rounded-xl overflow-hidden relative"
               style={{
-                width: 200,
+                width: 300,
                 aspectRatio: "9/16",
                 background: "#0a0a0a",
                 border: `1px solid rgba(200,185,122,${borderGlow})`,
