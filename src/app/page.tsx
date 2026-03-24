@@ -108,9 +108,14 @@ export default function LandingPage() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-28 text-center">
           <div className="flex justify-center mb-8">
-            <span className="flex items-center gap-2 text-[#c8b97a] font-semibold" style={{ fontSize: "19px", fontFamily: "inherit" }}>
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">
-                <circle cx="5" cy="5" r="5" />
+            <span className="flex items-center gap-3 text-[#c8b97a] font-semibold" style={{ fontSize: "26px" }}>
+              <svg width="48" height="48" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="18" cy="18" r="16" fill="#C8A96E" fillOpacity="0.12" />
+                <circle cx="18" cy="18" r="15.5" stroke="#C8A96E" strokeWidth="1.25" />
+                <circle cx="18" cy="18" r="11.5" stroke="#C8A96E" strokeWidth="0.6" strokeOpacity="0.35" />
+                <circle cx="18" cy="18" r="8" stroke="#C8A96E" strokeWidth="0.6" strokeOpacity="0.2" />
+                <circle cx="18" cy="18" r="5.5" fill="#C8A96E" />
+                <polygon points="16.5,15.5 16.5,20.5 21.5,18" fill="#0A0A0A" />
               </svg>
               Backbeat
             </span>
