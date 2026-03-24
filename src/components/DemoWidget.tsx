@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 const LOOP = 24000; // total loop duration ms
 
 const TRACKS = [
-  { name: "Neon Freeway",      artist: "Pulse Collective", genre: "Electronic / Cinematic", bpm: 128, score: 97 },
+  { name: "Rainy Afternoon",   artist: "The Paper Planes", genre: "Indie",                  bpm: 88,  score: 97 },
   { name: "City Never Sleeps", artist: "Urban Wave",       genre: "Synthwave",              bpm: 124, score: 92 },
   { name: "Midnight Drive",    artist: "Chrome Theory",    genre: "Electronic",             bpm: 135, score: 86 },
   { name: "Downtown Rush",     artist: "The Grid",         genre: "Cinematic / Upbeat",     bpm: 122, score: 79 },
@@ -30,6 +30,7 @@ export function DemoWidget() {
   const startRef = useRef<number | null>(null);
   const audioRef = useRef<{ ctx: AudioContext; gain: GainNode } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const musicActiveRef = useRef(false);
 
   // ── Video: show first frame immediately, then play continuously ───────────
@@ -141,6 +142,32 @@ export function DemoWidget() {
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   }, [muted]);
 
+  // ── Silence audio when demo scrolls out of view or component unmounts ────
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const audio = audioRef.current;
+        if (!audio) return;
+        if (!entry.isIntersecting) {
+          audio.ctx.suspend();
+          musicActiveRef.current = false;
+        } else if (!muted) {
+          audio.ctx.resume();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [muted]);
+
+  // ── Stop audio on unmount (page navigation) ───────────────────────────────
+  useEffect(() => {
+    return () => { audioRef.current?.ctx.suspend(); };
+  }, []);
+
   // ── Audio ─────────────────────────────────────────────────────────────────
   const toggleMute = () => {
     if (muted) {
@@ -212,7 +239,7 @@ export function DemoWidget() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="hidden sm:block mt-16 max-w-4xl mx-auto" style={{ opacity }}>
+    <div ref={containerRef} className="hidden sm:block mt-16 max-w-4xl mx-auto" style={{ opacity }}>
       <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-6 shadow-2xl shadow-black/60">
 
         {/* Window chrome */}
@@ -247,14 +274,15 @@ export function DemoWidget() {
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="flex gap-3">
 
-          {/* ── LEFT PANEL ── */}
-          <div className="col-span-2 flex flex-col gap-2">
+          {/* ── LEFT PANEL — portrait video column ── */}
+          <div className="flex flex-col gap-2 flex-shrink-0" style={{ width: 148 }}>
             <div
               className="rounded-xl overflow-hidden relative"
               style={{
-                height: 260,
+                width: 148,
+                aspectRatio: "9/16",
                 background: "#0a0a0a",
                 border: `1px solid rgba(200,185,122,${borderGlow})`,
                 transition: "border-color 0.6s",
@@ -274,7 +302,7 @@ export function DemoWidget() {
                   top: 0, left: 0,
                   width: "100%",
                   height: "100%",
-                  objectFit: "contain",
+                  objectFit: "cover",
                   zIndex: 0,
                   opacity: phase === 1 ? 0.25 : phase >= 2 && phase <= 6 ? 1 : 0,
                   transition: "opacity 0.8s ease",
@@ -362,7 +390,7 @@ export function DemoWidget() {
           </div>
 
           {/* ── RIGHT PANEL ── */}
-          <div className="space-y-1.5 overflow-hidden">
+          <div className="flex-1 space-y-1.5 overflow-hidden min-w-0">
 
             {/* Analyzing animation */}
             {phase === 2 && (
