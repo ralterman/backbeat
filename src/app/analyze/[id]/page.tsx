@@ -260,15 +260,23 @@ export default function AnalysisResultsPage() {
         </div>
       </div>
 
-      {/* Floating synced preview player */}
+      {/* Synced preview modal */}
       {previewTrack && videoUrl && (
-        <div className="fixed bottom-6 right-6 w-[420px] z-50 shadow-2xl">
-          <SyncedPreviewPlayer
-            videoUrl={videoUrl}
-            track={previewTrack}
-            isFreeUser={false}
-            onClose={() => setPreviewTrack(null)}
-          />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+          onClick={() => setPreviewTrack(null)}
+        >
+          <div
+            className="w-full max-w-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <SyncedPreviewPlayer
+              videoUrl={videoUrl}
+              track={previewTrack}
+              isFreeUser={false}
+              onClose={() => setPreviewTrack(null)}
+            />
+          </div>
         </div>
       )}
     </div>

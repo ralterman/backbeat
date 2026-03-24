@@ -17,6 +17,35 @@ function formatTime(s: number) {
   return `${m}:${Math.floor(s % 60).toString().padStart(2, "0")}`;
 }
 
+/** Sliding window over waveform_data to find the highest-energy segment of segmentDuration seconds. */
+function findBestSegmentStart(
+  waveformData: number[],
+  trackDuration: number,
+  segmentDuration: number
+): number {
+  if (segmentDuration >= trackDuration || waveformData.length === 0) return 0;
+
+  const totalBars = waveformData.length;
+  const windowBars = Math.max(1, Math.round((segmentDuration / trackDuration) * totalBars));
+  if (windowBars >= totalBars) return 0;
+
+  let windowSum = 0;
+  for (let i = 0; i < windowBars; i++) windowSum += waveformData[i];
+
+  let bestSum = windowSum;
+  let bestStart = 0;
+
+  for (let i = 1; i <= totalBars - windowBars; i++) {
+    windowSum = windowSum - waveformData[i - 1] + waveformData[i + windowBars - 1];
+    if (windowSum > bestSum) {
+      bestSum = windowSum;
+      bestStart = i;
+    }
+  }
+
+  return (bestStart / totalBars) * trackDuration;
+}
+
 export function SyncedPreviewPlayer({
   videoUrl,
   track,
@@ -25,22 +54,22 @@ export function SyncedPreviewPlayer({
 }: SyncedPreviewPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const audioOffsetRef = useRef(0);
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [trackVolume, setTrackVolume] = useState(0.85);
   const [ready, setReady] = useState(false);
+  const [hasBestSection, setHasBestSection] = useState(false);
 
   const effectiveDuration = isFreeUser ? Math.min(FREE_CAP, duration) : duration;
 
-  // Sync play/pause between video and audio
   const play = useCallback(async () => {
     const vid = videoRef.current;
     const aud = audioRef.current;
     if (!vid || !aud) return;
-    try {
-      await Promise.all([vid.play(), aud.play()]);
-    } catch {}
+    try { await Promise.all([vid.play(), aud.play()]); } catch {}
   }, []);
 
   const pause = useCallback(() => {
@@ -49,57 +78,58 @@ export function SyncedPreviewPlayer({
   }, []);
 
   const togglePlay = useCallback(() => {
-    if (isPlaying) pause();
-    else play();
+    if (isPlaying) pause(); else play();
   }, [isPlaying, play, pause]);
 
-  // Seek both to same position
   const seekTo = useCallback((time: number) => {
     const vid = videoRef.current;
     const aud = audioRef.current;
     if (!vid || !aud) return;
     vid.currentTime = time;
-    aud.currentTime = time;
+    aud.currentTime = audioOffsetRef.current + time;
     setCurrentTime(time);
   }, []);
 
-  // Track time from video (source of truth)
   useEffect(() => {
     const vid = videoRef.current;
     const aud = audioRef.current;
     if (!vid || !aud) return;
 
+    const initOffset = (vidDuration: number) => {
+      const seg = isFreeUser ? Math.min(FREE_CAP, vidDuration) : vidDuration;
+      const offset = findBestSegmentStart(track.waveform_data, track.duration_seconds, seg);
+      audioOffsetRef.current = offset;
+      aud.currentTime = offset;
+      if (offset > 1) setHasBestSection(true);
+      setDuration(vidDuration);
+      setReady(true);
+    };
+
     const onTimeUpdate = () => {
       const t = vid.currentTime;
       setCurrentTime(t);
-      // Keep audio in sync (drift correction)
-      if (Math.abs(aud.currentTime - t) > 0.3) {
-        aud.currentTime = t;
-      }
-      // Free user cap
+      const expected = audioOffsetRef.current + t;
+      if (Math.abs(aud.currentTime - expected) > 0.3) aud.currentTime = expected;
       if (isFreeUser && t >= FREE_CAP) {
-        vid.pause();
-        aud.pause();
-        vid.currentTime = 0;
-        aud.currentTime = 0;
-        setIsPlaying(false);
-        setCurrentTime(0);
+        vid.pause(); aud.pause();
+        vid.currentTime = 0; aud.currentTime = audioOffsetRef.current;
+        setIsPlaying(false); setCurrentTime(0);
       }
     };
     const onPlay  = () => setIsPlaying(true);
     const onPause = () => { setIsPlaying(false); aud.pause(); };
-    const onEnded = () => { setIsPlaying(false); aud.pause(); setCurrentTime(0); };
-    const onLoadedMetadata = () => {
-      setDuration(vid.duration);
-      setReady(true);
+    const onEnded = () => {
+      setIsPlaying(false); aud.pause();
+      aud.currentTime = audioOffsetRef.current; setCurrentTime(0);
     };
+    const onLoadedMetadata = () => initOffset(vid.duration);
 
     vid.addEventListener("timeupdate", onTimeUpdate);
     vid.addEventListener("play", onPlay);
     vid.addEventListener("pause", onPause);
     vid.addEventListener("ended", onEnded);
     vid.addEventListener("loadedmetadata", onLoadedMetadata);
-    if (vid.readyState >= 1) { setDuration(vid.duration); setReady(true); }
+    if (vid.readyState >= 1) initOffset(vid.duration);
 
     return () => {
       vid.removeEventListener("timeupdate", onTimeUpdate);
@@ -108,25 +138,18 @@ export function SyncedPreviewPlayer({
       vid.removeEventListener("ended", onEnded);
       vid.removeEventListener("loadedmetadata", onLoadedMetadata);
     };
-  }, [isFreeUser]);
+  }, [isFreeUser, track.waveform_data, track.duration_seconds]);
 
-  // Sync audio volume
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = trackVolume;
   }, [trackVolume]);
 
-  // Pause both on unmount
   useEffect(() => () => { pause(); }, [pause]);
-
-  const handleScrub = (e: React.ChangeEvent<HTMLInputElement>) => {
-    seekTo(parseFloat(e.target.value));
-  };
 
   const progress = effectiveDuration > 0 ? currentTime / effectiveDuration : 0;
 
   return (
     <div className="bg-[#141414] border border-[#c8b97a]/30 rounded-2xl overflow-hidden shadow-2xl shadow-black/60">
-      {/* Hidden audio element for track */}
       <audio ref={audioRef} src={track.preview_url} preload="auto" />
 
       {/* Video */}
@@ -141,7 +164,6 @@ export function SyncedPreviewPlayer({
           style={{ display: "block" }}
         />
 
-        {/* Loading overlay */}
         {!ready && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60">
             <svg className="w-8 h-8 text-[#c8b97a] animate-spin" fill="none" viewBox="0 0 24 24">
@@ -151,15 +173,14 @@ export function SyncedPreviewPlayer({
           </div>
         )}
 
-        {/* Centre play button overlay when paused */}
         {ready && !isPlaying && (
           <button
             onClick={togglePlay}
             className="absolute inset-0 flex items-center justify-center group"
             aria-label="Play"
           >
-            <div className="w-16 h-16 rounded-full bg-black/60 group-hover:bg-black/80 flex items-center justify-center transition-colors backdrop-blur-sm">
-              <svg className="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+            <div className="w-20 h-20 rounded-full bg-black/60 group-hover:bg-black/80 flex items-center justify-center transition-colors backdrop-blur-sm">
+              <svg className="w-9 h-9 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
                 <polygon points="5,3 19,12 5,21" />
               </svg>
             </div>
@@ -168,23 +189,27 @@ export function SyncedPreviewPlayer({
       </div>
 
       {/* Controls */}
-      <div className="p-4">
-        {/* Track info */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-[#c8b97a]/10 border border-[#c8b97a]/20 flex items-center justify-center flex-shrink-0">
+      <div className="p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-lg bg-[#c8b97a]/10 border border-[#c8b97a]/20 flex items-center justify-center flex-shrink-0">
               <svg className="w-4 h-4 text-[#c8b97a]" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
               </svg>
             </div>
             <div className="min-w-0">
               <p className="text-white text-sm font-semibold truncate">{track.title}</p>
-              <p className="text-[#a0a0b8] text-xs truncate">{track.artist} · {track.bpm} BPM</p>
+              <p className="text-[#a0a0b8] text-xs truncate">
+                {track.artist} · {track.bpm} BPM
+                {hasBestSection && (
+                  <span className="text-[#c8b97a]/80 ml-1.5">· best section selected</span>
+                )}
+              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-[#6a6a8a] hover:text-white transition-colors flex-shrink-0 ml-2"
+            className="text-[#6a6a8a] hover:text-white transition-colors flex-shrink-0 ml-3"
             aria-label="Close preview"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -193,15 +218,14 @@ export function SyncedPreviewPlayer({
           </button>
         </div>
 
-        {/* Scrub bar */}
-        <div className="mb-2">
+        <div className="mb-3">
           <input
             type="range"
             min={0}
             max={effectiveDuration || 100}
             step={0.1}
             value={currentTime}
-            onChange={handleScrub}
+            onChange={(e) => seekTo(parseFloat(e.target.value))}
             className="w-full h-1.5 rounded-full accent-[#c8b97a] cursor-pointer"
             style={{
               background: `linear-gradient(to right, #c8b97a ${progress * 100}%, #2A2A2A ${progress * 100}%)`,
@@ -214,7 +238,6 @@ export function SyncedPreviewPlayer({
           </div>
         </div>
 
-        {/* Play/pause + volume */}
         <div className="flex items-center gap-3">
           <button
             onClick={togglePlay}
@@ -233,7 +256,6 @@ export function SyncedPreviewPlayer({
             )}
           </button>
 
-          {/* Track volume */}
           <div className="flex items-center gap-2 flex-1">
             <svg className="w-4 h-4 text-[#c8b97a] flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
