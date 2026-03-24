@@ -223,8 +223,8 @@ export function DemoWidget() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                           d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                       </svg>
-                      <span className="text-[#a0a0b8] text-xs font-medium">travel-vlog-tokyo.mp4</span>
-                      <span className="text-[#3a3a5a] text-[10px]">238 MB</span>
+                      <span className="text-[#a0a0b8] text-xs font-medium">demo-video.mp4</span>
+                      <span className="text-[#3a3a5a] text-[10px]">58 MB</span>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2 text-[#3a3a5a]">
@@ -251,9 +251,9 @@ export function DemoWidget() {
 
               {/* Upload progress overlay */}
               {phase === 2 && (
-                <div className="absolute inset-0 bg-black/55 rounded-xl flex flex-col justify-end p-4">
+                <div className="absolute inset-0 bg-black/30 rounded-xl flex flex-col justify-end p-4">
                   <div className="flex justify-between text-[10px] mb-1.5">
-                    <span className="text-[#a0a0b8]">travel-vlog-tokyo.mp4</span>
+                    <span className="text-[#a0a0b8]">demo-video.mp4</span>
                     <span className="text-[#c8b97a] font-semibold">{uploadPct}%</span>
                   </div>
                   <div className="h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
