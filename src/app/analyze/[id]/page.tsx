@@ -4,7 +4,9 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { TrackCard } from "@/components/TrackCard";
+import { SyncedPreviewPlayer } from "@/components/SyncedPreviewPlayer";
 import { Track } from "@/data/tracks";
+import { ScoredTrack } from "@/lib/matching";
 
 interface AnalysisData {
   id: string;
@@ -39,6 +41,8 @@ export default function AnalysisResultsPage() {
   const [error, setError] = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [exportResult, setExportResult] = useState<{ trackId: string; downloadUrl: string } | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [previewTrack, setPreviewTrack] = useState<ScoredTrack | null>(null);
 
   const fetchResults = useCallback(async () => {
     try {
@@ -63,6 +67,23 @@ export default function AnalysisResultsPage() {
     }, 3000);
     return () => clearInterval(interval);
   }, [fetchResults, data?.status]);
+
+  useEffect(() => {
+    fetch(`/api/videos/${videoId}`)
+      .then((r) => {
+        if (!r.ok) { console.error("[backbeat] video URL fetch failed:", r.status); return null; }
+        return r.json();
+      })
+      .then((json) => {
+        console.log("[backbeat] video URL response:", json);
+        if (json?.playbackUrl) setVideoUrl(json.playbackUrl);
+      })
+      .catch((e) => console.error("[backbeat] video URL error:", e));
+  }, [videoId]);
+
+  const handlePreview = useCallback((track: ScoredTrack) => {
+    setPreviewTrack((prev) => (prev?.id === track.id ? null : track));
+  }, []);
 
   const handleExport = async (trackId: string) => {
     setExportingId(trackId);
@@ -216,23 +237,40 @@ export default function AnalysisResultsPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {matches.map((match) => (
-            <TrackCard
-              key={match.id}
-              track={{
-                ...match.track,
-                match_score: match.matchScore,
-                score_breakdown: match.track.score_breakdown ?? { mood: 0, bpm: 0, energy: 0, genre: 0 },
-              }}
-              rank={match.rank}
-              videoId={videoId}
-              isFreeUser={false}
-              onExport={handleExport}
-              isExporting={exportingId === match.trackId}
-            />
-          ))}
+          {matches.map((match) => {
+            const scoredTrack = {
+              ...match.track,
+              match_score: match.matchScore,
+              score_breakdown: match.track.score_breakdown ?? { mood: 0, bpm: 0, energy: 0, genre: 0 },
+            };
+            return (
+              <TrackCard
+                key={match.id}
+                track={scoredTrack}
+                rank={match.rank}
+                videoId={videoId}
+                isFreeUser={false}
+                onExport={handleExport}
+                isExporting={exportingId === match.trackId}
+                onPreview={videoUrl ? handlePreview : undefined}
+                isPreviewActive={previewTrack?.id === match.track.id}
+              />
+            );
+          })}
         </div>
       </div>
+
+      {/* Floating synced preview player */}
+      {previewTrack && videoUrl && (
+        <div className="fixed bottom-6 right-6 w-[420px] z-50 shadow-2xl">
+          <SyncedPreviewPlayer
+            videoUrl={videoUrl}
+            track={previewTrack}
+            isFreeUser={false}
+            onClose={() => setPreviewTrack(null)}
+          />
+        </div>
+      )}
     </div>
   );
 }

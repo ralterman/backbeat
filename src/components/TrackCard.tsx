@@ -12,6 +12,8 @@ interface TrackCardProps {
   isFreeUser?: boolean;
   onExport?: (trackId: string) => void;
   isExporting?: boolean;
+  onPreview?: (track: ScoredTrack) => void;
+  isPreviewActive?: boolean;
 }
 
 const GENRE_COLORS: Record<string, string> = {
@@ -45,6 +47,8 @@ export function TrackCard({
   isFreeUser = false,
   onExport,
   isExporting = false,
+  onPreview,
+  isPreviewActive = false,
 }: TrackCardProps) {
   const [showPlayer, setShowPlayer] = useState(false);
   const isBestMatch = rank === 1;
@@ -103,7 +107,7 @@ export function TrackCard({
         ))}
       </div>
 
-      {showPlayer && (
+      {!onPreview && showPlayer && (
         <div className="mb-3">
           <AudioPlayer
             track={track}
@@ -114,22 +118,38 @@ export function TrackCard({
       )}
 
       <div className="flex gap-2 mt-1">
-        <button
-          onClick={() => setShowPlayer(!showPlayer)}
-          className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-[#1E1E1E] hover:bg-[#2A2A2A] text-white rounded-lg text-sm font-medium transition-colors border border-[#2A2A2A]"
-        >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            {showPlayer ? (
-              <>
-                <rect x="6" y="4" width="4" height="16" />
-                <rect x="14" y="4" width="4" height="16" />
-              </>
-            ) : (
-              <polygon points="5,3 19,12 5,21" />
-            )}
-          </svg>
-          {showPlayer ? "Stop Preview" : "Preview"}
-        </button>
+        {onPreview ? (
+          <button
+            onClick={() => onPreview(track)}
+            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border ${
+              isPreviewActive
+                ? "bg-[#c8b97a]/20 border-[#c8b97a]/60 text-[#c8b97a]"
+                : "bg-[#1E1E1E] hover:bg-[#2A2A2A] text-white border-[#2A2A2A]"
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+            </svg>
+            {isPreviewActive ? "Watching..." : "Watch Preview"}
+          </button>
+        ) : (
+          <button
+            onClick={() => setShowPlayer(!showPlayer)}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-[#1E1E1E] hover:bg-[#2A2A2A] text-white rounded-lg text-sm font-medium transition-colors border border-[#2A2A2A]"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              {showPlayer ? (
+                <>
+                  <rect x="6" y="4" width="4" height="16" />
+                  <rect x="14" y="4" width="4" height="16" />
+                </>
+              ) : (
+                <polygon points="5,3 19,12 5,21" />
+              )}
+            </svg>
+            {showPlayer ? "Stop Preview" : "Preview"}
+          </button>
+        )}
 
         <button
           onClick={() => onExport?.(track.id)}
