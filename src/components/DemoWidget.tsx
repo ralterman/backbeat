@@ -1,292 +1,381 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 
-const MOCK_TRACKS = [
-  { id: 1, name: "Golden Hour", artist: "Waverly & Co.", genre: "Cinematic", bpm: 92, score: 98 },
-  { id: 2, name: "Drift Away", artist: "Solar Keys", genre: "Lo-Fi", bpm: 78, score: 87 },
-  { id: 3, name: "Ultralight", artist: "The Ambient", genre: "Electronic", bpm: 120, score: 74 },
-  { id: 4, name: "Late Night Jazz", artist: "Milo Raines", genre: "Jazz", bpm: 84, score: 68 },
-  { id: 5, name: "Open Road", artist: "Crestline", genre: "Rock", bpm: 110, score: 52 },
+const LOOP = 24000; // total loop duration ms
+
+const TRACKS = [
+  { name: "Golden Hour Drift", artist: "Mellow Wave",    genre: "Lo-fi / Chill",    bpm: 98,  score: 98 },
+  { name: "Tokyo Lights",      artist: "Studio Bloom",   genre: "Cinematic",         bpm: 110, score: 91 },
+  { name: "Wanderlust",        artist: "Oak & Pine",     genre: "Indie / Acoustic",  bpm: 95,  score: 85 },
+  { name: "City Pulse",        artist: "Neon Drift",     genre: "Electronic",        bpm: 112, score: 78 },
+  { name: "Sunday Stroll",     artist: "The Afternoons", genre: "Ambient",           bpm: 88,  score: 71 },
 ];
 
-const ANALYSIS_STEPS = [
-  "Scanning frames...",
-  "Detecting mood & energy...",
-  "Matching tracks...",
-];
+const ANALYSIS = [
+  { label: "Mood",       value: "Warm & adventurous",                         type: "mood" },
+  { label: "Energy",     value: 7,                                             type: "bar"  },
+  { label: "Pace",       value: "Moderate",                                   type: "text" },
+  { label: "Scene",      value: ["Outdoor", "Urban", "People", "Golden hour"], type: "tags" },
+  { label: "BPM range",  value: "95–115",                                     type: "text" },
+] as const;
 
-type Phase = "idle" | "analyzing" | "results" | "exporting";
-
-function playTone(frequency: number) {
-  try {
-    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(frequency, ctx.currentTime);
-    gain.gain.setValueAtTime(0.18, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.8);
-  } catch {}
-}
-
-const TONE_FREQS = [392, 330, 261, 293, 220];
+function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
+function norm(v: number, lo: number, hi: number)   { return clamp((v - lo) / (hi - lo), 0, 1); }
 
 export function DemoWidget() {
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [analysisStep, setAnalysisStep] = useState(0);
-  const [selectedTrack, setSelectedTrack] = useState<number | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [showPaywall, setShowPaywall] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [t, setT]       = useState(0);
+  const [muted, setMuted] = useState(true);
+  const rafRef  = useRef<number>(0);
+  const startRef = useRef<number | null>(null);
+  const audioRef = useRef<{ ctx: AudioContext; gain: GainNode } | null>(null);
 
-  const runAnalysis = useCallback((url: string) => {
-    setVideoUrl(url);
-    setPhase("analyzing");
-    setAnalysisStep(0);
-
-    let step = 0;
-    const interval = setInterval(() => {
-      step += 1;
-      setAnalysisStep(step);
-      if (step >= ANALYSIS_STEPS.length) {
-        clearInterval(interval);
-        setTimeout(() => setPhase("results"), 300);
-      }
-    }, 1100);
+  // ── Animation loop ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const tick = (now: number) => {
+      if (startRef.current === null) startRef.current = now;
+      setT((now - startRef.current) % LOOP);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  const handleFile = useCallback((file: File) => {
-    if (!file.type.startsWith("video/")) return;
-    const url = URL.createObjectURL(file);
-    runAnalysis(url);
-  }, [runAnalysis]);
+  // ── Derived state ─────────────────────────────────────────────────────────
+  const phase = t < 2000 ? 1 : t < 5000 ? 2 : t < 9000 ? 3 : t < 15000 ? 4 : t < 18000 ? 5 : t < 21000 ? 6 : 7;
 
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  }, [handleFile]);
+  // Phase 1 – file drop
+  const fileDrop     = norm(t, 400, 750);           // slides in 400→750 ms
+  const fileVisible  = t > 400 && t < 2000;
 
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
+  // Phase 2 – upload progress
+  const uploadPct    = Math.round(clamp(norm(t, 2100, 3900) * 100, 0, 100));
+  const thumbVisible = t > 3900;
+
+  // Phase 3 – analysis fade-in (right panel), 5 items × 600 ms apart
+  const aVis = ANALYSIS.map((_, i) => t > 5000 + i * 600);
+
+  // Phase 4 – track slide-in
+  const tkVis    = TRACKS.map((_, i) => t > 9000 + i * 1100);
+  const tkScores = TRACKS.map((tr, i) => Math.round(tr.score * norm(t, 9000 + i * 1100, 9000 + i * 1100 + 900)));
+
+  // Phase 5 – highlight + export
+  const highlighted  = t > 15000 && t < 21000;
+  const showExport   = t > 15200 && t < 21000;
+  const pulseBorder  = highlighted && !showExport ? 0.25 + 0.15 * Math.sin(t / 400) : 0.25;
+
+  // Phase 6 – export animation
+  const exportSpin   = t > 18000 && t < 19600;
+  const exportDone   = t > 19600 && t < 21000;
+
+  // Fade in / fade out envelope
+  const opacity = t < 600 ? t / 600 : t > 21000 ? clamp(1 - (t - 21000) / 1800, 0, 1) : 1;
+
+  // Animated border glow (phase 3–6)
+  const borderGlow = phase >= 3 && phase <= 6 ? 0.15 + 0.12 * Math.sin(t / 900) : 0;
+
+  // Waveform heights (12 bars, live-animated from t)
+  const waveH = Array.from({ length: 12 }, (_, i) =>
+    0.22 + 0.65 * ((Math.sin(t / 270 + i * 0.75) + 1) / 2)
+  );
+
+  // ── Audio ─────────────────────────────────────────────────────────────────
+  const toggleMute = () => {
+    if (muted) {
+      if (!audioRef.current) {
+        const ctx  = new AudioContext();
+        const gain = ctx.createGain();
+        gain.gain.value = 0;
+        gain.connect(ctx.destination);
+
+        // Cmaj7 pad: C3 E3 G3 B3
+        [130.81, 164.81, 196.0, 246.94].forEach((freq, i) => {
+          const osc  = ctx.createOscillator();
+          const g    = ctx.createGain();
+          const lfo  = ctx.createOscillator();
+          const lfoG = ctx.createGain();
+          osc.type         = i % 2 === 0 ? "sine" : "triangle";
+          osc.frequency.value = freq;
+          lfo.frequency.value = 0.06 + i * 0.022;
+          lfoG.gain.value  = freq * 0.003;
+          lfo.connect(lfoG);
+          lfoG.connect(osc.frequency);
+          g.gain.value     = 0.055;
+          osc.connect(g);
+          g.connect(gain);
+          lfo.start(); osc.start();
+        });
+        audioRef.current = { ctx, gain };
+      }
+      audioRef.current.gain.gain.setTargetAtTime(0.16, audioRef.current.ctx.currentTime, 0.9);
+    } else {
+      audioRef.current?.gain.gain.setTargetAtTime(0, audioRef.current.ctx.currentTime, 0.5);
+    }
+    setMuted(!muted);
   };
 
-  const handleExport = () => {
-    setPhase("exporting");
-    setTimeout(() => setShowPaywall(true), 1200);
-  };
-
-  const handleTrackClick = (idx: number) => {
-    setSelectedTrack(idx);
-    playTone(TONE_FREQS[idx]);
-  };
-
-  const progress = phase === "analyzing"
-    ? Math.round((analysisStep / ANALYSIS_STEPS.length) * 100)
-    : phase === "results" || phase === "exporting" ? 100 : 0;
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <>
-      <div className="hidden sm:block mt-16 max-w-4xl mx-auto bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-6 shadow-2xl shadow-black/60">
+    <div className="hidden sm:block mt-16 max-w-4xl mx-auto" style={{ opacity }}>
+      <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-6 shadow-2xl shadow-black/60">
+
         {/* Window chrome */}
         <div className="flex items-center gap-2 mb-4">
           <div className="w-3 h-3 rounded-full bg-red-400/50" />
           <div className="w-3 h-3 rounded-full bg-yellow-400/50" />
           <div className="w-3 h-3 rounded-full bg-green-400/50" />
           <div className="flex-1 bg-[#1E1E1E] rounded-lg h-5 ml-2 flex items-center px-3">
-            <span className="text-[#3a3a5a] text-xs">backbeat.me/dashboard</span>
+            <span className="text-[#3a3a5a] text-[10px]">backbeat.me/dashboard</span>
           </div>
+          {/* Mute toggle */}
+          <button
+            onClick={toggleMute}
+            title={muted ? "Play ambient audio" : "Mute"}
+            className="ml-1 text-[#c8b97a] opacity-30 hover:opacity-90 transition-opacity"
+          >
+            {muted ? (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M15.536 8.464a5 5 0 010 7.072M17.95 5.05a10 10 0 010 13.9" />
+              </svg>
+            )}
+          </button>
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          {/* Left panel */}
-          <div className="col-span-2">
-            {phase === "idle" ? (
-              <div
-                className={`rounded-xl h-48 border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-colors ${
-                  isDragging
-                    ? "border-[#C8A96E] bg-[#C8A96E]/5"
-                    : "border-[#2A2A2A] bg-[#1E1E1E]/60 hover:border-[#C8A96E]/40 hover:bg-[#C8A96E]/3"
-                }`}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={onDrop}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <svg className="w-8 h-8 text-[#C8A96E]/60 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-                <p className="text-[#a0a0b8] text-sm font-medium">Drop a video to see Backbeat in action</p>
-                <p className="text-[#3a3a5a] text-xs mt-1">MP4, MOV, AVI, MKV</p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,.mkv"
-                  className="hidden"
-                  onChange={onFileChange}
+
+          {/* ── LEFT PANEL ── */}
+          <div className="col-span-2 flex flex-col gap-2">
+            <div
+              className="rounded-xl overflow-hidden relative"
+              style={{
+                height: 192,
+                border: `1px solid rgba(200,185,122,${borderGlow})`,
+                transition: "border-color 0.6s",
+              }}
+            >
+              {/* Phase 1: upload zone */}
+              {phase === 1 && (
+                <div className="absolute inset-0 border-2 border-dashed border-[#2A2A2A] rounded-xl bg-[#1E1E1E]/60 flex flex-col items-center justify-center">
+                  {fileVisible ? (
+                    <div
+                      className="flex flex-col items-center gap-1.5"
+                      style={{
+                        opacity: fileDrop,
+                        transform: `translateY(${(1 - fileDrop) * -36}px)`,
+                      }}
+                    >
+                      <svg className="w-9 h-9 text-[#c8b97a]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-[#a0a0b8] text-xs font-medium">travel-vlog-tokyo.mp4</span>
+                      <span className="text-[#3a3a5a] text-[10px]">238 MB</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-[#3a3a5a]">
+                      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      <span className="text-xs">Drop a video to analyze</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Phase 2+: gradient thumbnail */}
+              {phase >= 2 && (
+                <div
+                  className="absolute inset-0 rounded-xl"
+                  style={{
+                    background: "linear-gradient(135deg, #ff8c42 0%, #ff5c8a 40%, #9b59b6 70%, #f39c12 100%)",
+                    filter: "blur(1.5px) brightness(0.65)",
+                  }}
                 />
-              </div>
-            ) : (
-              <div className="rounded-xl h-48 bg-black overflow-hidden relative">
-                {videoUrl && (
-                  <video
-                    src={videoUrl}
-                    className="w-full h-full object-contain"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                  />
-                )}
-                {phase === "analyzing" && (
-                  <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 px-6">
-                    <div className="w-full">
-                      <div className="flex justify-between text-xs text-[#a0a0b8] mb-1.5">
-                        <span>{ANALYSIS_STEPS[Math.min(analysisStep, ANALYSIS_STEPS.length - 1)]}</span>
-                        <span>{progress}%</span>
-                      </div>
-                      <div className="h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-[#C8A96E] to-[#E8C87A] rounded-full transition-all duration-700"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-1.5">
-                      {ANALYSIS_STEPS.map((_, i) => (
-                        <div
-                          key={i}
-                          className={`h-1 rounded-full transition-all duration-500 ${
-                            i < analysisStep ? "w-6 bg-[#C8A96E]" : "w-3 bg-[#2A2A2A]"
-                          }`}
-                        />
-                      ))}
-                    </div>
+              )}
+
+              {/* Play button */}
+              {thumbVisible && phase <= 6 && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
                   </div>
-                )}
-                {phase === "exporting" && !showPaywall && (
-                  <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-2">
-                    <div className="w-8 h-8 border-2 border-[#C8A96E] border-t-transparent rounded-full animate-spin" />
-                    <span className="text-[#a0a0b8] text-xs">Preparing export...</span>
+                </div>
+              )}
+
+              {/* Upload progress overlay */}
+              {phase === 2 && (
+                <div className="absolute inset-0 bg-black/55 rounded-xl flex flex-col justify-end p-4">
+                  <div className="flex justify-between text-[10px] mb-1.5">
+                    <span className="text-[#a0a0b8]">travel-vlog-tokyo.mp4</span>
+                    <span className="text-[#c8b97a] font-semibold">{uploadPct}%</span>
                   </div>
-                )}
-              </div>
-            )}
+                  <div className="h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${uploadPct}%`,
+                        background: "linear-gradient(90deg, #c8b97a, #e8d09a)",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Export button */}
-            {phase === "results" && selectedTrack !== null && (
+            {showExport && (
               <button
-                onClick={handleExport}
-                className="mt-2 w-full bg-[#C8A96E] hover:bg-[#E8C87A] text-[#0a0a0f] font-semibold text-sm py-2 rounded-lg transition-colors"
+                className="w-full rounded-lg py-2 text-[12px] font-semibold"
+                style={{
+                  background: exportDone ? "rgba(34,197,94,0.12)" : "rgba(200,185,122,0.10)",
+                  border: exportDone
+                    ? "1px solid rgba(34,197,94,0.4)"
+                    : `1px solid rgba(200,185,122,${pulseBorder})`,
+                  color: exportDone ? "#4ade80" : "#c8b97a",
+                  transition: "background 0.4s, border-color 0.3s, color 0.4s",
+                }}
               >
-                Export with this track
+                {exportSpin ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span
+                      className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#c8b97a] border-t-transparent"
+                      style={{ animation: "spin 0.7s linear infinite" }}
+                    />
+                    Exporting...
+                  </span>
+                ) : exportDone ? (
+                  "✓  Ready to download — tokyo-vlog-backbeat.mp4"
+                ) : (
+                  "Export with this track"
+                )}
               </button>
-            )}
-            {phase === "results" && selectedTrack === null && (
-              <p className="mt-2 text-center text-[#3a3a5a] text-xs">Select a track to export</p>
             )}
           </div>
 
-          {/* Right panel — track list */}
-          <div className="space-y-2">
-            {phase === "idle" && (
-              <>
-                {[98, 87, 74, 68, 52].map((score, i) => (
-                  <div key={i} className="bg-[#1E1E1E]/60 rounded-lg px-3 py-2 flex items-center justify-between">
-                    <div className="space-y-1">
-                      <div className={`h-2 rounded bg-[#2A2A2A] ${i === 0 ? "w-20" : i === 1 ? "w-16" : "w-14"}`} />
-                      <div className="h-1.5 w-10 rounded bg-[#1E1E1E]" />
-                    </div>
-                    <span className={`text-xs font-bold ${i === 0 ? "text-[#c8b97a]" : "text-[#3a3a5a]"}`}>{score}</span>
-                  </div>
-                ))}
-              </>
+          {/* ── RIGHT PANEL ── */}
+          <div className="space-y-1.5 overflow-hidden">
+
+            {/* Analyzing animation */}
+            {phase === 2 && (
+              <div className="flex flex-col items-center justify-center h-full gap-2 py-6">
+                <div className="flex items-end gap-0.5 h-6">
+                  {[0.4, 0.8, 1.0, 0.6, 0.9, 0.5, 0.75].map((base, i) => (
+                    <div
+                      key={i}
+                      className="w-1 rounded-full bg-[#c8b97a]/50"
+                      style={{ height: `${(0.3 + 0.7 * base * ((Math.sin(t / 180 + i * 0.65) + 1) / 2)) * 100}%` }}
+                    />
+                  ))}
+                </div>
+                <span className="text-[#a0a0b8] text-[11px]">Analyzing your video...</span>
+              </div>
             )}
 
-            {phase === "analyzing" && (
-              <>
-                {MOCK_TRACKS.map((_, i) => (
-                  <div key={i} className="bg-[#1E1E1E]/60 rounded-lg px-3 py-2 flex items-center justify-between animate-pulse">
-                    <div className="space-y-1">
-                      <div className="h-2 rounded bg-[#2A2A2A] w-16" />
-                      <div className="h-1.5 rounded bg-[#1E1E1E] w-10" />
+            {/* Analysis results */}
+            {phase === 3 && ANALYSIS.map((item, i) => (
+              <div
+                key={i}
+                className="bg-[#1E1E1E]/60 rounded-lg px-2.5 py-2"
+                style={{
+                  opacity: aVis[i] ? 1 : 0,
+                  transform: aVis[i] ? "translateY(0)" : "translateY(6px)",
+                  transition: "opacity 0.4s ease-out, transform 0.4s ease-out",
+                }}
+              >
+                <div className="text-[#3a3a5a] text-[9px] uppercase tracking-wide mb-1">{item.label}</div>
+                {item.type === "bar" ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: aVis[i] ? `${(item.value as number) * 10}%` : "0%",
+                          background: "linear-gradient(90deg,#c8b97a,#e8d09a)",
+                          transition: "width 0.9s ease-out",
+                        }}
+                      />
                     </div>
-                    <div className="w-6 h-3 rounded bg-[#2A2A2A]" />
+                    <span className="text-[#c8b97a] text-[10px] font-bold shrink-0">{item.value}/10</span>
                   </div>
-                ))}
-              </>
-            )}
+                ) : item.type === "tags" ? (
+                  <div className="flex flex-wrap gap-1">
+                    {(item.value as readonly string[]).map((tag) => (
+                      <span key={tag} className="text-[#c8b97a] text-[9px] bg-[#c8b97a]/10 rounded px-1.5 py-0.5">{tag}</span>
+                    ))}
+                  </div>
+                ) : item.type === "mood" ? (
+                  <span className="text-[#c8b97a] text-[11px] font-semibold">{item.value as string}</span>
+                ) : (
+                  <span className="text-white text-[11px]">{item.value as string}</span>
+                )}
+              </div>
+            ))}
 
-            {(phase === "results" || phase === "exporting") && (
-              <>
-                {MOCK_TRACKS.map((track, i) => (
-                  <button
-                    key={track.id}
-                    onClick={() => handleTrackClick(i)}
-                    className={`w-full rounded-lg px-3 py-2 flex items-center justify-between text-left transition-all ${
-                      selectedTrack === i
-                        ? "bg-[#C8A96E]/15 border border-[#C8A96E]/40"
-                        : "bg-[#1E1E1E]/60 border border-transparent hover:bg-[#1E1E1E] hover:border-[#2A2A2A]"
-                    }`}
+            {/* Track list */}
+            {phase >= 4 && TRACKS.map((track, i) => (
+              <div
+                key={i}
+                className="rounded-lg px-2.5 py-1.5"
+                style={{
+                  opacity: tkVis[i] ? 1 : 0,
+                  transform: tkVis[i] ? "translateX(0)" : "translateX(14px)",
+                  background: highlighted && i === 0 ? "rgba(200,185,122,0.10)" : "rgba(30,30,30,0.6)",
+                  border: highlighted && i === 0 ? "1px solid rgba(200,185,122,0.32)" : "1px solid transparent",
+                  transition: "opacity 0.35s ease-out, transform 0.35s ease-out, background 0.5s, border-color 0.5s",
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <span className="text-white text-[11px] font-medium truncate">{track.name}</span>
+                      {i === 0 && highlighted && (
+                        <span className="shrink-0 text-[8px] bg-[#c8b97a]/15 text-[#c8b97a] border border-[#c8b97a]/25 rounded px-1 py-px">
+                          Best match
+                        </span>
+                      )}
+                    </div>
+                    {highlighted && i === 0 ? (
+                      <div className="flex items-end gap-px h-3">
+                        {waveH.slice(0, 10).map((h, wi) => (
+                          <div
+                            key={wi}
+                            className="w-0.5 rounded-full bg-[#c8b97a]/65"
+                            style={{ height: `${h * 100}%` }}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[#3a3a5a] text-[9px]">{track.genre} · {track.bpm} BPM</span>
+                    )}
+                  </div>
+                  <span
+                    className="text-[11px] font-bold ml-2 shrink-0"
+                    style={{ color: i === 0 ? "#c8b97a" : i === 1 ? "#9a8a55" : "#3a3a5a" }}
                   >
-                    <div className="min-w-0">
-                      <p className="text-white text-xs font-medium truncate">{track.name}</p>
-                      <p className="text-[#3a3a5a] text-[10px] truncate">{track.genre} · {track.bpm} BPM</p>
-                    </div>
-                    <span className={`text-xs font-bold ml-2 shrink-0 ${
-                      i === 0 ? "text-[#C8A96E]" : i === 1 ? "text-[#b8a060]" : "text-[#3a3a5a]"
-                    }`}>
-                      {track.score}
-                    </span>
-                  </button>
-                ))}
-              </>
-            )}
+                    {tkScores[i]}%
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Paywall modal */}
-      {showPaywall && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => { setShowPaywall(false); setPhase("results"); }}>
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          <div
-            className="relative bg-[#141414] border border-[#2A2A2A] rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-12 h-12 bg-[#C8A96E]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-[#C8A96E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-            </div>
-            <h3 className="text-white font-bold text-xl mb-2">Sign up free to export your video</h3>
-            <p className="text-[#a0a0b8] text-sm mb-6">
-              Create a free account to export with music included. One free analysis, no credit card required.
-            </p>
-            <Link
-              href="/auth/signup"
-              className="block w-full bg-white hover:bg-[#f0f0f0] text-[#0a0a0f] font-bold py-3 rounded-xl transition-all mb-3"
-            >
-              Get started — it&apos;s free
-            </Link>
-            <button
-              onClick={() => { setShowPaywall(false); setPhase("results"); }}
-              className="text-[#3a3a5a] text-sm hover:text-[#a0a0b8] transition-colors"
-            >
-              Maybe later
-            </button>
-          </div>
-        </div>
-      )}
-    </>
+      {/* Spin keyframe */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
   );
 }
