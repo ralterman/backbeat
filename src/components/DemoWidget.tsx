@@ -5,11 +5,11 @@ import { useEffect, useRef, useState } from "react";
 const LOOP = 24000; // total loop duration ms
 
 const TRACKS = [
-  { name: "Rainy Afternoon",   artist: "The Paper Planes", genre: "Indie",                  bpm: 88,  score: 97 },
+  { name: "Neon Noir",         artist: "Chrome Theory",    genre: "Synthwave",              bpm: 128, score: 97 },
   { name: "City Never Sleeps", artist: "Urban Wave",       genre: "Synthwave",              bpm: 124, score: 92 },
-  { name: "Midnight Drive",    artist: "Chrome Theory",    genre: "Electronic",             bpm: 135, score: 86 },
-  { name: "Downtown Rush",     artist: "The Grid",         genre: "Cinematic / Upbeat",     bpm: 122, score: 79 },
-  { name: "Lights & Motion",   artist: "Neon Atlas",       genre: "Lo-fi Electronic",       bpm: 118, score: 72 },
+  { name: "Midnight Drive",    artist: "The Grid",         genre: "Electronic",             bpm: 135, score: 86 },
+  { name: "Downtown Rush",     artist: "Neon Atlas",       genre: "Cinematic / Upbeat",     bpm: 122, score: 79 },
+  { name: "Pulse of the City", artist: "Urban Circuit",    genre: "Electronic",             bpm: 119, score: 71 },
 ];
 
 const ANALYSIS = [
@@ -177,7 +177,7 @@ export function DemoWidget() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div ref={containerRef} className="hidden sm:block mt-16 max-w-5xl mx-auto" style={{ opacity }}>
-      <audio ref={audioElRef} src="https://archive.org/download/kalaido-hanging-lanterns_202101/%28FREE%29%20Lo-fi%20Type%20Beat%20-%20Rain.mp3" preload="auto" loop />
+      <audio ref={audioElRef} src="https://archive.org/download/DWK312/Centz_-_14_-_Neon_Noir.mp3" preload="auto" loop />
       <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-6 shadow-2xl shadow-black/60">
 
         {/* Window chrome */}
