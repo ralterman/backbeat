@@ -40,7 +40,7 @@ export default function AnalysisResultsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
-  const [exportResult, setExportResult] = useState<{ trackId: string; downloadUrl: string } | null>(null);
+  const [exportResult, setExportResult] = useState<{ trackId: string; exportId: string } | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [previewTrack, setPreviewTrack] = useState<ScoredTrack | null>(null);
   const [isFreeUser, setIsFreeUser] = useState(true); // default to true (restrictive) until confirmed
@@ -104,8 +104,8 @@ export default function AnalysisResultsPage() {
         const err = await res.json();
         throw new Error(err.error ?? "Export failed");
       }
-      const { downloadUrl } = await res.json();
-      setExportResult({ trackId, downloadUrl });
+      const { exportId } = await res.json();
+      setExportResult({ trackId, exportId });
     } catch (err) {
       alert(err instanceof Error ? err.message : "Export failed");
     } finally {
@@ -217,15 +217,16 @@ export default function AnalysisResultsPage() {
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
             </svg>
             <p className="text-green-300 text-sm font-medium">
-              Export complete! Your download link is ready.
+              Export complete! Your video is ready.
             </p>
           </div>
           <a
-            href={exportResult.downloadUrl}
-            download
+            href={`/export/${exportResult.exportId}`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="bg-green-600 hover:bg-green-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors flex-shrink-0"
           >
-            Download
+            Click to View
           </a>
         </div>
       )}
