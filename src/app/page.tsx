@@ -110,7 +110,7 @@ export default function LandingPage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-28 text-center">
           <div className="flex flex-col items-center gap-3 mb-8">
             <Image
-              src="/brand/logo-icon.svg"
+              src="/brand/logo-icon.png"
               alt="Backbeat icon"
               width={120}
               height={120}

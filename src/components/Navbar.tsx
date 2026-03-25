@@ -16,7 +16,7 @@ export function Navbar() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-[10px] flex-shrink-0" onClick={() => setMenuOpen(false)}>
           <Image
-            src="/brand/logo-icon.svg"
+            src="/brand/logo-icon.png"
             alt="Backbeat icon"
             width={36}
             height={36}
