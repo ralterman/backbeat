@@ -74,7 +74,7 @@ const features = [
 const FREE_FEATURES = [
   { text: "1 free video analysis, lifetime", included: true },
   { text: "Top 3 track recommendations", included: true },
-  { text: "30-second audio previews", included: true },
+  { text: "15-second audio previews", included: true },
   { text: "Export with watermark", included: true },
   { text: "No-watermark exports", included: false },
   { text: "Priority processing", included: false },

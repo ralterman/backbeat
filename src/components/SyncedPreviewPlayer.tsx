@@ -10,7 +10,7 @@ interface SyncedPreviewPlayerProps {
   onClose: () => void;
 }
 
-const FREE_CAP = 30;
+const FREE_CAP = 15;
 
 function formatTime(s: number) {
   const m = Math.floor(s / 60);
@@ -240,7 +240,7 @@ export function SyncedPreviewPlayer({
           />
           <div className="flex justify-between text-[10px] text-[#6a6a8a] mt-1">
             <span>{formatTime(currentTime)}</span>
-            {isFreeUser && <span className="text-[#a0a0b8]">30s preview</span>}
+            {isFreeUser && <span className="text-[#a0a0b8]">15s preview</span>}
             <span>{formatTime(effectiveDuration)}</span>
           </div>
         </div>

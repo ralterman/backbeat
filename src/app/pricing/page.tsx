@@ -4,7 +4,7 @@ import Link from "next/link";
 const FREE_FEATURES = [
   { text: "1 free video analysis, lifetime", included: true },
   { text: "Top 3 track recommendations", included: true },
-  { text: "30-second audio previews", included: true },
+  { text: "15-second audio previews", included: true },
   { text: "Export with watermark", included: true },
   { text: "No-watermark exports", included: false },
   { text: "Priority processing", included: false },
@@ -124,7 +124,7 @@ export default function PricingPage() {
                   ["Analyses", "1 lifetime", "30/mo", "Unlimited"],
                   ["Track recommendations", "Top 3", "Top 5", "Top 5"],
                   ["AI video analysis", "✓", "✓", "✓"],
-                  ["Audio preview", "30s cap", "Full", "Full"],
+                  ["Audio preview", "15s cap", "Full", "Full"],
                   ["Exports", "Watermarked", "No watermark", "No watermark"],
                   ["Priority processing", "—", "✓", "✓"],
                   ["Team seats", "—", "—", "Up to 5"],

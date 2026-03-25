@@ -32,6 +32,7 @@ async function mergeVideoAudio(
 ): Promise<Buffer> {
   const tmpDir = path.join(os.tmpdir(), `backbeat-export-${exportId}`);
   fs.mkdirSync(tmpDir, { recursive: true });
+  console.log(`[export][${exportId}] tmpDir created: ${tmpDir}`);
 
   const videoPath = path.join(tmpDir, "input.mp4");
   const audioPath = path.join(tmpDir, "audio.mp3");
@@ -39,20 +40,32 @@ async function mergeVideoAudio(
 
   fs.writeFileSync(videoPath, videoBuffer);
   fs.writeFileSync(audioPath, audioBuffer);
+  console.log(`[export][${exportId}] wrote video (${videoBuffer.length} bytes) + audio (${audioBuffer.length} bytes)`);
+
+  // Probe video duration to set fade-out timing correctly
+  const videoDuration: number = await new Promise((res) => {
+    ffmpeg.ffprobe(videoPath, (err, meta) => {
+      if (err || !meta?.format?.duration) { res(30); return; }
+      res(Math.max(1, meta.format.duration));
+    });
+  });
+  const fadeOutStart = Math.max(0, videoDuration - 2);
+  console.log(`[export][${exportId}] videoDuration=${videoDuration.toFixed(2)}s, fadeOutStart=${fadeOutStart.toFixed(2)}s, hasWatermark=${hasWatermark}`);
 
   return new Promise((resolve, reject) => {
     let cmd = ffmpeg(videoPath)
       .addInput(audioPath)
       .audioFilters([
         "afade=t=in:st=0:d=2",
-        "afade=t=out:st=28:d=2",
+        `afade=t=out:st=${fadeOutStart.toFixed(2)}:d=2`,
         "loudnorm=I=-14:TP=-1:LRA=11",
       ]);
 
     if (hasWatermark) {
+      // Use fixed pixel offsets for bottom-right — avoids fontconfig/text_w dependency
       cmd = cmd
         .videoFilters([
-          "drawtext=text='BACKBEAT WATERMARK':fontcolor=white@0.3:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2",
+          "drawtext=text='Made with Backbeat':fontsize=18:fontcolor=white@0.75:shadowcolor=black@0.8:shadowx=1:shadowy=1:x=w-165:y=h-28",
         ])
         .outputOptions([
           "-map 0:v:0",
@@ -75,16 +88,22 @@ async function mergeVideoAudio(
 
     cmd
       .output(outputPath)
+      .on("start", (cmdLine) => console.log(`[export][${exportId}] ffmpeg start: ${cmdLine}`))
+      .on("stderr", (line) => console.log(`[export][${exportId}] ffmpeg: ${line}`))
       .on("end", () => {
         try {
           const buf = fs.readFileSync(outputPath);
+          console.log(`[export][${exportId}] output generated: ${buf.length} bytes`);
           try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
           resolve(buf);
         } catch (err) {
+          console.error(`[export][${exportId}] failed to read output:`, err);
           reject(err);
         }
       })
-      .on("error", (err) => {
+      .on("error", (err, _stdout, stderr) => {
+        console.error(`[export][${exportId}] ffmpeg error:`, err.message);
+        console.error(`[export][${exportId}] ffmpeg stderr:`, stderr);
         try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
         reject(err);
       })
@@ -131,16 +150,22 @@ export async function POST(req: NextRequest) {
   });
 
   try {
+    console.log(`[export][${exportId}] fetching video from S3: ${video.s3Bucket}/${video.s3Key}`);
     const s3Obj = await s3Client.send(
       new GetObjectCommand({ Bucket: video.s3Bucket, Key: video.s3Key })
     );
     const videoBuffer = await streamToBuffer(s3Obj.Body as Readable);
+    console.log(`[export][${exportId}] video fetched: ${videoBuffer.length} bytes`);
 
+    console.log(`[export][${exportId}] fetching audio: ${track.preview_url}`);
     const audioRes = await fetch(track.preview_url);
-    if (!audioRes.ok) throw new Error(`Failed to fetch audio: ${audioRes.status}`);
+    if (!audioRes.ok) throw new Error(`Failed to fetch audio: ${audioRes.status} ${audioRes.statusText}`);
     const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
+    console.log(`[export][${exportId}] audio fetched: ${audioBuffer.length} bytes`);
 
+    console.log(`[export][${exportId}] starting FFmpeg merge (plan=${plan}, hasWatermark=${hasWatermark})`);
     const outputBuffer = await mergeVideoAudio(videoBuffer, audioBuffer, exportId, hasWatermark);
+    console.log(`[export][${exportId}] FFmpeg done, uploading to S3`);
 
     const outputKey = `exports/${userId}/${exportId}.mp4`;
     await s3Client.send(
@@ -151,6 +176,7 @@ export async function POST(req: NextRequest) {
         ContentType: "video/mp4",
       })
     );
+    console.log(`[export][${exportId}] uploaded to S3: ${OUTPUT_BUCKET}/${outputKey}`);
 
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const downloadUrl = await generateDownloadPresignedUrl(OUTPUT_BUCKET, outputKey, 86400);
@@ -159,10 +185,11 @@ export async function POST(req: NextRequest) {
       where: { id: exportId },
       data: { status: "COMPLETED", s3OutputKey: outputKey, downloadUrl, expiresAt },
     });
+    console.log(`[export][${exportId}] complete`);
 
     return NextResponse.json({ exportId, downloadUrl, expiresAt });
   } catch (err) {
-    console.error("Export error:", err);
+    console.error(`[export][${exportId}] FAILED:`, err);
     await prisma.export.update({ where: { id: exportId }, data: { status: "FAILED" } });
     return NextResponse.json({ error: "Export failed. Please try again." }, { status: 500 });
   }

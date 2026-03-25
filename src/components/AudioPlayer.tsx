@@ -10,7 +10,7 @@ interface AudioPlayerProps {
   onClose?: () => void;
 }
 
-const FREE_USER_CAP = 30; // seconds
+const FREE_USER_CAP = 15; // seconds
 
 export function AudioPlayer({ track, isFreeUser = false, onClose }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -122,7 +122,7 @@ export function AudioPlayer({ track, isFreeUser = false, onClose }: AudioPlayerP
       <div className="flex items-center justify-between text-xs text-[#a0a0b8] mb-3">
         <span>{formatTime(currentTime)}</span>
         {isFreeUser && (
-          <span className="text-[#a0a0b8] text-xs">30s preview only</span>
+          <span className="text-[#a0a0b8] text-xs">15s preview only</span>
         )}
         <span>{formatTime(effectiveDuration)}</span>
       </div>
