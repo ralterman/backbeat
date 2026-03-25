@@ -9,7 +9,6 @@ import { getUserPlan } from "@/lib/usage";
 import { tracks } from "@/data/tracks";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
-import sharp from "sharp";
 import { Readable } from "stream";
 import * as fs from "fs";
 import * as path from "path";
@@ -55,18 +54,10 @@ async function mergeVideoAudio(
   const fadeOutStart = Math.max(0, videoDuration - 2);
   console.log(`[export][${exportId}] duration=${videoDuration.toFixed(1)}s fadeOutStart=${fadeOutStart.toFixed(1)}s hasWatermark=${hasWatermark}`);
 
-  // Generate watermark PNG via sharp (SVG→PNG), no drawtext/libfreetype needed
-  let wmPath: string | null = null;
-  if (hasWatermark) {
-    const svg = `<svg width="224" height="28" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="224" height="28" rx="4" fill="rgba(0,0,0,0.52)"/>
-      <text x="112" y="20" font-family="Arial,Helvetica,sans-serif" font-size="13"
-            fill="#c8b97a" text-anchor="middle" opacity="0.92">Made with Backbeat</text>
-    </svg>`;
-    wmPath = path.join(tmpDir, "watermark.png");
-    await sharp(Buffer.from(svg)).png().toFile(wmPath);
-    console.log(`[export][${exportId}] watermark PNG written: ${wmPath}`);
-  }
+  // Use pre-rendered watermark PNG (committed to repo) — avoids any font dependency at runtime
+  const wmPath = hasWatermark
+    ? path.join(process.cwd(), "src/assets/watermark.png")
+    : null;
 
   return new Promise((resolve, reject) => {
     const audioChain = `[1:a]afade=t=in:st=0:d=2,afade=t=out:st=${fadeOutStart.toFixed(2)}:d=2,volume=0.85[aout]`;
