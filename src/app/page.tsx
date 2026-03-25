@@ -108,15 +108,16 @@ export default function LandingPage() {
         <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[#C8A96E]/4 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-28 text-center">
-          <div className="flex justify-center mb-8">
+          <div className="flex flex-col items-center gap-3 mb-8">
             <Image
-              src="/brand/logo-stacked.svg"
-              alt="Backbeat"
-              width={160}
-              height={137}
+              src="/brand/logo-icon.svg"
+              alt="Backbeat icon"
+              width={120}
+              height={120}
               priority
-              className="h-28 w-auto"
+              className="h-[120px] w-auto"
             />
+            <span style={{ color: "#C8A96E", fontSize: "32px", fontWeight: 600, lineHeight: 1 }}>Backbeat</span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-tight mb-6">

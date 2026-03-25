@@ -14,15 +14,16 @@ export function Navbar() {
     <nav className="border-b border-[#1E1E1E] bg-[#0A0A0A]/90 backdrop-blur-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center flex-shrink-0" onClick={() => setMenuOpen(false)}>
+        <Link href="/" className="flex items-center gap-[10px] flex-shrink-0" onClick={() => setMenuOpen(false)}>
           <Image
-            src="/brand/logo-horizontal.svg"
-            alt="Backbeat"
-            width={127}
+            src="/brand/logo-icon.svg"
+            alt="Backbeat icon"
+            width={36}
             height={36}
             priority
             className="h-9 w-auto"
           />
+          <span style={{ color: "#C8A96E", fontSize: "20px", fontWeight: 600, lineHeight: 1 }}>Backbeat</span>
         </Link>
 
         {/* Desktop nav */}
