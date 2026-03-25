@@ -14,7 +14,7 @@ const geistSans = Geist({
 const cormorant = Cormorant_Garamond({
   variable: "--font-cormorant",
   subsets: ["latin"],
-  weight: "600",
+  weight: "700",
 });
 
 export const metadata: Metadata = {

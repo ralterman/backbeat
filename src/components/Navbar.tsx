@@ -23,7 +23,7 @@ export function Navbar() {
             priority
             className="h-9 w-auto"
           />
-          <span style={{ color: "#C8A96E", fontSize: "20px", fontWeight: 600, lineHeight: 1, fontFamily: "var(--font-cormorant)" }}>Backbeat</span>
+          <span style={{ color: "#C8A96E", fontSize: "20px", fontWeight: 700, lineHeight: 1, fontFamily: "var(--font-cormorant)" }}>Backbeat</span>
         </Link>
 
         {/* Desktop nav */}
