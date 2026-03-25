@@ -66,7 +66,9 @@ async function mergeVideoAudio(
     let outputOpts: string[];
 
     if (hasWatermark) {
-      const watermark = `drawtext=text='Made with Backbeat':fontsize=18:fontcolor=white@0.75:shadowcolor=black@0.8:shadowx=1:shadowy=1:x=w-165:y=h-28`;
+      // drawtext requires libfreetype which is not in this ffmpeg build.
+      // Use drawbox instead — draws a Backbeat-gold bar at the bottom, no external deps.
+      const watermark = `drawbox=x=0:y=h-28:w=iw:h=28:color=0xc8b97a@0.55:t=fill`;
       filterComplex = `${audioChain};[0:v]${watermark}[vout]`;
       outputOpts = [
         "-map", "[vout]", "-map", "[aout]",
