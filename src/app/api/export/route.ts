@@ -55,37 +55,41 @@ async function mergeVideoAudio(
   console.log(`[export][${exportId}] duration=${videoDuration.toFixed(1)}s fadeOutStart=${fadeOutStart.toFixed(1)}s hasWatermark=${hasWatermark}`);
 
   return new Promise((resolve, reject) => {
-    // Use filter_complex to explicitly route [1:a] (the audio file, input 1)
-    // through the audio filters — avoids fluent-ffmpeg's -af flag applying
-    // to the wrong input when combined with -map directives.
+    // Build filter_complex — explicitly route [1:a] (audio input) through
+    // fade/volume, and [0:v] (video input) through drawtext for watermark.
     const audioChain = `[1:a]afade=t=in:st=0:d=2,afade=t=out:st=${fadeOutStart.toFixed(2)}:d=2,volume=0.85[aout]`;
 
     let filterComplex: string;
+    // Pass each flag+value as separate strings so they become separate spawn args.
+    // Passing "-map [vout]" as one string would make ffmpeg see "map [vout]" as
+    // the option name (unrecognized). Two strings = two argv entries = correct.
     let outputOpts: string[];
 
     if (hasWatermark) {
-      // drawtext without font= uses ffmpeg's built-in bitmap font — no fontconfig/freetype needed
       const watermark = `drawtext=text='Made with Backbeat':fontsize=18:fontcolor=white@0.75:shadowcolor=black@0.8:shadowx=1:shadowy=1:x=w-165:y=h-28`;
       filterComplex = `${audioChain};[0:v]${watermark}[vout]`;
       outputOpts = [
-        "-map [vout]", "-map [aout]",
-        "-c:v libx264", "-preset ultrafast", "-crf 26",
-        "-c:a aac", "-shortest",
+        "-map", "[vout]", "-map", "[aout]",
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "26",
+        "-c:a", "aac", "-shortest",
       ];
     } else {
       filterComplex = audioChain;
       outputOpts = [
-        "-map 0:v:0", "-map [aout]",
-        "-c:v copy",
-        "-c:a aac", "-shortest",
+        "-map", "0:v:0", "-map", "[aout]",
+        "-c:v", "copy",
+        "-c:a", "aac", "-shortest",
       ];
     }
 
     console.log(`[export][${exportId}] filter_complex: ${filterComplex}`);
 
+    // Use .complexFilter() — it passes -filter_complex and its value as two
+    // separate spawn arguments, unlike outputOptions which joins them into one.
     ffmpeg(videoPath)
       .addInput(audioPath)
-      .outputOptions([`-filter_complex ${filterComplex}`, ...outputOpts])
+      .complexFilter(filterComplex)
+      .outputOptions(outputOpts)
       .output(outputPath)
       .on("start", (cmd) => console.log(`[export][${exportId}] cmd: ${cmd}`))
       .on("stderr", (line) => console.log(`[export][${exportId}] ffmpeg: ${line}`))
