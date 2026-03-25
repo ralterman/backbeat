@@ -1,7 +1,7 @@
+export const maxDuration = 60; // allow up to 60s for FFmpeg processing
+
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-
-export const maxDuration = 60; // allow up to 60s for FFmpeg processing
 import { prisma } from "@/lib/prisma";
 import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -60,21 +60,21 @@ async function mergeVideoAudio(
       .audioFilters([
         "afade=t=in:st=0:d=2",
         `afade=t=out:st=${fadeOutStart.toFixed(2)}:d=2`,
-        "loudnorm=I=-14:TP=-1:LRA=11",
+        "volume=0.85", // simple single-pass volume; loudnorm is 2-pass and takes 15-30s
       ]);
 
     if (hasWatermark) {
-      // Use fixed pixel offsets for bottom-right — avoids fontconfig/text_w dependency
+      // drawtext without font= uses ffmpeg's built-in bitmap font — no fontconfig needed
       cmd = cmd
         .videoFilters([
-          "drawtext=text='Made with Backbeat':font=Monospace:fontsize=18:fontcolor=white@0.75:shadowcolor=black@0.8:shadowx=1:shadowy=1:x=w-165:y=h-28",
+          "drawtext=text='Made with Backbeat':fontsize=18:fontcolor=white@0.75:shadowcolor=black@0.8:shadowx=1:shadowy=1:x=w-165:y=h-28",
         ])
         .outputOptions([
           "-map 0:v:0",
           "-map 1:a:0",
           "-c:v libx264",
-          "-preset fast",
-          "-crf 23",
+          "-preset ultrafast", // 4-5x faster than 'fast'; quality still fine for watermark tier
+          "-crf 26",
           "-c:a aac",
           "-shortest",
         ]);
