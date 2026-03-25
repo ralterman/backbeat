@@ -63,7 +63,12 @@ export default function RootLayout({
           <Analytics />
           <SpeedInsights />
           <footer className="border-t border-[#1E1E1E] py-8 text-center text-[#9090aa] text-sm">
-            <p>© {new Date().getFullYear()} Backbeat. AI-powered music for video creators.</p>
+            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-3">
+              <a href="/privacy" className="hover:text-[#C8A96E] transition-colors">Privacy Policy</a>
+              <a href="/terms" className="hover:text-[#C8A96E] transition-colors">Terms of Service</a>
+              <a href="/cookies" className="hover:text-[#C8A96E] transition-colors">Cookie Policy</a>
+            </div>
+            <p>© 2026 Backbeat. All rights reserved.</p>
           </footer>
         </SessionProvider>
       </body>
