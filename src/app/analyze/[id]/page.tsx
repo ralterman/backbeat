@@ -43,6 +43,7 @@ export default function AnalysisResultsPage() {
   const [exportResult, setExportResult] = useState<{ trackId: string; downloadUrl: string } | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [previewTrack, setPreviewTrack] = useState<ScoredTrack | null>(null);
+  const [isFreeUser, setIsFreeUser] = useState(true); // default to true (restrictive) until confirmed
 
   const fetchResults = useCallback(async () => {
     try {
@@ -79,6 +80,11 @@ export default function AnalysisResultsPage() {
         if (json?.playbackUrl) setVideoUrl(json.playbackUrl);
       })
       .catch((e) => console.error("[backbeat] video URL error:", e));
+
+    fetch("/api/user/usage")
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => { if (json?.plan) setIsFreeUser(json.plan === "FREE"); })
+      .catch(() => {}); // leave as true (restrictive default) on error
   }, [videoId]);
 
   const handlePreview = useCallback((track: ScoredTrack) => {
@@ -249,7 +255,7 @@ export default function AnalysisResultsPage() {
                 track={scoredTrack}
                 rank={match.rank}
                 videoId={videoId}
-                isFreeUser={false}
+                isFreeUser={isFreeUser}
                 onExport={handleExport}
                 isExporting={exportingId === match.trackId}
                 onPreview={videoUrl ? handlePreview : undefined}
@@ -273,7 +279,7 @@ export default function AnalysisResultsPage() {
             <SyncedPreviewPlayer
               videoUrl={videoUrl}
               track={previewTrack}
-              isFreeUser={false}
+              isFreeUser={isFreeUser}
               onClose={() => setPreviewTrack(null)}
             />
           </div>

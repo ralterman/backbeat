@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+
+export const maxDuration = 60; // allow up to 60s for FFmpeg processing
 import { prisma } from "@/lib/prisma";
 import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -65,7 +67,7 @@ async function mergeVideoAudio(
       // Use fixed pixel offsets for bottom-right — avoids fontconfig/text_w dependency
       cmd = cmd
         .videoFilters([
-          "drawtext=text='Made with Backbeat':fontsize=18:fontcolor=white@0.75:shadowcolor=black@0.8:shadowx=1:shadowy=1:x=w-165:y=h-28",
+          "drawtext=text='Made with Backbeat':font=Monospace:fontsize=18:fontcolor=white@0.75:shadowcolor=black@0.8:shadowx=1:shadowy=1:x=w-165:y=h-28",
         ])
         .outputOptions([
           "-map 0:v:0",
