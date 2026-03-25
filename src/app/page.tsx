@@ -117,7 +117,7 @@ export default function LandingPage() {
               priority
               className="h-[120px] w-auto"
             />
-            <span style={{ color: "#C8A96E", fontSize: "32px", fontWeight: 700, lineHeight: 1, fontFamily: "var(--font-cormorant)" }}>Backbeat</span>
+            <span style={{ color: "#C8A96E", fontSize: "36px", fontWeight: 700, lineHeight: 1, letterSpacing: "0.05em", fontFamily: "var(--font-cormorant)" }}>Backbeat</span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-tight mb-6">
