@@ -9,6 +9,7 @@ import { getUserPlan } from "@/lib/usage";
 import { tracks } from "@/data/tracks";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
+import sharp from "sharp";
 import { Readable } from "stream";
 import * as fs from "fs";
 import * as path from "path";
@@ -54,22 +55,28 @@ async function mergeVideoAudio(
   const fadeOutStart = Math.max(0, videoDuration - 2);
   console.log(`[export][${exportId}] duration=${videoDuration.toFixed(1)}s fadeOutStart=${fadeOutStart.toFixed(1)}s hasWatermark=${hasWatermark}`);
 
+  // Generate watermark PNG via sharp (SVG→PNG), no drawtext/libfreetype needed
+  let wmPath: string | null = null;
+  if (hasWatermark) {
+    const svg = `<svg width="224" height="28" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="0" width="224" height="28" rx="4" fill="rgba(0,0,0,0.52)"/>
+      <text x="112" y="20" font-family="Arial,Helvetica,sans-serif" font-size="13"
+            fill="#c8b97a" text-anchor="middle" opacity="0.92">Made with Backbeat</text>
+    </svg>`;
+    wmPath = path.join(tmpDir, "watermark.png");
+    await sharp(Buffer.from(svg)).png().toFile(wmPath);
+    console.log(`[export][${exportId}] watermark PNG written: ${wmPath}`);
+  }
+
   return new Promise((resolve, reject) => {
-    // Build filter_complex — explicitly route [1:a] (audio input) through
-    // fade/volume, and [0:v] (video input) through drawtext for watermark.
     const audioChain = `[1:a]afade=t=in:st=0:d=2,afade=t=out:st=${fadeOutStart.toFixed(2)}:d=2,volume=0.85[aout]`;
 
     let filterComplex: string;
-    // Pass each flag+value as separate strings so they become separate spawn args.
-    // Passing "-map [vout]" as one string would make ffmpeg see "map [vout]" as
-    // the option name (unrecognized). Two strings = two argv entries = correct.
     let outputOpts: string[];
 
-    if (hasWatermark) {
-      // drawtext requires libfreetype which is not in this ffmpeg build.
-      // Use drawbox instead — draws a Backbeat-gold bar at the bottom, no external deps.
-      const watermark = `drawbox=x=0:y=h-28:w=iw:h=28:color=0xc8b97a@0.55:t=fill`;
-      filterComplex = `${audioChain};[0:v]${watermark}[vout]`;
+    if (hasWatermark && wmPath) {
+      // Overlay the PNG at bottom-right: W/H = video dims, w/h = watermark dims
+      filterComplex = `${audioChain};[0:v][2:v]overlay=W-w-10:H-h-10[vout]`;
       outputOpts = [
         "-map", "[vout]", "-map", "[aout]",
         "-c:v", "libx264", "-preset", "ultrafast", "-crf", "26",
@@ -86,14 +93,14 @@ async function mergeVideoAudio(
 
     console.log(`[export][${exportId}] filter_complex: ${filterComplex}`);
 
-    // Use .complexFilter() — it passes -filter_complex and its value as two
-    // separate spawn arguments, unlike outputOptions which joins them into one.
-    ffmpeg(videoPath)
-      .addInput(audioPath)
+    const cmd = ffmpeg(videoPath).addInput(audioPath);
+    if (wmPath) cmd.addInput(wmPath); // input 2 = watermark PNG
+
+    cmd
       .complexFilter(filterComplex)
       .outputOptions(outputOpts)
       .output(outputPath)
-      .on("start", (cmd) => console.log(`[export][${exportId}] cmd: ${cmd}`))
+      .on("start", (c) => console.log(`[export][${exportId}] cmd: ${c}`))
       .on("stderr", (line) => console.log(`[export][${exportId}] ffmpeg: ${line}`))
       .on("end", () => {
         try {
