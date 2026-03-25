@@ -14,7 +14,7 @@ export function WaveformBar({
   data,
   progress = 0,
   color = "#2A2A2A",
-  activeColor = "#c8b97a",
+  activeColor = "#C8A96E",
   height = 48,
 }: WaveformBarProps) {
   const bars = data.slice(0, 60);

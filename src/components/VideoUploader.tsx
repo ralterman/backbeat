@@ -101,7 +101,7 @@ export function VideoUploader() {
         onDragLeave={() => setIsDragging(false)}
         onDrop={onDrop}
         className={`relative border-2 border-dashed rounded-2xl p-12 text-center transition-all
-          ${isDragging ? "border-[#c8b97a] bg-[#c8b97a]/5" : "border-[#2A2A2A] hover:border-[#3a3a5a] bg-[#141414]/60"}
+          ${isDragging ? "border-[#C8A96E] bg-[#C8A96E]/5" : "border-[#2A2A2A] hover:border-[#3a3a5a] bg-[#141414]/60"}
           ${isLoading ? "pointer-events-none opacity-80" : "cursor-pointer"}
         `}
       >
@@ -118,7 +118,7 @@ export function VideoUploader() {
           {status === "idle" || status === "error" ? (
             <>
               <div className="w-16 h-16 rounded-full bg-[#1E1E1E] flex items-center justify-center">
-                <svg className="w-8 h-8 text-[#c8b97a]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-8 h-8 text-[#C8A96E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                     d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
@@ -134,8 +134,8 @@ export function VideoUploader() {
             </>
           ) : status === "uploading" ? (
             <>
-              <div className="w-16 h-16 rounded-full bg-[#c8b97a]/10 flex items-center justify-center">
-                <svg className="w-8 h-8 text-[#c8b97a] animate-pulse" fill="currentColor" viewBox="0 0 24 24">
+              <div className="w-16 h-16 rounded-full bg-[#C8A96E]/10 flex items-center justify-center">
+                <svg className="w-8 h-8 text-[#C8A96E] animate-pulse" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M13 2.003A10 10 0 1022 12h-2A8 8 0 1113 4.003V2.003z"/>
                 </svg>
               </div>
@@ -143,7 +143,7 @@ export function VideoUploader() {
                 <p className="text-white font-semibold mb-2">Uploading... {progress}%</p>
                 <div className="w-full bg-[#1E1E1E] rounded-full h-2">
                   <div
-                    className="bg-[#c8b97a] rounded-full h-2 transition-all duration-300"
+                    className="bg-[#C8A96E] rounded-full h-2 transition-all duration-300"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -151,8 +151,8 @@ export function VideoUploader() {
             </>
           ) : status === "analyzing" ? (
             <>
-              <div className="w-16 h-16 rounded-full bg-[#c8b97a]/10 flex items-center justify-center">
-                <svg className="w-8 h-8 text-[#c8b97a] animate-spin" fill="none" viewBox="0 0 24 24">
+              <div className="w-16 h-16 rounded-full bg-[#C8A96E]/10 flex items-center justify-center">
+                <svg className="w-8 h-8 text-[#C8A96E] animate-spin" fill="none" viewBox="0 0 24 24">
                   <path
                     className="opacity-25" stroke="currentColor" strokeWidth="4" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                     fill="currentColor"

@@ -118,7 +118,7 @@ export default function AnalysisResultsPage() {
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <div className="bg-red-900/20 border border-red-800/30 rounded-2xl p-10">
           <p className="text-red-400 text-lg font-medium mb-4">{error}</p>
-          <Link href="/dashboard" className="text-[#c8b97a] hover:text-white transition-colors">
+          <Link href="/dashboard" className="text-[#C8A96E] hover:text-white transition-colors">
             ← Back to Dashboard
           </Link>
         </div>
@@ -129,8 +129,8 @@ export default function AnalysisResultsPage() {
   if (loading || !data?.analysis) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <div className="w-20 h-20 bg-[#c8b97a]/10 rounded-full flex items-center justify-center mx-auto mb-6">
-          <svg className="w-10 h-10 text-[#c8b97a] animate-spin" fill="none" viewBox="0 0 24 24">
+        <div className="w-20 h-20 bg-[#C8A96E]/10 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg className="w-10 h-10 text-[#C8A96E] animate-spin" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
           </svg>
@@ -167,11 +167,11 @@ export default function AnalysisResultsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="bg-[#1E1E1E]/60 rounded-xl p-4">
             <p className="text-[#a0a0b8] text-xs mb-1">Energy Score</p>
-            <p className="text-[#c8b97a] text-2xl font-bold">{analysis.energyScore}<span className="text-[#a0a0b8] text-base">/10</span></p>
+            <p className="text-[#C8A96E] text-2xl font-bold">{analysis.energyScore}<span className="text-[#a0a0b8] text-base">/10</span></p>
           </div>
           <div className="bg-[#1E1E1E]/60 rounded-xl p-4">
             <p className="text-[#a0a0b8] text-xs mb-1">Ideal BPM</p>
-            <p className="text-[#c8b97a] text-2xl font-bold">{(analysis.bpmRange as { min: number; max: number }).min}–{(analysis.bpmRange as { min: number; max: number }).max}</p>
+            <p className="text-[#C8A96E] text-2xl font-bold">{(analysis.bpmRange as { min: number; max: number }).min}–{(analysis.bpmRange as { min: number; max: number }).max}</p>
           </div>
           <div className="bg-[#1E1E1E]/60 rounded-xl p-4 col-span-2">
             <p className="text-[#a0a0b8] text-xs mb-2">Detected Mood</p>

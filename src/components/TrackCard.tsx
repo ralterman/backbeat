@@ -31,7 +31,7 @@ const GENRE_COLORS: Record<string, string> = {
 
 function ScoreBadge({ score }: { score: number }) {
   const color =
-    score >= 80 ? "text-[#c8b97a]" : score >= 60 ? "text-[#A89B6A]" : "text-[#9090aa]";
+    score >= 80 ? "text-[#C8A96E]" : score >= 60 ? "text-[#A89B6A]" : "text-[#9090aa]";
   return (
     <div className="text-right">
       <span className={`text-2xl font-bold ${color}`}>{score}</span>
@@ -56,8 +56,8 @@ export function TrackCard({
 
   return (
     <div
-      className={`bg-[#141414] border rounded-xl p-5 transition-all hover:border-[#c8b97a]/50 ${
-        isBestMatch ? "border-[#c8b97a] shadow-[#c8b97a]/10 shadow-lg" : "border-[#2A2A2A]"
+      className={`bg-[#141414] border rounded-xl p-5 transition-all hover:border-[#C8A96E]/50 ${
+        isBestMatch ? "border-[#C8A96E] shadow-[#C8A96E]/10 shadow-lg" : "border-[#2A2A2A]"
       }`}
     >
       <div className="flex items-start justify-between mb-3 gap-2">
@@ -69,7 +69,7 @@ export function TrackCard({
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-white font-semibold truncate">{track.title}</h3>
               {isBestMatch && (
-                <span className="bg-[#c8b97a] text-[#0a0a0f] text-xs px-2 py-0.5 rounded-full font-bold flex-shrink-0">
+                <span className="bg-[#C8A96E] text-[#0a0a0f] text-xs px-2 py-0.5 rounded-full font-bold flex-shrink-0">
                   Best Match
                 </span>
               )}
@@ -123,7 +123,7 @@ export function TrackCard({
             onClick={() => onPreview(track)}
             className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border ${
               isPreviewActive
-                ? "bg-[#c8b97a]/20 border-[#c8b97a]/60 text-[#c8b97a]"
+                ? "bg-[#C8A96E]/20 border-[#C8A96E]/60 text-[#C8A96E]"
                 : "bg-[#1E1E1E] hover:bg-[#2A2A2A] text-white border-[#2A2A2A]"
             }`}
           >

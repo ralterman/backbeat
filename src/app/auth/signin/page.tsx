@@ -122,7 +122,7 @@ function SignInForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full bg-[#1E1E1E] border border-[#2A2A2A] text-white placeholder-[#6a6a8a] rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#c8b97a] focus:border-transparent"
+                className="w-full bg-[#1E1E1E] border border-[#2A2A2A] text-white placeholder-[#6a6a8a] rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#C8A96E] focus:border-transparent"
               />
             </div>
             <button
@@ -158,7 +158,7 @@ export default function SignInPage() {
 
         <p className="text-center text-[#a0a0b8] text-sm mt-6">
           Don&apos;t have an account?{" "}
-          <Link href="/auth/signup" className="text-[#c8b97a] hover:text-white transition-colors">
+          <Link href="/auth/signup" className="text-[#C8A96E] hover:text-white transition-colors">
             Sign up free
           </Link>
         </p>

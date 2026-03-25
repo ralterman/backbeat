@@ -21,8 +21,8 @@ function formatFileSize(bytes: number) {
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PENDING: { label: "Pending", color: "text-[#a0a0b8] bg-[#1E1E1E]" },
-  UPLOADING: { label: "Uploading", color: "text-[#c8b97a] bg-[#c8b97a]/10" },
-  UPLOADED: { label: "Uploaded", color: "text-[#c8b97a] bg-[#c8b97a]/10" },
+  UPLOADING: { label: "Uploading", color: "text-[#C8A96E] bg-[#C8A96E]/10" },
+  UPLOADED: { label: "Uploaded", color: "text-[#C8A96E] bg-[#C8A96E]/10" },
   ANALYZING: { label: "Analyzing...", color: "text-yellow-400 bg-yellow-900/20" },
   ANALYZED: { label: "Analyzed", color: "text-green-400 bg-green-900/20" },
   FAILED: { label: "Failed", color: "text-red-400 bg-red-900/20" },
@@ -88,12 +88,12 @@ export default async function DashboardPage({
               <div className="flex-1 sm:w-24 bg-[#1E1E1E] rounded-full h-1.5">
                 <div
                   className={`h-1.5 rounded-full transition-all ${
-                    usagePct >= 80 ? "bg-red-500" : usagePct >= 60 ? "bg-yellow-500" : "bg-[#c8b97a]"
+                    usagePct >= 80 ? "bg-red-500" : usagePct >= 60 ? "bg-yellow-500" : "bg-[#C8A96E]"
                   }`}
                   style={{ width: `${Math.min(100, usagePct)}%` }}
                 />
               </div>
-              <span className="text-[#c8b97a] text-sm font-medium whitespace-nowrap">{remaining}/{limit}</span>
+              <span className="text-[#C8A96E] text-sm font-medium whitespace-nowrap">{remaining}/{limit}</span>
             </div>
             <p className="text-xs text-[#6a6a8a] mt-0.5">analyses remaining</p>
           </div>
@@ -181,7 +181,7 @@ export default async function DashboardPage({
                     {video.status === "ANALYZED" && (
                       <Link
                         href={`/analyze/${video.id}`}
-                        className="text-[#c8b97a] hover:text-white text-sm font-medium transition-colors flex-shrink-0"
+                        className="text-[#C8A96E] hover:text-white text-sm font-medium transition-colors flex-shrink-0"
                       >
                         View results →
                       </Link>

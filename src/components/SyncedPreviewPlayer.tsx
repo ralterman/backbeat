@@ -153,7 +153,7 @@ export function SyncedPreviewPlayer({
   const progress = effectiveDuration > 0 ? currentTime / effectiveDuration : 0;
 
   return (
-    <div className="bg-[#141414] border border-[#c8b97a]/30 rounded-2xl overflow-hidden shadow-2xl shadow-black/60">
+    <div className="bg-[#141414] border border-[#C8A96E]/30 rounded-2xl overflow-hidden shadow-2xl shadow-black/60">
       <audio ref={audioRef} src={track.preview_url} preload="auto" />
 
       {/* Video — aspect ratio adapts to portrait or landscape */}
@@ -173,7 +173,7 @@ export function SyncedPreviewPlayer({
 
         {!ready && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-            <svg className="w-8 h-8 text-[#c8b97a] animate-spin" fill="none" viewBox="0 0 24 24">
+            <svg className="w-8 h-8 text-[#C8A96E] animate-spin" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
             </svg>
@@ -199,8 +199,8 @@ export function SyncedPreviewPlayer({
       <div className="p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-[#c8b97a]/10 border border-[#c8b97a]/20 flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 text-[#c8b97a]" fill="currentColor" viewBox="0 0 24 24">
+            <div className="w-9 h-9 rounded-lg bg-[#C8A96E]/10 border border-[#C8A96E]/20 flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-[#C8A96E]" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
               </svg>
             </div>
@@ -209,7 +209,7 @@ export function SyncedPreviewPlayer({
               <p className="text-[#a0a0b8] text-xs truncate">
                 {track.artist} · {track.bpm} BPM
                 {hasBestSection && (
-                  <span className="text-[#c8b97a]/80 ml-1.5">· best section selected</span>
+                  <span className="text-[#C8A96E]/80 ml-1.5">· best section selected</span>
                 )}
               </p>
             </div>
@@ -233,9 +233,9 @@ export function SyncedPreviewPlayer({
             step={0.1}
             value={currentTime}
             onChange={(e) => seekTo(parseFloat(e.target.value))}
-            className="w-full h-1.5 rounded-full accent-[#c8b97a] cursor-pointer"
+            className="w-full h-1.5 rounded-full accent-[#C8A96E] cursor-pointer"
             style={{
-              background: `linear-gradient(to right, #c8b97a ${progress * 100}%, #2A2A2A ${progress * 100}%)`,
+              background: `linear-gradient(to right, #C8A96E ${progress * 100}%, #2A2A2A ${progress * 100}%)`,
             }}
           />
           <div className="flex justify-between text-[10px] text-[#6a6a8a] mt-1">
@@ -264,13 +264,13 @@ export function SyncedPreviewPlayer({
           </button>
 
           <div className="flex items-center gap-2 flex-1">
-            <svg className="w-4 h-4 text-[#c8b97a] flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-[#C8A96E] flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
             </svg>
             <input
               type="range" min={0} max={1} step={0.01} value={trackVolume}
               onChange={(e) => setTrackVolume(parseFloat(e.target.value))}
-              className="flex-1 h-1 accent-[#c8b97a] cursor-pointer"
+              className="flex-1 h-1 accent-[#C8A96E] cursor-pointer"
               aria-label="Track volume"
             />
             <span className="text-[#6a6a8a] text-[10px] w-7 text-right">

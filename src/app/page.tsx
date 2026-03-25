@@ -108,7 +108,7 @@ export default function LandingPage() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-28 text-center">
           <div className="flex justify-center mb-8">
-            <span className="flex items-center gap-3 text-[#c8b97a] font-semibold" style={{ fontSize: "26px" }}>
+            <span className="flex items-center gap-3 text-[#C8A96E] font-semibold" style={{ fontSize: "26px" }}>
               <svg width="48" height="48" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <circle cx="18" cy="18" r="16" fill="#C8A96E" fillOpacity="0.12" />
                 <circle cx="18" cy="18" r="15.5" stroke="#C8A96E" strokeWidth="1.25" />
@@ -174,7 +174,7 @@ export default function LandingPage() {
             {features.map((feature, i) => (
               <div
                 key={i}
-                className="bg-[#141414] border border-[#2A2A2A] rounded-xl p-6 hover:border-[#c8b97a]/30 transition-colors"
+                className="bg-[#141414] border border-[#2A2A2A] rounded-xl p-6 hover:border-[#C8A96E]/30 transition-colors"
               >
                 <div className="w-12 h-12 bg-[#C8A96E]/8 rounded-xl flex items-center justify-center mb-4">
                   {feature.icon}
@@ -213,7 +213,7 @@ export default function LandingPage() {
               },
             ].map((item) => (
               <div key={item.step} className="text-center">
-                <div className="w-12 h-12 bg-[#c8b97a] rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-12 h-12 bg-[#C8A96E] rounded-full flex items-center justify-center mx-auto mb-4">
                   <span className="text-[#0a0a0f] font-bold text-sm">{item.step}</span>
                 </div>
                 <h3 className="text-white font-semibold text-lg mb-2">{item.title}</h3>

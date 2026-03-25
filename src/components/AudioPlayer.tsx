@@ -114,7 +114,7 @@ export function AudioPlayer({ track, isFreeUser = false, onClose }: AudioPlayerP
           data={track.waveform_data}
           progress={progress}
           color="#2A2A2A"
-          activeColor="#c8b97a"
+          activeColor="#C8A96E"
           height={40}
         />
       </div>
@@ -160,7 +160,7 @@ export function AudioPlayer({ track, isFreeUser = false, onClose }: AudioPlayerP
               setVolume(v);
               if (audioRef.current) audioRef.current.volume = v;
             }}
-            className="flex-1 h-1 accent-[#c8b97a]"
+            className="flex-1 h-1 accent-[#C8A96E]"
             aria-label="Volume"
           />
         </div>

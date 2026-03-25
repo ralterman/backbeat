@@ -28,9 +28,9 @@ export function UsageCounter() {
   return (
     <div className="flex items-center gap-2">
       <div className="flex items-center gap-1.5">
-        <div className={`w-2 h-2 rounded-full ${isEmpty ? "bg-red-400" : isLow ? "bg-yellow-400" : "bg-[#c8b97a]"}`} />
+        <div className={`w-2 h-2 rounded-full ${isEmpty ? "bg-red-400" : isLow ? "bg-yellow-400" : "bg-[#C8A96E]"}`} />
         <span className="text-sm text-[#a0a0b8]">
-          <span className={`font-semibold ${isEmpty ? "text-red-400" : isLow ? "text-yellow-400" : "text-[#c8b97a]"}`}>
+          <span className={`font-semibold ${isEmpty ? "text-red-400" : isLow ? "text-yellow-400" : "text-[#C8A96E]"}`}>
             {usage.remaining}
           </span>
           <span className="text-[#6a6a8a]">/{usage.limit}</span>

@@ -192,7 +192,7 @@ export function DemoWidget() {
           <button
             onClick={toggleMute}
             title={muted ? "Play ambient audio" : "Mute"}
-            className="ml-1 text-[#c8b97a] opacity-30 hover:opacity-90 transition-opacity"
+            className="ml-1 text-[#C8A96E] opacity-30 hover:opacity-90 transition-opacity"
           >
             {muted ? (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -221,7 +221,7 @@ export function DemoWidget() {
               style={{
                 aspectRatio: "9/16",
                 background: "#0a0a0a",
-                border: `1px solid rgba(200,185,122,${borderGlow})`,
+                border: `1px solid rgba(200,169,110,${borderGlow})`,
                 transition: "border-color 0.6s",
               }}
             >
@@ -257,7 +257,7 @@ export function DemoWidget() {
                         transform: `translateY(${(1 - fileDrop) * -36}px)`,
                       }}
                     >
-                      <svg className="w-9 h-9 text-[#c8b97a]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-9 h-9 text-[#C8A96E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                           d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                       </svg>
@@ -281,14 +281,14 @@ export function DemoWidget() {
                 <div className="absolute inset-0 bg-black/30 rounded-xl flex flex-col justify-end p-4" style={{ zIndex: 1 }}>
                   <div className="flex justify-between text-[10px] mb-1.5">
                     <span className="text-[#a0a0b8]">demo-video.mp4</span>
-                    <span className="text-[#c8b97a] font-semibold">{uploadPct}%</span>
+                    <span className="text-[#C8A96E] font-semibold">{uploadPct}%</span>
                   </div>
                   <div className="h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full"
                       style={{
                         width: `${uploadPct}%`,
-                        background: "linear-gradient(90deg, #c8b97a, #e8d09a)",
+                        background: "linear-gradient(90deg, #C8A96E, #e8d09a)",
                       }}
                     />
                   </div>
@@ -310,7 +310,7 @@ export function DemoWidget() {
                   {[0.4, 0.8, 1.0, 0.6, 0.9, 0.5, 0.75].map((base, i) => (
                     <div
                       key={i}
-                      className="w-1 rounded-full bg-[#c8b97a]/50"
+                      className="w-1 rounded-full bg-[#C8A96E]/50"
                       style={{ height: `${(0.3 + 0.7 * base * ((Math.sin(t / 180 + i * 0.65) + 1) / 2)) * 100}%` }}
                     />
                   ))}
@@ -338,21 +338,21 @@ export function DemoWidget() {
                         className="h-full rounded-full"
                         style={{
                           width: aVis[i] ? `${(item.value as number) * 10}%` : "0%",
-                          background: "linear-gradient(90deg,#c8b97a,#e8d09a)",
+                          background: "linear-gradient(90deg,#C8A96E,#e8d09a)",
                           transition: "width 0.9s ease-out",
                         }}
                       />
                     </div>
-                    <span className="text-[#c8b97a] text-[10px] font-bold shrink-0">{item.value}/10</span>
+                    <span className="text-[#C8A96E] text-[10px] font-bold shrink-0">{item.value}/10</span>
                   </div>
                 ) : item.type === "tags" ? (
                   <div className="flex flex-wrap gap-1">
                     {(item.value as readonly string[]).map((tag) => (
-                      <span key={tag} className="text-[#c8b97a] text-[9px] bg-[#c8b97a]/10 rounded px-1.5 py-0.5">{tag}</span>
+                      <span key={tag} className="text-[#C8A96E] text-[9px] bg-[#C8A96E]/10 rounded px-1.5 py-0.5">{tag}</span>
                     ))}
                   </div>
                 ) : item.type === "mood" ? (
-                  <span className="text-[#c8b97a] text-[11px] font-semibold">{item.value as string}</span>
+                  <span className="text-[#C8A96E] text-[11px] font-semibold">{item.value as string}</span>
                 ) : (
                   <span className="text-white text-[11px]">{item.value as string}</span>
                 )}
@@ -367,8 +367,8 @@ export function DemoWidget() {
                 style={{
                   opacity: tkVis[i] ? 1 : 0,
                   transform: tkVis[i] ? "translateX(0)" : "translateX(14px)",
-                  background: highlighted && i === 0 ? "rgba(200,185,122,0.10)" : "rgba(30,30,30,0.6)",
-                  border: highlighted && i === 0 ? "1px solid rgba(200,185,122,0.32)" : "1px solid transparent",
+                  background: highlighted && i === 0 ? "rgba(200,169,110,0.10)" : "rgba(30,30,30,0.6)",
+                  border: highlighted && i === 0 ? "1px solid rgba(200,169,110,0.32)" : "1px solid transparent",
                   transition: "opacity 0.35s ease-out, transform 0.35s ease-out, background 0.5s, border-color 0.5s",
                 }}
               >
@@ -377,7 +377,7 @@ export function DemoWidget() {
                     <div className="flex items-center gap-1 mb-0.5">
                       <span className="text-white text-[11px] font-medium truncate">{track.name}</span>
                       {i === 0 && highlighted && (
-                        <span className="shrink-0 text-[8px] bg-[#c8b97a]/15 text-[#c8b97a] border border-[#c8b97a]/25 rounded px-1 py-px">
+                        <span className="shrink-0 text-[8px] bg-[#C8A96E]/15 text-[#C8A96E] border border-[#C8A96E]/25 rounded px-1 py-px">
                           Best match
                         </span>
                       )}
@@ -387,7 +387,7 @@ export function DemoWidget() {
                         {waveH.slice(0, 10).map((h, wi) => (
                           <div
                             key={wi}
-                            className="w-0.5 rounded-full bg-[#c8b97a]/65"
+                            className="w-0.5 rounded-full bg-[#C8A96E]/65"
                             style={{ height: `${h * 100}%` }}
                           />
                         ))}
@@ -398,7 +398,7 @@ export function DemoWidget() {
                   </div>
                   <span
                     className="text-[11px] font-bold ml-2 shrink-0"
-                    style={{ color: i === 0 ? "#c8b97a" : i === 1 ? "#9a8a55" : "#9090aa" }}
+                    style={{ color: i === 0 ? "#C8A96E" : i === 1 ? "#9a8a55" : "#9090aa" }}
                   >
                     {tkScores[i]}%
                   </span>
@@ -414,18 +414,18 @@ export function DemoWidget() {
           style={{
             opacity: showExport ? 1 : 0,
             pointerEvents: showExport ? "auto" : "none",
-            background: exportDone ? "rgba(34,197,94,0.12)" : "rgba(200,185,122,0.10)",
+            background: exportDone ? "rgba(34,197,94,0.12)" : "rgba(200,169,110,0.10)",
             border: exportDone
               ? "1px solid rgba(34,197,94,0.4)"
-              : `1px solid rgba(200,185,122,${pulseBorder})`,
-            color: exportDone ? "#4ade80" : "#c8b97a",
+              : `1px solid rgba(200,169,110,${pulseBorder})`,
+            color: exportDone ? "#4ade80" : "#C8A96E",
             transition: "opacity 0.4s, background 0.4s, border-color 0.3s, color 0.4s",
           }}
         >
           {exportSpin ? (
             <span className="flex items-center justify-center gap-2">
               <span
-                className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#c8b97a] border-t-transparent"
+                className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#C8A96E] border-t-transparent"
                 style={{ animation: "spin 0.7s linear infinite" }}
               />
               Exporting...
