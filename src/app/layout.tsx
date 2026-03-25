@@ -4,6 +4,7 @@ import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import { Navbar } from "@/components/Navbar";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,6 +29,7 @@ export default function RootLayout({
           <Navbar />
           <main className="flex-1">{children}</main>
           <Analytics />
+          <SpeedInsights />
           <footer className="border-t border-[#1E1E1E] py-8 text-center text-[#9090aa] text-sm">
             <p>© {new Date().getFullYear()} Backbeat. AI-powered music for video creators.</p>
           </footer>
