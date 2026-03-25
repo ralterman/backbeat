@@ -2,28 +2,9 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { UsageCounter } from "./UsageCounter";
-
-function BackbeatLogo({ size = 36 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 36 36"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-label="Backbeat logo"
-    >
-      <circle cx="18" cy="18" r="16" fill="#C8A96E" fillOpacity="0.12" />
-      <circle cx="18" cy="18" r="15.5" stroke="#C8A96E" strokeWidth="1.25" />
-      <circle cx="18" cy="18" r="11.5" stroke="#C8A96E" strokeWidth="0.6" strokeOpacity="0.35" />
-      <circle cx="18" cy="18" r="8" stroke="#C8A96E" strokeWidth="0.6" strokeOpacity="0.2" />
-      <circle cx="18" cy="18" r="5.5" fill="#C8A96E" />
-      <polygon points="16.5,15.5 16.5,20.5 21.5,18" fill="#0A0A0A" />
-    </svg>
-  );
-}
 
 export function Navbar() {
   const { data: session, status } = useSession();
@@ -33,9 +14,15 @@ export function Navbar() {
     <nav className="border-b border-[#1E1E1E] bg-[#0A0A0A]/90 backdrop-blur-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 flex-shrink-0" onClick={() => setMenuOpen(false)}>
-          <BackbeatLogo size={34} />
-          <span className="text-white font-bold text-xl tracking-tight">Backbeat</span>
+        <Link href="/" className="flex items-center flex-shrink-0" onClick={() => setMenuOpen(false)}>
+          <Image
+            src="/brand/logo-horizontal.svg"
+            alt="Backbeat"
+            width={127}
+            height={36}
+            priority
+            className="h-9 w-auto"
+          />
         </Link>
 
         {/* Desktop nav */}

@@ -2,27 +2,9 @@
 
 import React, { Suspense, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-
-function BackbeatLogo({ size = 40 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 36 36"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <circle cx="18" cy="18" r="16" fill="#C8A96E" fillOpacity="0.12" />
-      <circle cx="18" cy="18" r="15.5" stroke="#C8A96E" strokeWidth="1.25" />
-      <circle cx="18" cy="18" r="11.5" stroke="#C8A96E" strokeWidth="0.6" strokeOpacity="0.35" />
-      <circle cx="18" cy="18" r="8" stroke="#C8A96E" strokeWidth="0.6" strokeOpacity="0.2" />
-      <circle cx="18" cy="18" r="5.5" fill="#C8A96E" />
-      <polygon points="16.5,15.5 16.5,20.5 21.5,18" fill="#0A0A0A" />
-    </svg>
-  );
-}
 
 function SignInForm() {
   const searchParams = useSearchParams();
@@ -144,9 +126,15 @@ export default function SignInPage() {
     <div className="min-h-screen flex items-center justify-center py-12 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2.5 mb-6">
-            <BackbeatLogo size={40} />
-            <span className="text-white font-bold text-2xl tracking-tight">Backbeat</span>
+          <Link href="/" className="inline-flex mb-6">
+            <Image
+              src="/brand/logo-horizontal.svg"
+              alt="Backbeat"
+              width={156}
+              height={44}
+              priority
+              className="h-11 w-auto"
+            />
           </Link>
           <h1 className="text-2xl font-bold text-white">Welcome back</h1>
           <p className="text-[#a0a0b8] mt-2">Sign in to your account</p>

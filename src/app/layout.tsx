@@ -15,6 +15,32 @@ export const metadata: Metadata = {
   title: "Backbeat — AI Music for Video Creators",
   description:
     "Upload your video and get AI-powered background music recommendations. Find the perfect track in seconds.",
+  icons: {
+    icon: "/brand/favicon-gold.png",
+    shortcut: "/brand/favicon-gold.png",
+    apple: "/brand/favicon-gold.png",
+  },
+  openGraph: {
+    title: "Backbeat — AI Music for Video Creators",
+    description:
+      "Upload your video and get AI-powered background music recommendations. Find the perfect track in seconds.",
+    images: [
+      {
+        url: "/brand/logo-stacked.png",
+        width: 4434,
+        height: 3801,
+        alt: "Backbeat",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Backbeat — AI Music for Video Creators",
+    description:
+      "Upload your video and get AI-powered background music recommendations. Find the perfect track in seconds.",
+    images: ["/brand/logo-stacked.png"],
+  },
 };
 
 export default function RootLayout({
