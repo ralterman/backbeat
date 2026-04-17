@@ -137,7 +137,7 @@ export default function AnalysisResultsPage() {
         </div>
         <h2 className="text-white text-2xl font-bold mb-2">Analyzing your video...</h2>
         <p className="text-[#a0a0b8]">
-          Claude is extracting frames and identifying the perfect music for your content. This takes 10–30 seconds.
+          Backbeat AI is extracting frames and identifying the perfect music for your content. This takes 10–30 seconds.
         </p>
       </div>
     );

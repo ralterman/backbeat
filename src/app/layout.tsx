@@ -18,6 +18,8 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://backbeat.me"),
+  alternates: { canonical: "https://backbeat.me" },
   title: "Backbeat — AI Music for Video Creators",
   description:
     "Upload your video and get AI-powered background music recommendations. Find the perfect track in seconds.",
