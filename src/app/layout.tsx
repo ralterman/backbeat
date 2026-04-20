@@ -35,10 +35,10 @@ export const metadata: Metadata = {
     url: "https://backbeat.me",
     images: [
       {
-        url: "/brand/logo-stacked.png",
-        width: 4434,
-        height: 3801,
-        alt: "Backbeat",
+        url: "/brand/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Backbeat — Find the Perfect Music for Your Videos",
       },
     ],
     type: "website",
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
     title: "Backbeat — Find the Perfect Music for Your Videos",
     description:
       "Upload your video and get AI-powered background music recommendations. Find the perfect track in seconds.",
-    images: ["/brand/logo-stacked.png"],
+    images: ["/brand/og-image.png"],
   },
 };
 
