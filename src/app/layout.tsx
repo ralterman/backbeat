@@ -20,7 +20,7 @@ const cormorant = Cormorant_Garamond({
 export const metadata: Metadata = {
   metadataBase: new URL("https://backbeat.me"),
   alternates: { canonical: "https://backbeat.me" },
-  title: "Backbeat — AI Music for Video Creators",
+  title: "Backbeat — Find the Perfect Music for Your Videos",
   description:
     "Upload your video and get AI-powered background music recommendations. Find the perfect track in seconds.",
   icons: {
@@ -29,9 +29,10 @@ export const metadata: Metadata = {
     apple: "/brand/favicon-gold.png",
   },
   openGraph: {
-    title: "Backbeat — AI Music for Video Creators",
+    title: "Backbeat — Find the Perfect Music for Your Videos",
     description:
       "Upload your video and get AI-powered background music recommendations. Find the perfect track in seconds.",
+    url: "https://backbeat.me",
     images: [
       {
         url: "/brand/logo-stacked.png",
@@ -44,7 +45,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Backbeat — AI Music for Video Creators",
+    title: "Backbeat — Find the Perfect Music for Your Videos",
     description:
       "Upload your video and get AI-powered background music recommendations. Find the perfect track in seconds.",
     images: ["/brand/logo-stacked.png"],
