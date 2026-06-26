@@ -63,13 +63,18 @@ export async function POST(req: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const subscription = event.data.object as any;
       const priceId = subscription.items?.data?.[0]?.price?.id;
-      const plan: SubscriptionPlan = PRICE_TO_PLAN[priceId] ?? "FREE";
 
       const stripeStatus = subscription.status as string;
       let dbStatus: SubscriptionStatus = "ACTIVE";
       if (stripeStatus === "past_due") dbStatus = "PAST_DUE";
       else if (stripeStatus === "canceled") dbStatus = "CANCELED";
       else if (stripeStatus === "trialing") dbStatus = "TRIALING";
+
+      // If the subscription is now canceled, force plan to FREE regardless of
+      // which price ID is still attached — prevents paid quota leaking on
+      // subscriptions that updated→canceled rather than going straight to deleted.
+      const plan: SubscriptionPlan =
+        dbStatus === "CANCELED" ? "FREE" : (PRICE_TO_PLAN[priceId] ?? "FREE");
 
       await prisma.subscription.updateMany({
         where: { stripeSubscriptionId: subscription.id },

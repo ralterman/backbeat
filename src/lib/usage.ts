@@ -17,7 +17,8 @@ function currentMonth(): string {
 
 export async function getUserPlan(userId: string): Promise<SubscriptionPlan> {
   const sub = await prisma.subscription.findUnique({ where: { userId } });
-  return sub?.plan ?? "FREE";
+  if (!sub || sub.status === "CANCELED") return "FREE";
+  return sub.plan;
 }
 
 /**

@@ -97,12 +97,19 @@ export default async function DashboardPage({
             </div>
             <p className="text-xs text-[#6a6a8a] mt-0.5">analyses remaining</p>
           </div>
-          {plan === "FREE" && (
+          {plan === "FREE" ? (
             <Link
               href="/pricing"
               className="bg-white hover:bg-[#f0f0f0] text-[#0a0a0f] text-sm px-4 py-2.5 rounded-xl transition-colors font-bold whitespace-nowrap"
             >
               Upgrade
+            </Link>
+          ) : (
+            <Link
+              href="/api/stripe/portal"
+              className="border border-[#2A2A2A] hover:border-[#9090aa] text-[#a0a0b8] hover:text-white text-sm px-4 py-2.5 rounded-xl transition-colors font-medium whitespace-nowrap"
+            >
+              Manage billing
             </Link>
           )}
         </div>
