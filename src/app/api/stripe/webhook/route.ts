@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
+import {
+  sendUpgradeEmail,
+  sendCancellationEmail,
+  sendPlanChangeEmail,
+} from "@/lib/email";
 
 type SubscriptionPlan = "FREE" | "CREATOR" | "TEAM";
 type SubscriptionStatus = "ACTIVE" | "PAST_DUE" | "CANCELED" | "TRIALING";
@@ -55,6 +60,17 @@ export async function POST(req: NextRequest) {
             status: "ACTIVE",
           },
         });
+
+        // Send upgrade confirmation email
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { email: true },
+        });
+        if (user?.email) {
+          await sendUpgradeEmail(user.email, stripePlan).catch((err) =>
+            console.error("[webhook] upgrade email failed:", err)
+          );
+        }
       }
       break;
     }
@@ -70,16 +86,21 @@ export async function POST(req: NextRequest) {
       else if (stripeStatus === "canceled") dbStatus = "CANCELED";
       else if (stripeStatus === "trialing") dbStatus = "TRIALING";
 
-      // If the subscription is now canceled, force plan to FREE regardless of
-      // which price ID is still attached — prevents paid quota leaking on
-      // subscriptions that updated→canceled rather than going straight to deleted.
-      const plan: SubscriptionPlan =
+      // If canceled, force plan to FREE regardless of price ID still attached.
+      const newPlan: SubscriptionPlan =
         dbStatus === "CANCELED" ? "FREE" : (PRICE_TO_PLAN[priceId] ?? "FREE");
+
+      // Fetch current state before updating so we can detect plan changes.
+      const existing = await prisma.subscription.findFirst({
+        where: { stripeSubscriptionId: subscription.id },
+        include: { user: { select: { email: true } } },
+      });
+      const oldPlan = existing?.plan ?? "FREE";
 
       await prisma.subscription.updateMany({
         where: { stripeSubscriptionId: subscription.id },
         data: {
-          plan,
+          plan: newPlan,
           status: dbStatus,
           currentPeriodStart: subscription.current_period_start
             ? new Date(subscription.current_period_start * 1000)
@@ -89,16 +110,46 @@ export async function POST(req: NextRequest) {
             : undefined,
         },
       });
+
+      const email = existing?.user?.email;
+      if (email) {
+        if (dbStatus === "CANCELED") {
+          const periodEnd = subscription.current_period_end
+            ? new Date(subscription.current_period_end * 1000)
+            : null;
+          await sendCancellationEmail(email, periodEnd).catch((err) =>
+            console.error("[webhook] cancellation email failed:", err)
+          );
+        } else if (newPlan !== oldPlan) {
+          await sendPlanChangeEmail(email, oldPlan, newPlan).catch((err) =>
+            console.error("[webhook] plan change email failed:", err)
+          );
+        }
+      }
       break;
     }
 
     case "customer.subscription.deleted": {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const subscription = event.data.object as any;
+
+      // Fetch before update to get the user's email.
+      const existing = await prisma.subscription.findFirst({
+        where: { stripeSubscriptionId: subscription.id },
+        include: { user: { select: { email: true } } },
+      });
+
       await prisma.subscription.updateMany({
         where: { stripeSubscriptionId: subscription.id },
         data: { plan: "FREE", status: "CANCELED" },
       });
+
+      const email = existing?.user?.email;
+      if (email) {
+        await sendCancellationEmail(email, null).catch((err) =>
+          console.error("[webhook] cancellation email failed:", err)
+        );
+      }
       break;
     }
 
