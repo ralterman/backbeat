@@ -250,13 +250,10 @@ export default function AnalysisResultsPage() {
       {/* Generated track options */}
       {(analysis.generatedAudioUrl || analysis.generatedAudioUrl2) ? (
         <>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-white">Choose Your Track</h2>
-            <span className="text-[#a0a0b8] text-sm">Two styles generated — pick the one that fits</span>
-          </div>
+          <h2 className="text-xl font-bold text-white mb-6">Choose Your Track</h2>
 
-          {/* Two cards: side-by-side on ≥md, stacked on mobile */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+          {/* Two cards: stacked on mobile, side-by-side on ≥md */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             {analysis.generatedAudioUrl && (
               <GeneratedTrackResult
                 audioUrl={analysis.generatedAudioUrl}
