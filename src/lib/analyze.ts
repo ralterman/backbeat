@@ -43,7 +43,7 @@ export async function analyzeVideoFrames(
   );
 
   const response = await getClient().messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-5",
     max_tokens: 1024,
     messages: [
       {

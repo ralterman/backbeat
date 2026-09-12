@@ -1,3 +1,5 @@
+export const maxDuration = 60; // allow up to 60 s for S3 fetch + FFmpeg + Claude
+
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -14,6 +16,19 @@ import * as path from "path";
 import * as os from "os";
 
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
+
+// Leave a 5 s buffer before maxDuration so we can write the FAILED status
+// and return a clean 504 rather than being killed mid-flight by Vercel.
+const ANALYSIS_TIMEOUT_MS = 55_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(message)), ms)
+    ),
+  ]);
+}
 
 async function streamToBuffer(stream: Readable): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -99,19 +114,27 @@ export async function POST(req: NextRequest) {
     data: { status: "ANALYZING" },
   });
 
+  const isTimeout = (err: unknown): boolean =>
+    err instanceof Error && err.message.includes("timed out");
+
   try {
-    const s3Obj = await s3Client.send(
-      new GetObjectCommand({ Bucket: video.s3Bucket, Key: video.s3Key })
+    const analysisResult = await withTimeout(
+      (async () => {
+        const s3Obj = await s3Client.send(
+          new GetObjectCommand({ Bucket: video.s3Bucket, Key: video.s3Key })
+        );
+        const videoBuffer = await streamToBuffer(s3Obj.Body as Readable);
+
+        const frames = await extractFrames(videoBuffer, videoId);
+        if (frames.length === 0) {
+          throw new Error("No frames could be extracted from the video");
+        }
+
+        return analyzeVideoFrames(frames);
+      })(),
+      ANALYSIS_TIMEOUT_MS,
+      "Analysis timed out — please try a shorter video"
     );
-    const videoBuffer = await streamToBuffer(s3Obj.Body as Readable);
-
-    const frames = await extractFrames(videoBuffer, videoId);
-
-    if (frames.length === 0) {
-      throw new Error("No frames could be extracted from the video");
-    }
-
-    const analysisResult = await analyzeVideoFrames(frames);
 
     const plan = await getUserPlan(userId);
     const topN = plan === "FREE" ? 3 : 5;
@@ -145,14 +168,15 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ status: "completed", analysis, matches: topTracks });
   } catch (err) {
+    const message = err instanceof Error ? err.message : "Analysis failed. Please try again.";
     await prisma.video.update({
       where: { id: videoId },
       data: { status: "FAILED" },
     });
     console.error("Analysis error:", err);
     return NextResponse.json(
-      { error: "Analysis failed. Please try again." },
-      { status: 500 }
+      { error: message },
+      { status: isTimeout(err) ? 504 : 500 }
     );
   }
 }

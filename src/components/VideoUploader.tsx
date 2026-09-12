@@ -8,22 +8,50 @@ type UploadStatus = "idle" | "uploading" | "analyzing" | "done" | "error";
 const ACCEPTED_TYPES = ["video/mp4", "video/quicktime", "video/x-msvideo", "video/x-matroska"];
 const MAX_SIZE = 500 * 1024 * 1024;
 
+async function getApiErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const data = (await res.json()) as { error?: string };
+    if (typeof data.error === "string" && data.error.trim().length > 0) {
+      return data.error;
+    }
+  } catch {
+    // Ignore JSON parse errors and fall back to status text.
+  }
+  return res.statusText || fallback;
+}
+
 export function VideoUploader() {
   const router = useRouter();
+  const [isInitializing, setIsInitializing] = useState(true);
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  React.useEffect(() => {
+    const id = requestAnimationFrame(() => setIsInitializing(false));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   const handleFile = useCallback(
     async (file: File) => {
       setError(null);
 
+      if (status === "uploading" || status === "analyzing") return;
+
+      if (file.size === 0) {
+        setStatus("error");
+        setError("This file appears to be empty. Please upload a valid video.");
+        return;
+      }
+
       if (!ACCEPTED_TYPES.includes(file.type)) {
+        setStatus("error");
         setError("Unsupported file type. Please upload MP4, MOV, AVI, or MKV.");
         return;
       }
       if (file.size > MAX_SIZE) {
+        setStatus("error");
         setError("File too large. Maximum size is 500MB.");
         return;
       }
@@ -44,8 +72,9 @@ export function VideoUploader() {
         });
 
         if (!presignRes.ok) {
-          const data = await presignRes.json();
-          throw new Error(data.error ?? "Failed to get upload URL");
+          throw new Error(
+            await getApiErrorMessage(presignRes, "Failed to get upload URL")
+          );
         }
 
         const { presignedUrl, videoId } = await presignRes.json();
@@ -63,18 +92,21 @@ export function VideoUploader() {
         });
 
         if (!analyzeRes.ok) {
-          const data = await analyzeRes.json();
-          throw new Error(data.error ?? "Analysis failed");
+          throw new Error(await getApiErrorMessage(analyzeRes, "Analysis failed"));
         }
 
         setStatus("done");
         router.push(`/analyze/${videoId}`);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Upload failed. Please try again.");
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Upload failed due to an unexpected error. Please try again."
+        );
         setStatus("error");
       }
     },
-    [router]
+    [router, status]
   );
 
   const onDrop = useCallback(
@@ -90,9 +122,30 @@ export function VideoUploader() {
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) handleFile(file);
+    // Allow selecting the same file again after an error.
+    e.target.value = "";
   };
 
   const isLoading = status === "uploading" || status === "analyzing";
+
+  if (isInitializing) {
+    return (
+      <div className="w-full">
+        <div className="relative border-2 border-dashed border-[#2A2A2A] rounded-2xl p-12 bg-[#141414]/60 animate-pulse">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-[#1E1E1E]" />
+            <div className="space-y-2 text-center">
+              <div className="h-5 w-44 bg-[#1E1E1E] rounded mx-auto" />
+              <div className="h-4 w-72 bg-[#1E1E1E] rounded mx-auto" />
+            </div>
+            <div className="w-full max-w-xs mt-3">
+              <div className="h-2 w-full bg-[#1E1E1E] rounded-full" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">

@@ -37,6 +37,9 @@ export function Navbar() {
               <Link href="/pricing" className="text-[#a0a0b8] hover:text-white text-sm transition-colors">
                 Pricing
               </Link>
+              <Link href="/account" className="text-[#a0a0b8] hover:text-white text-sm transition-colors">
+                Account
+              </Link>
               <div className="flex items-center gap-2">
                 {session.user.image && (
                   <img
@@ -108,6 +111,9 @@ export function Navbar() {
               </Link>
               <Link href="/pricing" className="text-[#a0a0b8] hover:text-white text-sm transition-colors" onClick={() => setMenuOpen(false)}>
                 Pricing
+              </Link>
+              <Link href="/account" className="text-[#a0a0b8] hover:text-white text-sm transition-colors" onClick={() => setMenuOpen(false)}>
+                Account
               </Link>
               <button
                 onClick={() => { setMenuOpen(false); signOut({ callbackUrl: "/" }); }}
