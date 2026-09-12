@@ -75,14 +75,28 @@ export async function generateMusicFromVideo(
   const description = buildMusicDescription(analysis);
   const tags = buildMusicTags(analysis);
 
+  // Guard: confirm we actually have video bytes before building the request
+  if (!videoBuffer || videoBuffer.length === 0) {
+    throw new Error("Video buffer is empty — S3 fetch may have failed");
+  }
+  console.log(`[elevenlabs] video buffer size: ${videoBuffer.length}b, mimeType: ${mimeType}`);
+  console.log(`[elevenlabs] description (${description.length} chars): ${description.slice(0, 120)}...`);
+  console.log(`[elevenlabs] tags: ${tags.join(", ")}`);
+
   const formData = new FormData();
   // Buffer.from() creates a fresh copy backed by a plain ArrayBuffer (never SharedArrayBuffer)
   const freshBuf = Buffer.from(videoBuffer);
   const videoBlob = new Blob([freshBuf.buffer as ArrayBuffer], { type: mimeType || "video/mp4" });
-  formData.append("videos[]", videoBlob, "video.mp4");
+
+  // ElevenLabs expects the field name 'videos' (not 'videos[]')
+  formData.append("videos", videoBlob, "video.mp4");
   formData.append("description", description);
-  tags.forEach((tag) => formData.append("tags[]", tag));
+  // Tags use plain repeated keys, not 'tags[]'
+  tags.forEach((tag) => formData.append("tags", tag));
   formData.append("model_id", "music_v2");
+
+  console.log(`[elevenlabs] videoBlob size: ${videoBlob.size}b`);
+  console.log("[elevenlabs] calling video-to-music API...");
 
   const response = await fetch(
     "https://api.elevenlabs.io/v1/music/video-to-music?output_format=mp3_44100_192",
