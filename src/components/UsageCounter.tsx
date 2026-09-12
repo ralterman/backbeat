@@ -8,6 +8,7 @@ interface UsageData {
   limit: number;
   remaining: number;
   plan: string;
+  isAdmin?: boolean;
 }
 
 export function UsageCounter() {
@@ -21,6 +22,19 @@ export function UsageCounter() {
   }, []);
 
   if (!usage) return null;
+
+  // Admin accounts have unlimited analyses — show a simple badge instead of a counter.
+  if (usage.isAdmin) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <div className="w-2 h-2 rounded-full bg-[#C8A96E]" />
+        <span className="text-sm text-[#a0a0b8]">
+          <span className="font-semibold text-[#C8A96E]">Unlimited</span>
+          <span className="text-[#a0a0b8] ml-1 hidden sm:inline">analyses</span>
+        </span>
+      </div>
+    );
+  }
 
   const isLow = usage.remaining <= 1;
   const isEmpty = usage.remaining === 0;

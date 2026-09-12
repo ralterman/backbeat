@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { VideoUploader } from "@/components/VideoUploader";
 import { getUsageCount, getUsageLimit, getUserPlan } from "@/lib/usage";
+import { isAdminEmail } from "@/lib/admin";
 import Link from "next/link";
 
 function formatDate(date: Date) {
@@ -39,6 +40,7 @@ export default async function DashboardPage({
   }
 
   const userId = session.user.id;
+  const admin = isAdminEmail(session.user.email);
   const params = await searchParams;
   const upgraded = params.upgraded === "true";
 
@@ -82,35 +84,51 @@ export default async function DashboardPage({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl px-4 py-2.5 flex-1 sm:flex-none">
-            <p className="text-xs text-[#a0a0b8] mb-1 capitalize">{plan.toLowerCase()} plan</p>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 sm:w-24 bg-[#1E1E1E] rounded-full h-1.5">
-                <div
-                  className={`h-1.5 rounded-full transition-all ${
-                    usagePct >= 80 ? "bg-red-500" : usagePct >= 60 ? "bg-yellow-500" : "bg-[#C8A96E]"
-                  }`}
-                  style={{ width: `${Math.min(100, usagePct)}%` }}
-                />
+          {admin ? (
+            /* Admin: show unlimited badge, no upgrade button */
+            <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl px-4 py-2.5 flex-1 sm:flex-none">
+              <p className="text-xs text-[#a0a0b8] mb-1">Admin</p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 sm:w-24 bg-[#1E1E1E] rounded-full h-1.5">
+                  <div className="h-1.5 rounded-full bg-[#C8A96E] w-full" />
+                </div>
+                <span className="text-[#C8A96E] text-sm font-medium whitespace-nowrap">∞</span>
               </div>
-              <span className="text-[#C8A96E] text-sm font-medium whitespace-nowrap">{remaining}/{limit}</span>
+              <p className="text-xs text-[#6a6a8a] mt-0.5">unlimited analyses</p>
             </div>
-            <p className="text-xs text-[#6a6a8a] mt-0.5">analyses remaining</p>
-          </div>
-          {plan === "FREE" ? (
-            <Link
-              href="/pricing"
-              className="bg-white hover:bg-[#f0f0f0] text-[#0a0a0f] text-sm px-4 py-2.5 rounded-xl transition-colors font-bold whitespace-nowrap"
-            >
-              Upgrade
-            </Link>
           ) : (
-            <Link
-              href="/api/stripe/portal"
-              className="border border-[#2A2A2A] hover:border-[#9090aa] text-[#a0a0b8] hover:text-white text-sm px-4 py-2.5 rounded-xl transition-colors font-medium whitespace-nowrap"
-            >
-              Manage billing
-            </Link>
+            <>
+              <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl px-4 py-2.5 flex-1 sm:flex-none">
+                <p className="text-xs text-[#a0a0b8] mb-1 capitalize">{plan.toLowerCase()} plan</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 sm:w-24 bg-[#1E1E1E] rounded-full h-1.5">
+                    <div
+                      className={`h-1.5 rounded-full transition-all ${
+                        usagePct >= 80 ? "bg-red-500" : usagePct >= 60 ? "bg-yellow-500" : "bg-[#C8A96E]"
+                      }`}
+                      style={{ width: `${Math.min(100, usagePct)}%` }}
+                    />
+                  </div>
+                  <span className="text-[#C8A96E] text-sm font-medium whitespace-nowrap">{remaining}/{limit}</span>
+                </div>
+                <p className="text-xs text-[#6a6a8a] mt-0.5">analyses remaining</p>
+              </div>
+              {plan === "FREE" ? (
+                <Link
+                  href="/pricing"
+                  className="bg-white hover:bg-[#f0f0f0] text-[#0a0a0f] text-sm px-4 py-2.5 rounded-xl transition-colors font-bold whitespace-nowrap"
+                >
+                  Upgrade
+                </Link>
+              ) : (
+                <Link
+                  href="/api/stripe/portal"
+                  className="border border-[#2A2A2A] hover:border-[#9090aa] text-[#a0a0b8] hover:text-white text-sm px-4 py-2.5 rounded-xl transition-colors font-medium whitespace-nowrap"
+                >
+                  Manage billing
+                </Link>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -118,7 +136,7 @@ export default async function DashboardPage({
       {/* Upload zone */}
       <div className="mb-10">
         <h2 className="text-lg font-semibold text-white mb-4">Analyze a new video</h2>
-        {remaining > 0 ? (
+        {(remaining > 0 || admin) ? (
           <VideoUploader />
         ) : (
           <div className="border-2 border-dashed border-[#2A2A2A] rounded-2xl p-12 text-center">

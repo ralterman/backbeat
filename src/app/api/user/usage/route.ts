@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getUsageCount, getUsageLimit, getUserPlan } from "@/lib/usage";
+import { isAdminEmail } from "@/lib/admin";
 
 export async function GET() {
   const session = await auth();
@@ -9,6 +10,8 @@ export async function GET() {
   }
 
   const userId = session.user.id;
+  const admin = isAdminEmail(session.user.email);
+
   const [used, limit, plan] = await Promise.all([
     getUsageCount(userId, "analysis"),
     getUsageLimit(userId),
@@ -20,5 +23,6 @@ export async function GET() {
     limit,
     remaining: Math.max(0, limit - used),
     plan,
+    isAdmin: admin,
   });
 }
