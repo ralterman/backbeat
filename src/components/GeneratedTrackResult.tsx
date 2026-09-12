@@ -8,10 +8,10 @@ interface GeneratedTrackResultProps {
   description: string;
   tags: string[];
   videoId: string;
-  optionLabel?: string;   // e.g. "Option A" / "Option B"
+  optionLabel?: string;             // e.g. "Option A" / "Option B"
   isFreeUser?: boolean;
-  onExport?: () => void;
-  isExporting?: boolean;
+  /** Called on export click; must return the presigned download URL on success. */
+  onExport?: () => Promise<string>;
 }
 
 export function GeneratedTrackResult({
@@ -22,14 +22,16 @@ export function GeneratedTrackResult({
   optionLabel,
   isFreeUser = false,
   onExport,
-  isExporting = false,
 }: GeneratedTrackResultProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [playing, setPlaying]           = useState(false);
+  const [progress, setProgress]         = useState(0);
+  const [duration, setDuration]         = useState(0);
+  const [currentTime, setCurrentTime]   = useState(0);
+  const [isExporting, setIsExporting]   = useState(false);
+  const [exportComplete, setExportComplete] = useState(false);
+  const [downloadUrl, setDownloadUrl]   = useState<string | null>(null);
 
   // Keep the muted video in sync with the audio element.
   useEffect(() => {
@@ -82,6 +84,20 @@ export function GeneratedTrackResult({
     audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
   };
 
+  const handleExportClick = async () => {
+    if (!onExport) return;
+    setIsExporting(true);
+    try {
+      const url = await onExport();
+      setDownloadUrl(url);
+      setExportComplete(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Export failed");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const fmt = (s: number) => {
     if (!s || !isFinite(s)) return "0:00";
     return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -90,7 +106,7 @@ export function GeneratedTrackResult({
   return (
     <div className="bg-[#141414] border border-[#C8A96E]/40 rounded-2xl overflow-hidden shadow-[#C8A96E]/10 shadow-lg flex flex-col">
 
-      {/* Portrait video preview — phone-screen proportions, centered */}
+      {/* Portrait video preview */}
       {videoUrl && (
         <div className="flex justify-center pt-5 px-5">
           <div className="w-full max-w-[220px] aspect-[9/16] rounded-xl overflow-hidden bg-black">
@@ -180,28 +196,53 @@ export function GeneratedTrackResult({
           </div>
         </div>
 
-        {/* Export — pinned to bottom */}
-        <button
-          onClick={onExport}
-          disabled={isExporting}
-          className="mt-auto w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-[#f0f0f0] disabled:bg-[#1E1E1E] disabled:text-[#9090aa] text-[#0a0a0f] rounded-xl text-sm font-bold transition-colors"
-        >
-          {isExporting ? (
-            <>
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Exporting...
-            </>
+        {/* Export button — or success state when export is done */}
+        <div className="mt-auto">
+          {exportComplete && downloadUrl ? (
+            /* Success state — same size/position as the export button */
+            <div className="w-full flex items-center justify-between gap-3 px-4 py-2.5 bg-green-900/30 border border-green-700/40 rounded-xl">
+              <div className="flex items-center gap-2 min-w-0">
+                <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-green-300 text-sm font-medium truncate">Export complete!</span>
+              </div>
+              <a
+                href={downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-shrink-0 flex items-center gap-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download
+              </a>
+            </div>
           ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              {isFreeUser ? "Export (with Watermark)" : "Export Video"}
-            </>
+            <button
+              onClick={handleExportClick}
+              disabled={isExporting}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-[#f0f0f0] disabled:bg-[#1E1E1E] disabled:text-[#9090aa] text-[#0a0a0f] rounded-xl text-sm font-bold transition-colors"
+            >
+              {isExporting ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  {isFreeUser ? "Export (with Watermark)" : "Export Video"}
+                </>
+              )}
+            </button>
           )}
-        </button>
+        </div>
       </div>
     </div>
   );

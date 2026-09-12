@@ -38,9 +38,6 @@ export default function AnalysisResultsPage() {
   const [data, setData] = useState<AnalysisResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Track which option is currently exporting (null = neither)
-  const [exportingOption, setExportingOption] = useState<1 | 2 | null>(null);
-  const [exportResult, setExportResult] = useState<{ exportId: string; downloadUrl: string } | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [isFreeUser, setIsFreeUser] = useState(true);
 
@@ -75,33 +72,26 @@ export default function AnalysisResultsPage() {
       .catch(() => {});
   }, []);
 
-  const handleExport = async (option: 1 | 2) => {
-    setExportingOption(option);
-    setExportResult(null);
-    try {
-      const res = await fetch("/api/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoId, audioOption: option }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error ?? "Export failed");
-      }
-      const result = await res.json();
-      setExportResult({ exportId: result.exportId, downloadUrl: result.downloadUrl });
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Export failed");
-    } finally {
-      setExportingOption(null);
+  // Returns the presigned download URL on success; throws on failure.
+  // Each card manages its own loading + success state internally.
+  const handleExport = async (option: 1 | 2): Promise<string> => {
+    const res = await fetch("/api/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ videoId, audioOption: option }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error ?? "Export failed");
     }
+    const result = await res.json();
+    return result.downloadUrl as string;
   };
 
   const handleRegenerate = async () => {
     setRegenerating(true);
     setLoading(true);
     setData(null);
-    setExportResult(null);
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
@@ -227,26 +217,6 @@ export default function AnalysisResultsPage() {
         </div>
       </div>
 
-      {/* Export success banner */}
-      {exportResult && (
-        <div className="mb-6 bg-green-900/20 border border-green-700/30 rounded-xl px-5 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
-            </svg>
-            <p className="text-green-300 text-sm font-medium">Export complete! Your video is ready.</p>
-          </div>
-          <a
-            href={`/export/${exportResult.exportId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-green-600 hover:bg-green-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors flex-shrink-0"
-          >
-            Download
-          </a>
-        </div>
-      )}
-
       {/* Generated track options */}
       {(analysis.generatedAudioUrl || analysis.generatedAudioUrl2) ? (
         <>
@@ -264,7 +234,6 @@ export default function AnalysisResultsPage() {
                 optionLabel="Option A"
                 isFreeUser={isFreeUser}
                 onExport={() => handleExport(1)}
-                isExporting={exportingOption === 1}
               />
             )}
 
@@ -278,7 +247,6 @@ export default function AnalysisResultsPage() {
                 optionLabel="Option B"
                 isFreeUser={isFreeUser}
                 onExport={() => handleExport(2)}
-                isExporting={exportingOption === 2}
               />
             )}
           </div>
