@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
-const PROTECTED_ROUTES = ["/dashboard", "/analyze"];
+const PROTECTED_ROUTES = ["/dashboard", "/analyze", "/export", "/account"];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
