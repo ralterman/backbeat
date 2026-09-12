@@ -13,7 +13,7 @@ export function CookiePreferencesButton() {
       onClick={reset}
       className="hover:text-[#C8A96E] transition-colors cursor-pointer bg-transparent border-none text-inherit text-sm font-inherit"
     >
-      Cookie preferences
+      Cookie Preferences
     </button>
   );
 }

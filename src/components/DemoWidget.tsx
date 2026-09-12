@@ -2,36 +2,38 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const LOOP = 24000; // total loop duration ms
+const LOOP = 26000; // total loop duration ms
 
-const TRACKS = [
-  { name: "Neon Noir",         artist: "Chrome Theory",    genre: "Synthwave",              bpm: 128, score: 97 },
-  { name: "City Never Sleeps", artist: "Urban Wave",       genre: "Synthwave",              bpm: 124, score: 92 },
-  { name: "Midnight Drive",    artist: "The Grid",         genre: "Electronic",             bpm: 135, score: 86 },
-  { name: "Downtown Rush",     artist: "Neon Atlas",       genre: "Cinematic / Upbeat",     bpm: 122, score: 79 },
-  { name: "Pulse of the City", artist: "Urban Circuit",    genre: "Electronic",             bpm: 119, score: 71 },
-];
+const OPTIONS = [
+  {
+    label: "Option A",
+    description: "Driving synthwave backdrop — builds with the city's kinetic energy",
+    tags: ["synthwave", "driving", "energetic"],
+  },
+  {
+    label: "Option B",
+    description: "Cinematic orchestral swell — lifts the narrative arc of the footage",
+    tags: ["orchestral", "cinematic", "atmospheric"],
+  },
+] as const;
 
 const ANALYSIS = [
-  { label: "Mood",       value: "Energetic & cinematic",                        type: "mood" },
-  { label: "Energy",     value: 9,                                              type: "bar"  },
-  { label: "Pace",       value: "Fast",                                         type: "text" },
+  { label: "Mood",       value: "Energetic & cinematic",                         type: "mood" },
+  { label: "Energy",     value: 9,                                               type: "bar"  },
+  { label: "Pace",       value: "Fast",                                          type: "text" },
   { label: "Scene",      value: ["Urban", "Driving", "Night city", "Timelapse"], type: "tags" },
-  { label: "BPM range",  value: "120–140",                                      type: "text" },
+  { label: "BPM range",  value: "120–140",                                       type: "text" },
 ] as const;
 
 function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
 function norm(v: number, lo: number, hi: number)   { return clamp((v - lo) / (hi - lo), 0, 1); }
 
 export function DemoWidget() {
-  const [t, setT]       = useState(0);
-  const [muted, setMuted] = useState(true);
-  const rafRef   = useRef<number>(0);
-  const startRef = useRef<number | null>(null);
-  const audioElRef  = useRef<HTMLAudioElement | null>(null);
-  const videoRef    = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const musicActiveRef = useRef(false);
+  const [t, setT]          = useState(0);
+  const rafRef             = useRef<number>(0);
+  const startRef           = useRef<number | null>(null);
+  const videoRef           = useRef<HTMLVideoElement>(null);
+  const containerRef       = useRef<HTMLDivElement>(null);
 
   // ── Video: show first frame immediately, then play continuously ───────────
   useEffect(() => {
@@ -39,8 +41,6 @@ export function DemoWidget() {
     if (!vid) return;
     vid.muted = true;
 
-    // Seek to 0.1s as soon as metadata loads — browser renders that frame
-    // immediately even before play() is called, so no black screen on load.
     const onMeta = () => { vid.currentTime = 0.1; };
     vid.addEventListener("loadedmetadata", onMeta, { once: true });
 
@@ -51,7 +51,6 @@ export function DemoWidget() {
         document.addEventListener("touchstart", retry, { once: true });
       });
 
-    // If metadata already loaded (cached), seek + play immediately
     if (vid.readyState >= 1) {
       vid.currentTime = 0.1;
       tryPlay();
@@ -73,88 +72,14 @@ export function DemoWidget() {
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  // ── Derived state ─────────────────────────────────────────────────────────
-  const phase = t < 2000 ? 1 : t < 5000 ? 2 : t < 9000 ? 3 : t < 15000 ? 4 : t < 18000 ? 5 : t < 21000 ? 6 : 7;
-
-  // Phase 1 – file drop
-  const fileDrop     = norm(t, 400, 750);           // slides in 400→750 ms
-  const fileVisible  = t > 400 && t < 2000;
-
-  // Phase 2 – upload progress
-  const uploadPct    = Math.round(clamp(norm(t, 2100, 3900) * 100, 0, 100));
-  const thumbVisible = t > 3900;
-
-  // Phase 3 – analysis fade-in (right panel), 5 items × 600 ms apart
-  const aVis = ANALYSIS.map((_, i) => t > 5000 + i * 600);
-
-  // Phase 4 – track slide-in
-  const tkVis    = TRACKS.map((_, i) => t > 9000 + i * 1100);
-  const tkScores = TRACKS.map((tr, i) => Math.round(tr.score * norm(t, 9000 + i * 1100, 9000 + i * 1100 + 900)));
-
-  // Phase 5 – highlight + export
-  const highlighted  = t > 15000 && t < 21000;
-  const showExport   = t > 15200 && t < 21000;
-  const pulseBorder  = highlighted && !showExport ? 0.25 + 0.15 * Math.sin(t / 400) : 0.25;
-
-  // Phase 6 – export animation
-  const exportSpin   = t > 18000 && t < 19600;
-  const exportDone   = t > 19600 && t < 21000;
-
-  // Fade in / fade out envelope
-  const opacity = t < 600 ? t / 600 : t > 21000 ? clamp(1 - (t - 21000) / 1800, 0, 1) : 1;
-
-  // Animated border glow (phase 3–6)
-  const borderGlow = phase >= 3 && phase <= 6 ? 0.15 + 0.12 * Math.sin(t / 900) : 0;
-
-  // Waveform heights (12 bars, live-animated from t)
-  const waveH = Array.from({ length: 12 }, (_, i) =>
-    0.22 + 0.65 * ((Math.sin(t / 270 + i * 0.75) + 1) / 2)
-  );
-
-  // ── Phase-gated music: plays only while tracks are shown (t 9000–21000) ──
-  useEffect(() => {
-    const audio = audioElRef.current;
-    if (!audio) return;
-    const inMusicZone = t >= 9000 && t <= 21000;
-    const shouldPlay = !muted && inMusicZone;
-    if (shouldPlay === musicActiveRef.current) return;
-    musicActiveRef.current = shouldPlay;
-    if (shouldPlay) {
-      audio.volume = 0.75;
-      audio.play().catch(() => {});
-    } else {
-      audio.pause();
-      audio.currentTime = 0;
-    }
-  }, [t, muted]);
-
-  // ── Silence when tab hidden ───────────────────────────────────────────────
-  useEffect(() => {
-    const onVisibility = () => {
-      const audio = audioElRef.current;
-      if (!audio) return;
-      if (document.hidden) {
-        audio.pause();
-      } else if (!muted && musicActiveRef.current) {
-        audio.play().catch(() => {});
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [muted]);
-
-  // ── Reset loop + mute when demo scrolls out of view ──────────────────────
+  // ── Reset loop when demo scrolls out of view ──────────────────────────────
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting) {
-          const audio = audioElRef.current;
-          if (audio) { audio.pause(); audio.currentTime = 0; }
-          musicActiveRef.current = false;
-          startRef.current = null; // resets animation loop to t=0
-          setMuted(true);
+          startRef.current = null;
         }
       },
       { threshold: 0.1 }
@@ -163,21 +88,48 @@ export function DemoWidget() {
     return () => observer.disconnect();
   }, []);
 
-  // ── Stop audio on unmount / page navigation ───────────────────────────────
-  useEffect(() => {
-    return () => {
-      const audio = audioElRef.current;
-      if (audio) { audio.pause(); audio.currentTime = 0; }
-    };
-  }, []);
+  // ── Derived state ─────────────────────────────────────────────────────────
+  // Phase 1 (0–2s):   file drop
+  // Phase 2 (2–5s):   upload + analyzing
+  // Phase 3 (5–10s):  analysis results
+  // Phase 4 (10–24s): generating → option cards → selected → export
+  // Phase 7 (24s+):   fade out before loop
+  const phase = t < 2000 ? 1 : t < 5000 ? 2 : t < 10000 ? 3 : t < 24000 ? 4 : 7;
 
-  // ── Audio ─────────────────────────────────────────────────────────────────
-  const toggleMute = () => setMuted((prev) => !prev);
+  // Phase 1 – file drop
+  const fileDrop    = norm(t, 400, 750);
+  const fileVisible = t > 400 && t < 2000;
+
+  // Phase 2 – upload progress
+  const uploadPct = Math.round(clamp(norm(t, 2100, 3900) * 100, 0, 100));
+
+  // Phase 3 – analysis fade-in (5 items × 600 ms apart)
+  const aVis = ANALYSIS.map((_, i) => t > 5000 + i * 600);
+
+  // Phase 4 – option cards
+  const optVis: [boolean, boolean] = [t > 12000, t > 14500];
+
+  // Phase 4 – selection + export
+  const optASelected = t > 17000 && t < 23000;
+  const showExport   = t > 17200 && t < 23000;
+  const pulseBorder  = optASelected ? 0.25 + 0.15 * Math.sin(t / 400) : 0.25;
+  const exportSpin   = t > 21000 && t < 22500;
+  const exportDone   = t > 22500 && t < 25000;
+
+  // Fade envelope
+  const opacity = t < 600 ? t / 600 : t > 24000 ? clamp(1 - (t - 24000) / 2000, 0, 1) : 1;
+
+  // Animated border glow (phases 3–4)
+  const borderGlow = phase >= 3 && phase <= 4 ? 0.15 + 0.12 * Math.sin(t / 900) : 0;
+
+  // Waveform heights (for selected option playback indicator)
+  const waveH = Array.from({ length: 10 }, (_, i) =>
+    0.22 + 0.65 * ((Math.sin(t / 270 + i * 0.75) + 1) / 2)
+  );
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div ref={containerRef} className="block mt-10 sm:mt-16 max-w-3xl mx-auto px-3 sm:px-0" style={{ opacity }}>
-      <audio ref={audioElRef} src="https://archive.org/download/DWK312/Centz_-_14_-_Neon_Noir.mp3" preload="auto" loop />
       <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-3 sm:p-6 shadow-2xl shadow-black/60">
 
         {/* Window chrome */}
@@ -186,35 +138,13 @@ export function DemoWidget() {
           <div className="w-3 h-3 rounded-full bg-yellow-400/50" />
           <div className="w-3 h-3 rounded-full bg-green-400/50" />
           <div className="flex-1 bg-[#1E1E1E] rounded-lg h-5 ml-2 flex items-center px-3">
-            <span className="text-[#9090aa] text-[10px]">backbeat.me/dashboard</span>
+            <span className="text-[#9090aa] text-[10px]">backbeat.me/analyze</span>
           </div>
-          {/* Mute toggle */}
-          <button
-            onClick={toggleMute}
-            title={muted ? "Play ambient audio" : "Mute"}
-            className="ml-1 text-[#C8A96E] opacity-30 hover:opacity-90 transition-opacity"
-          >
-            {muted ? (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M15.536 8.464a5 5 0 010 7.072M17.95 5.05a10 10 0 010 13.9" />
-              </svg>
-            )}
-          </button>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
 
-          {/* ── LEFT PANEL — portrait video column ── */}
+          {/* ── LEFT PANEL — portrait video ── */}
           <div className="flex flex-col gap-2 sm:flex-shrink-0 w-[180px] sm:w-[300px] mx-auto sm:mx-0">
             <div
               className="rounded-xl overflow-hidden relative w-full"
@@ -241,12 +171,12 @@ export function DemoWidget() {
                   height: "100%",
                   objectFit: "cover",
                   zIndex: 0,
-                  opacity: phase === 1 ? 0.25 : phase >= 2 && phase <= 6 ? 1 : 0,
+                  opacity: phase === 1 ? 0.25 : phase >= 2 && phase <= 4 ? 1 : 0,
                   transition: "opacity 0.8s ease",
                 }}
               />
 
-              {/* Phase 1: upload zone overlay (sits on top of dimmed video) */}
+              {/* Phase 1: upload zone overlay */}
               {phase === 1 && (
                 <div className="absolute inset-0 border-2 border-dashed border-[#2A2A2A] rounded-xl flex flex-col items-center justify-center" style={{ zIndex: 1 }}>
                   {fileVisible ? (
@@ -295,15 +225,13 @@ export function DemoWidget() {
                 </div>
               )}
             </div>
-
           </div>
 
           {/* ── RIGHT PANEL ── */}
-          {/* h-[340px] on mobile exceeds max content (measured 331px scrollHeight),
-              locking the widget height so phase transitions never shift the page */}
+          {/* h-[340px] on mobile locks widget height so phase transitions don't shift the page */}
           <div className="sm:flex-1 space-y-1.5 overflow-hidden min-w-0 h-[340px] sm:h-auto">
 
-            {/* Analyzing animation */}
+            {/* Phase 2 — analyzing waveform */}
             {phase === 2 && (
               <div className="flex flex-col items-center justify-center min-h-[120px] h-full gap-2 py-6">
                 <div className="flex items-end gap-0.5 h-6">
@@ -319,7 +247,7 @@ export function DemoWidget() {
               </div>
             )}
 
-            {/* Analysis results */}
+            {/* Phase 3 — analysis results */}
             {phase === 3 && ANALYSIS.map((item, i) => (
               <div
                 key={i}
@@ -359,56 +287,100 @@ export function DemoWidget() {
               </div>
             ))}
 
-            {/* Track list */}
-            {phase >= 4 && TRACKS.map((track, i) => (
-              <div
-                key={i}
-                className="rounded-lg px-2.5 py-1.5"
-                style={{
-                  opacity: tkVis[i] ? 1 : 0,
-                  transform: tkVis[i] ? "translateX(0)" : "translateX(14px)",
-                  background: highlighted && i === 0 ? "rgba(200,169,110,0.10)" : "rgba(30,30,30,0.6)",
-                  border: highlighted && i === 0 ? "1px solid rgba(200,169,110,0.32)" : "1px solid transparent",
-                  transition: "opacity 0.35s ease-out, transform 0.35s ease-out, background 0.5s, border-color 0.5s",
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <span className="text-white text-[11px] font-medium truncate">{track.name}</span>
-                      {i === 0 && highlighted && (
-                        <span className="shrink-0 text-[8px] bg-[#C8A96E]/15 text-[#C8A96E] border border-[#C8A96E]/25 rounded px-1 py-px">
-                          Best match
-                        </span>
+            {/* Phase 4 — generating + option cards */}
+            {phase >= 4 && (
+              <div className="space-y-1.5">
+
+                {/* "Generating…" shown before Option A appears */}
+                {!optVis[0] && (
+                  <div className="flex flex-col items-center justify-center h-[140px] gap-2">
+                    <div className="flex items-end gap-0.5 h-5">
+                      {[0.5, 0.9, 0.7, 1.0, 0.6, 0.8, 0.4].map((base, i) => (
+                        <div
+                          key={i}
+                          className="w-1 rounded-full bg-[#C8A96E]/50"
+                          style={{ height: `${(0.25 + 0.75 * base * ((Math.sin(t / 220 + i * 0.8) + 1) / 2)) * 100}%` }}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-[#a0a0b8] text-[11px]">Generating your soundtrack...</span>
+                    <span className="text-[#9090aa] text-[10px]">This takes about 30–60 seconds</span>
+                  </div>
+                )}
+
+                {/* Option A */}
+                {optVis[0] && (
+                  <div
+                    className="rounded-lg px-2.5 py-2.5"
+                    style={{
+                      opacity: 1,
+                      background: optASelected ? "rgba(200,169,110,0.10)" : "rgba(30,30,30,0.6)",
+                      border: optASelected
+                        ? `1px solid rgba(200,169,110,${pulseBorder})`
+                        : "1px solid rgba(42,42,42,0.8)",
+                      transition: "background 0.5s, border-color 0.3s",
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[#9090aa] text-[9px] uppercase tracking-wide font-semibold">Option A</span>
+                        {optASelected && (
+                          <span className="text-[8px] bg-[#C8A96E]/15 text-[#C8A96E] border border-[#C8A96E]/25 rounded px-1 py-px">
+                            Selected
+                          </span>
+                        )}
+                      </div>
+                      {optASelected && (
+                        <div className="flex items-end gap-px h-3 shrink-0">
+                          {waveH.map((h, wi) => (
+                            <div
+                              key={wi}
+                              className="w-0.5 rounded-full bg-[#C8A96E]/65"
+                              style={{ height: `${h * 100}%` }}
+                            />
+                          ))}
+                        </div>
                       )}
                     </div>
-                    {highlighted && i === 0 ? (
-                      <div className="flex items-end gap-px h-3">
-                        {waveH.slice(0, 10).map((h, wi) => (
-                          <div
-                            key={wi}
-                            className="w-0.5 rounded-full bg-[#C8A96E]/65"
-                            style={{ height: `${h * 100}%` }}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-[#9090aa] text-[9px]">{track.genre} · {track.bpm} BPM</span>
-                    )}
+                    <p className="text-[#d0d0d8] text-[9px] leading-snug mb-1.5">
+                      {OPTIONS[0].description}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {OPTIONS[0].tags.map((tag) => (
+                        <span key={tag} className="text-[#a0a0b8] text-[8px] bg-[#1A1A1A] rounded px-1.5 py-0.5 capitalize">{tag}</span>
+                      ))}
+                    </div>
                   </div>
-                  <span
-                    className="text-[11px] font-bold ml-2 shrink-0"
-                    style={{ color: i === 0 ? "#C8A96E" : i === 1 ? "#9a8a55" : "#9090aa" }}
+                )}
+
+                {/* Option B */}
+                {optVis[1] && (
+                  <div
+                    className="rounded-lg px-2.5 py-2.5"
+                    style={{
+                      background: "rgba(30,30,30,0.6)",
+                      border: "1px solid rgba(42,42,42,0.8)",
+                    }}
                   >
-                    {tkScores[i]}%
-                  </span>
-                </div>
+                    <div className="mb-1">
+                      <span className="text-[#9090aa] text-[9px] uppercase tracking-wide font-semibold">Option B</span>
+                    </div>
+                    <p className="text-[#d0d0d8] text-[9px] leading-snug mb-1.5">
+                      {OPTIONS[1].description}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {OPTIONS[1].tags.map((tag) => (
+                        <span key={tag} className="text-[#a0a0b8] text-[8px] bg-[#1A1A1A] rounded px-1.5 py-0.5 capitalize">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            ))}
+            )}
           </div>
         </div>
 
-        {/* Export button — always in DOM so it reserves space; visible via opacity */}
+        {/* Export button — always in DOM to reserve space; shown via opacity */}
         <button
           className="w-full rounded-lg text-[12px] font-semibold mt-2 h-[34px] overflow-hidden flex items-center justify-center"
           style={{
@@ -433,7 +405,7 @@ export function DemoWidget() {
           ) : exportDone ? (
             "✓  Ready to download — city-timelapse-backbeat.mp4"
           ) : (
-            "Export with this track"
+            "Export Option A"
           )}
         </button>
       </div>

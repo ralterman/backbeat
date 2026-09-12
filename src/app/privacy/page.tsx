@@ -10,7 +10,7 @@ export default function PrivacyPage() {
         <p className="text-sm text-[#9090aa] mb-10">Effective Date: March 25, 2026</p>
 
         <Section title="1. Introduction">
-          <p>Backbeat (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) operates the website backbeat.me and provides an AI-powered video music matching service (&ldquo;Service&rdquo;). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Service. Please read this carefully. If you disagree with its terms, please discontinue use of the Service.</p>
+          <p>Backbeat (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) operates the website backbeat.me and provides an AI-powered video music generation service (&ldquo;Service&rdquo;). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Service. Please read this carefully. If you disagree with its terms, please discontinue use of the Service.</p>
         </Section>
 
         <Section title="2. Information We Collect">
@@ -39,7 +39,7 @@ export default function PrivacyPage() {
           <p>We use the information we collect to:</p>
           <ul>
             <li>Provide, operate, and maintain the Service</li>
-            <li>Process your video uploads and generate AI-powered music recommendations</li>
+            <li>Process your video uploads and generate AI-powered music for your video</li>
             <li>Process payments and manage your subscription</li>
             <li>Send transactional emails such as magic link authentication and receipts</li>
             <li>Respond to your comments, questions, and requests</li>
@@ -61,6 +61,7 @@ export default function PrivacyPage() {
             <li><strong>Amazon Web Services</strong> — cloud storage and infrastructure</li>
             <li><strong>Supabase</strong> — database hosting</li>
             <li><strong>Anthropic, PBC</strong> — AI analysis (video frames may be processed by Anthropic&apos;s Claude API; Anthropic&apos;s privacy policy governs their handling of this data)</li>
+            <li><strong>ElevenLabs (elevenlabs.io)</strong> — Your video file is sent to ElevenLabs to generate a custom music soundtrack. ElevenLabs processes the video solely for music generation purposes. See ElevenLabs&apos; privacy policy at elevenlabs.io/privacy.</li>
             <li><strong>Resend</strong> — transactional email delivery</li>
             <li><strong>Vercel</strong> — website hosting</li>
           </ul>

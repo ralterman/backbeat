@@ -3,8 +3,8 @@ import Link from "next/link";
 
 const FREE_FEATURES = [
   { text: "1 free video analysis, lifetime", included: true },
-  { text: "Top 3 track recommendations", included: true },
-  { text: "15-second audio previews", included: true },
+  { text: "2 AI-generated soundtrack options", included: true },
+  { text: "Full preview synced to your video", included: true },
   { text: "Export with watermark", included: true },
   { text: "No-watermark exports", included: false },
   { text: "Priority processing", included: false },
@@ -13,8 +13,8 @@ const FREE_FEATURES = [
 
 const CREATOR_FEATURES = [
   { text: "30 video analyses per month", included: true },
-  { text: "Top 5 track recommendations", included: true },
-  { text: "Full-length audio previews", included: true },
+  { text: "2 AI-generated soundtrack options", included: true },
+  { text: "Full preview synced to your video", included: true },
   { text: "No-watermark exports", included: true },
   { text: "Priority processing", included: true },
   { text: "Email support", included: true },
@@ -23,8 +23,8 @@ const CREATOR_FEATURES = [
 
 const TEAM_FEATURES = [
   { text: "Unlimited video analyses", included: true },
-  { text: "Top 5 track recommendations", included: true },
-  { text: "Full-length audio previews", included: true },
+  { text: "2 AI-generated soundtrack options", included: true },
+  { text: "Full preview synced to your video", included: true },
   { text: "No-watermark exports", included: true },
   { text: "Priority processing", included: true },
   { text: "Priority email support", included: true },
@@ -42,7 +42,7 @@ const faqs = [
   },
   {
     q: "Are the tracks licensed for commercial use?",
-    a: "At launch, all tracks in the Backbeat library will be licensed for commercial use including YouTube, TikTok, Instagram, and client work — no copyright strikes. Our licensed music library will be integrated before the site goes live.",
+    a: "All music generated through Backbeat is produced by ElevenLabs' Music API, which is cleared for broad commercial use including YouTube, TikTok, Instagram, and podcast content. See elevenlabs.io/music-rights for full licensing details.",
   },
   {
     q: "What does the analysis count as?",
@@ -53,8 +53,8 @@ const faqs = [
     a: "Free tier exports include a subtle Backbeat text overlay. Upgrade to Creator or Team to export without any watermark.",
   },
   {
-    q: "How accurate is the music matching?",
-    a: "Our algorithm uses mood, energy, BPM, scene type, and genre to match tracks. Most users find the top 1–2 recommendations are an excellent fit.",
+    q: "How good is the AI-generated music?",
+    a: "Backbeat uses Claude to deeply analyze your video's mood, energy, pacing, and scene context, then generates two distinct soundtrack options via ElevenLabs. Each generation is unique to your video. If neither option fits, you can generate two more at no extra cost.",
   },
 ];
 
@@ -68,7 +68,7 @@ export default function PricingPage() {
             Simple, transparent pricing
           </h1>
           <p className="text-[#a0a0b8] text-lg max-w-2xl mx-auto">
-            Start free and upgrade when you need more. All plans include access to our track library and AI analysis.
+            Start free and upgrade when you need more. All plans include AI video analysis and custom music generation.
           </p>
         </div>
 
@@ -122,7 +122,7 @@ export default function PricingPage() {
               <tbody>
                 {[
                   ["Analyses", "1 lifetime", "30/mo", "Unlimited"],
-                  ["Track recommendations", "Top 3", "Top 5", "Top 5"],
+                  ["Generated soundtrack options", "2 per analysis", "2 per analysis", "2 per analysis"],
                   ["AI video analysis", "✓", "✓", "✓"],
                   ["Audio preview", "15s cap", "Full", "Full"],
                   ["Exports", "Watermarked", "No watermark", "No watermark"],

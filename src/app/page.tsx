@@ -22,9 +22,9 @@ const features = [
           d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
       </svg>
     ),
-    title: "Perfect Track Matching",
+    title: "Custom AI Soundtrack",
     description:
-      "Match your video against a curated library spanning cinematic, lo-fi, electronic, jazz, rock, and more — with precision match scores.",
+      "Our AI generates two unique tracks specifically for your video — matched to its mood, energy, scene type, and pacing. No catalog. No guesswork.",
   },
   {
     icon: (
@@ -57,7 +57,7 @@ const features = [
     ),
     title: "Instant results",
     description:
-      "Upload your video and get matched tracks in under 20 seconds. No manual searching, no guesswork — just the right music, right away.",
+      "Upload your video and get two AI-generated soundtrack options in minutes. Pick the one that fits, or generate two more.",
   },
   {
     icon: (
@@ -68,14 +68,14 @@ const features = [
     ),
     title: "Licensed for Commercial Use",
     description:
-      "All matched tracks will be licensed for commercial use on YouTube, TikTok, and Instagram — no copyright strikes.* Powered by licensed music library — integrated at launch.",
+      "Music generated through Backbeat is cleared for commercial use on YouTube, TikTok, and Instagram — no copyright strikes, no licensing fees beyond your subscription.",
   },
 ];
 
 const FREE_FEATURES = [
   { text: "1 free video analysis, lifetime", included: true },
-  { text: "Top 3 track recommendations", included: true },
-  { text: "15-second audio previews", included: true },
+  { text: "2 AI-generated soundtrack options per analysis", included: true },
+  { text: "Full preview synced to your video", included: true },
   { text: "Export with watermark", included: true },
   { text: "No-watermark exports", included: false },
   { text: "Priority processing", included: false },
@@ -83,8 +83,8 @@ const FREE_FEATURES = [
 
 const CREATOR_FEATURES = [
   { text: "30 video analyses per month", included: true },
-  { text: "Top 5 track recommendations", included: true },
-  { text: "Full-length audio previews", included: true },
+  { text: "2 AI-generated soundtrack options per analysis", included: true },
+  { text: "Full preview synced to your video", included: true },
   { text: "No-watermark exports", included: true },
   { text: "Priority processing", included: true },
   { text: "Team seats", included: false },
@@ -92,8 +92,8 @@ const CREATOR_FEATURES = [
 
 const TEAM_FEATURES = [
   { text: "Unlimited video analyses", included: true },
-  { text: "Top 5 track recommendations", included: true },
-  { text: "Full-length audio previews", included: true },
+  { text: "2 AI-generated soundtrack options per analysis", included: true },
+  { text: "Full preview synced to your video", included: true },
   { text: "No-watermark exports", included: true },
   { text: "Priority processing", included: true },
   { text: "Up to 5 team seats", included: true },
@@ -129,8 +129,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-xl text-[#a0a0b8] max-w-2xl mx-auto mb-10 leading-relaxed">
-            Backbeat analyzes your video&apos;s mood, energy, and scene to recommend
-            perfectly matched background tracks in seconds.
+            Backbeat analyzes your video and generates a custom soundtrack in minutes — no music theory, no searching, no copyright strikes.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -208,7 +207,7 @@ export default function LandingPage() {
               {
                 step: "03",
                 title: "Export with music",
-                desc: "Pick a track, preview it, then export your video with music mixed in.",
+                desc: "Choose your favorite option, preview it synced to your video, then export with music mixed in.",
               },
             ].map((item) => (
               <div key={item.step} className="text-center">
@@ -291,7 +290,7 @@ export default function LandingPage() {
       <section className="py-24 bg-gradient-to-br from-[#C8A96E]/8 to-[#1E1608]/30">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-4xl font-bold text-white mb-4">
-            Ready to find the perfect soundtrack?
+            Ready to score your video?
           </h2>
           <p className="text-[#a0a0b8] text-lg mb-8">
             Analyze your first video free. No credit card required.

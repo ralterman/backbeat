@@ -30,7 +30,7 @@ export default function TermsPage() {
 
         <Section title="4. Subscriptions and Billing">
           <Subheading>4.1 Free Tier</Subheading>
-          <p>The free tier allows one (1) lifetime video analysis and provides access to the top 3 matched tracks with a 15-second audio preview. Free tier exports include a &lsquo;Made with Backbeat&rsquo; watermark.</p>
+          <p>The free tier allows one (1) lifetime video analysis, includes 1 AI video analysis per month, generating 2 custom soundtrack options with full-length preview. Free tier exports include a &lsquo;Made with Backbeat&rsquo; watermark.</p>
           <Subheading>4.2 Paid Subscriptions</Subheading>
           <p>Paid subscription plans are billed monthly. By subscribing, you authorize us to charge your payment method on a recurring basis. Prices are as displayed at backbeat.me/pricing at the time of purchase.</p>
           <Subheading>4.3 Cancellation and Refunds</Subheading>
