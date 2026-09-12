@@ -68,7 +68,9 @@ export default function AnalysisResultsPage() {
   useEffect(() => {
     fetch("/api/user/usage")
       .then((r) => r.ok ? r.json() : null)
-      .then((json) => { if (json?.plan) setIsFreeUser(json.plan === "FREE"); })
+      .then((json) => {
+        if (json) setIsFreeUser(json.plan === "FREE" && !json.isAdmin);
+      })
       .catch(() => {});
   }, []);
 
