@@ -109,13 +109,17 @@ function OptionCard({ label, description, tags, selected, bars, visible }: CardP
 
 // ── DemoWidget ────────────────────────────────────────────────────────────────
 export function DemoWidget() {
-  const [t, setT]       = useState(0);
+  const [t, setT]         = useState(0);
   const [muted, setMuted] = useState(true);
-  const rafRef          = useRef<number>(0);
-  const startRef        = useRef<number | null>(null);
-  const videoRef        = useRef<HTMLVideoElement>(null);
-  const audioRef        = useRef<HTMLAudioElement>(null);
-  const containerRef    = useRef<HTMLDivElement>(null);
+  const rafRef            = useRef<number>(0);
+  const startRef          = useRef<number | null>(null);
+  const videoRef          = useRef<HTMLVideoElement>(null);
+  const audioRef          = useRef<HTMLAudioElement>(null);
+  const containerRef      = useRef<HTMLDivElement>(null);
+  // Refs readable inside the rAF tick without triggering re-renders
+  const mutedRef          = useRef(true);   // mirrors muted state
+  const audioActiveRef    = useRef(false);  // true while audio.play() is in effect
+  const prevTRef          = useRef(0);      // last frame's t — used to detect loop wrap
 
   // ── Video setup ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -135,11 +139,48 @@ export function DemoWidget() {
     vid.addEventListener("error", (e) => console.error("Demo video error:", e));
   }, []);
 
-  // ── Animation loop ────────────────────────────────────────────────────────
+  // ── Animation loop + audio sync ───────────────────────────────────────────
+  //
+  // All audio logic lives here so it runs at frame rate without touching React
+  // state.  The audio "zone" starts when Option A appears (t ≥ 12 200 ms) and
+  // ends on loop wrap / explicit reset.  muted state is mirrored into mutedRef
+  // so the closure can read it without a stale capture.
+  //
   useEffect(() => {
     const tick = (now: number) => {
-      if (startRef.current === null) startRef.current = now;
-      setT((now - startRef.current) % LOOP);
+      const isReset = startRef.current === null;
+      if (isReset) startRef.current = now;
+
+      const newT = (now - startRef.current!) % LOOP;
+      const prevT = prevTRef.current;
+      prevTRef.current = newT;
+
+      // Detect loop wrap: t jumped back near 0 from near LOOP end
+      const loopWrapped = !isReset && prevT > LOOP - 500 && newT < 500;
+
+      // On explicit reset (scroll-out) or loop wrap: reset audio to start
+      if (isReset || loopWrapped) {
+        const audio = audioRef.current;
+        if (audio) { audio.pause(); audio.currentTime = 0; }
+        audioActiveRef.current = false;
+      }
+
+      // Start audio when options become visible (t ≥ 12 200), if not muted
+      const inAudioZone = newT >= 12200;
+      const audio = audioRef.current;
+      if (audio) {
+        if (inAudioZone && !mutedRef.current && !audioActiveRef.current) {
+          audio.volume = 0.5;
+          audio.play().catch(() => {});
+          audioActiveRef.current = true;
+        } else if (audioActiveRef.current && (!inAudioZone || mutedRef.current)) {
+          audio.pause();
+          if (!inAudioZone) audio.currentTime = 0;
+          audioActiveRef.current = false;
+        }
+      }
+
+      setT(newT);
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -154,6 +195,8 @@ export function DemoWidget() {
       ([entry]) => {
         if (!entry.isIntersecting) {
           startRef.current = null;
+          mutedRef.current = true;
+          audioActiveRef.current = false;
           const audio = audioRef.current;
           if (audio) { audio.pause(); audio.currentTime = 0; }
           setMuted(true);
@@ -170,10 +213,12 @@ export function DemoWidget() {
     const audio = audioRef.current;
     if (!audio) return;
     if (muted) {
+      mutedRef.current = false;
       audio.volume = 0.5;
       audio.play().catch(() => {});
       setMuted(false);
     } else {
+      mutedRef.current = true;
       audio.pause();
       setMuted(true);
     }
