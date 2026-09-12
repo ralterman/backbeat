@@ -180,7 +180,7 @@ export async function POST(req: NextRequest) {
     });
     console.log(`[export][${exportId}] complete`);
 
-    return NextResponse.json({ exportId, downloadUrl, expiresAt });
+    return NextResponse.json({ exportId, outputKey, downloadUrl, expiresAt });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[export][${exportId}] FAILED: ${message}`);

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 interface ExportResult {
   exportId: string;
+  outputKey: string;
   downloadUrl: string;
 }
 
@@ -90,10 +91,17 @@ export function GeneratedTrackResult({
     audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
   };
 
-  /** Force the browser to download the file rather than previewing it. */
-  const triggerDownload = (url: string) => {
+  /**
+   * Force a file download without navigating away from the page.
+   *
+   * S3 presigned URLs are cross-origin, so the browser ignores the `download`
+   * attribute and navigates instead.  Routing through our own API endpoint
+   * makes the request same-origin and the Content-Disposition: attachment
+   * header takes effect, keeping the current page in place.
+   */
+  const triggerDownload = (outputKey: string) => {
     const a = document.createElement("a");
-    a.href = url;
+    a.href = `/api/export/download?key=${encodeURIComponent(outputKey)}`;
     a.download = "backbeat-export.mp4";
     document.body.appendChild(a);
     a.click();
@@ -108,7 +116,7 @@ export function GeneratedTrackResult({
       setExportResult(result);
       // Immediately kick off the download so it starts in the background
       // while the user reads the success state / decides to share.
-      triggerDownload(result.downloadUrl);
+      triggerDownload(result.outputKey);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Export failed");
     } finally {
@@ -222,7 +230,7 @@ export function GeneratedTrackResult({
                   <span className="text-green-300 text-sm font-medium truncate">Download started!</span>
                 </div>
                 <button
-                  onClick={() => triggerDownload(exportResult.downloadUrl)}
+                  onClick={() => triggerDownload(exportResult.outputKey)}
                   className="flex-shrink-0 flex items-center gap-1.5 text-green-400 hover:text-green-300 text-xs font-medium transition-colors"
                   title="Download again"
                 >

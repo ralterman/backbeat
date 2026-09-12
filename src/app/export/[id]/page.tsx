@@ -6,6 +6,7 @@ import Link from "next/link";
 
 interface ExportData {
   exportId: string;
+  outputKey: string | null;
   downloadUrl: string;
   hasWatermark: boolean;
   expiresAt: string;
@@ -200,10 +201,12 @@ export default function ExportViewPage() {
           />
         </div>
 
-        {/* Download button */}
+        {/* Download button — proxied through our own origin so <a download> works */}
         <a
-          href={data.downloadUrl}
-          download
+          href={data.outputKey
+            ? `/api/export/download?key=${encodeURIComponent(data.outputKey)}`
+            : data.downloadUrl}
+          download="backbeat-export.mp4"
           className="w-full flex items-center justify-center gap-2.5 bg-[#C8A96E] hover:bg-[#d9ca8b] text-[#0a0a0f] font-bold text-base py-3.5 rounded-xl transition-colors mb-6"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -242,8 +245,10 @@ export default function ExportViewPage() {
               {DOWNLOAD_FIRST_PLATFORMS.map((p) => (
                 <a
                   key={p.name}
-                  href={data.downloadUrl}
-                  download
+                  href={data.outputKey
+                    ? `/api/export/download?key=${encodeURIComponent(data.outputKey)}`
+                    : data.downloadUrl}
+                  download="backbeat-export.mp4"
                   title={`Download to upload to ${p.name}`}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[#6a6a8a] text-sm font-medium bg-[#1E1E1E] hover:bg-[#2A2A2A] border border-[#2A2A2A] transition-colors"
                 >

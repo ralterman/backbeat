@@ -74,7 +74,7 @@ export default function AnalysisResultsPage() {
 
   // Returns { exportId, downloadUrl } on success; throws on failure.
   // Each card manages its own loading + success state internally.
-  const handleExport = async (option: 1 | 2): Promise<{ exportId: string; downloadUrl: string }> => {
+  const handleExport = async (option: 1 | 2): Promise<{ exportId: string; outputKey: string; downloadUrl: string }> => {
     const res = await fetch("/api/export", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -85,7 +85,11 @@ export default function AnalysisResultsPage() {
       throw new Error(err.error ?? "Export failed");
     }
     const result = await res.json();
-    return { exportId: result.exportId as string, downloadUrl: result.downloadUrl as string };
+    return {
+      exportId:   result.exportId   as string,
+      outputKey:  result.outputKey  as string,
+      downloadUrl: result.downloadUrl as string,
+    };
   };
 
   const handleRegenerate = async () => {

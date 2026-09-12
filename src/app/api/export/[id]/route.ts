@@ -50,6 +50,7 @@ export async function GET(
   return NextResponse.json({
     status: "completed",
     exportId,
+    outputKey: exportRecord.s3OutputKey,
     downloadUrl,
     expiresAt: exportRecord.expiresAt,
     hasWatermark: exportRecord.hasWatermark,
