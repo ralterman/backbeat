@@ -97,6 +97,11 @@ model Analysis {
   sceneTags         String[]
   recommendedGenres String[]
   rawResponse       String?  @db.Text
+  // ElevenLabs-generated music fields
+  musicDescription  String?  @db.Text
+  musicTags         String[]
+  generatedAudioKey String?          // S3 key (permanent)
+  generatedAudioUrl String?  @db.Text // presigned URL (24 h, refreshed on read)
   createdAt         DateTime @default(now())
 
   video        Video        @relation(fields: [videoId], references: [id], onDelete: Cascade)
@@ -117,7 +122,7 @@ model TrackMatch {
 model Export {
   id           String       @id @default(cuid())
   videoId      String
-  trackId      String
+  trackId      String?      // nullable — was catalog track ID; now unused with generated audio
   userId       String
   status       ExportStatus @default(PENDING)
   s3OutputKey  String?

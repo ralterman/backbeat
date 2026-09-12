@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { tracks } from "@/data/tracks";
+import { generateDownloadPresignedUrl } from "@/lib/s3";
+import { OUTPUT_BUCKET } from "@/lib/s3";
 
 export async function GET(
   req: NextRequest,
@@ -17,11 +18,7 @@ export async function GET(
   const video = await prisma.video.findFirst({
     where: { id: videoId, userId: session.user.id },
     include: {
-      analysis: {
-        include: {
-          trackMatches: { orderBy: { rank: "asc" } },
-        },
-      },
+      analysis: true,
     },
   });
 
@@ -30,32 +27,42 @@ export async function GET(
   }
 
   if (!video.analysis) {
-    return NextResponse.json({
-      status: video.status,
-      videoId,
-    });
+    return NextResponse.json({ status: video.status, videoId });
   }
 
-  // Enrich track matches with full track data
-  const enrichedMatches = video.analysis.trackMatches.map((match: { id: string; analysisId: string; trackId: string; matchScore: number; rank: number; createdAt: Date }) => {
-    const trackData = tracks.find((t) => t.id === match.trackId);
-    return {
-      ...match,
-      track: trackData ?? null,
-    };
-  });
+  const analysis = video.analysis;
+
+  // Always refresh the presigned URL from the stored S3 key so it never expires
+  // for the user mid-session (presigned URLs are only valid 24 h).
+  let audioUrl = analysis.generatedAudioUrl;
+  if (analysis.generatedAudioKey) {
+    try {
+      audioUrl = await generateDownloadPresignedUrl(OUTPUT_BUCKET, analysis.generatedAudioKey, 86400);
+      // Persist the refreshed URL so subsequent GET requests serve it without re-signing.
+      await prisma.analysis.update({
+        where: { id: analysis.id },
+        data: { generatedAudioUrl: audioUrl },
+      });
+    } catch (err) {
+      console.error("[analyze/[id]] presigned URL refresh failed:", err);
+      // Fall back to the stored URL — it may still be valid.
+    }
+  }
 
   return NextResponse.json({
     status: "completed",
     videoId,
     analysis: {
-      id: video.analysis.id,
-      moodTags: video.analysis.moodTags,
-      bpmRange: video.analysis.bpmRange,
-      energyScore: video.analysis.energyScore,
-      sceneTags: video.analysis.sceneTags,
-      recommendedGenres: video.analysis.recommendedGenres,
+      id: analysis.id,
+      moodTags: analysis.moodTags,
+      bpmRange: analysis.bpmRange,
+      energyScore: analysis.energyScore,
+      sceneTags: analysis.sceneTags,
+      recommendedGenres: analysis.recommendedGenres,
+      musicDescription: analysis.musicDescription,
+      musicTags: analysis.musicTags,
+      generatedAudioKey: analysis.generatedAudioKey,
+      generatedAudioUrl: audioUrl,
     },
-    matches: enrichedMatches,
   });
 }

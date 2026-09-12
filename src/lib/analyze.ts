@@ -1,5 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { VideoAnalysis } from "@/lib/matching";
+
+// VideoAnalysis is the canonical structured output from Claude.
+// It is also consumed by elevenlabs.ts to build the music brief.
+export interface VideoAnalysis {
+  mood_tags: string[];
+  bpm_range: { min: number; max: number };
+  energy_score: number;
+  scene_tags: string[];
+  recommended_genres: string[];
+}
 
 function getClient(): Anthropic {
   return new Anthropic({
@@ -66,7 +75,6 @@ export async function analyzeVideoFrames(
 
   try {
     const parsed = JSON.parse(textBlock.text) as VideoAnalysis;
-    // Validate required fields
     if (
       !Array.isArray(parsed.mood_tags) ||
       !parsed.bpm_range ||
@@ -78,7 +86,6 @@ export async function analyzeVideoFrames(
     }
     return parsed;
   } catch {
-    // Return a safe fallback on parse failure
     console.error("Failed to parse Claude response:", textBlock.text);
     return {
       mood_tags: ["neutral", "calm"],

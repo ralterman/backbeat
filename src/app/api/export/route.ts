@@ -1,4 +1,4 @@
-export const maxDuration = 60; // allow up to 60s for FFmpeg processing
+export const maxDuration = 300; // FFmpeg can take up to a few minutes for longer videos
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
@@ -6,7 +6,6 @@ import { prisma } from "@/lib/prisma";
 import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getUserPlan } from "@/lib/usage";
-import { tracks } from "@/data/tracks";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import { Readable } from "stream";
@@ -43,7 +42,6 @@ async function mergeVideoAudio(
   fs.writeFileSync(audioPath, audioBuffer);
   console.log(`[export][${exportId}] wrote video (${videoBuffer.length}b) + audio (${audioBuffer.length}b)`);
 
-  // Probe video duration with a 5s timeout
   const videoDuration = await new Promise<number>((resolve) => {
     const t = setTimeout(() => { console.log(`[export][${exportId}] ffprobe timed out, using 30s`); resolve(30); }, 5000);
     ffmpeg.ffprobe(videoPath, (err, meta) => {
@@ -54,7 +52,6 @@ async function mergeVideoAudio(
   const fadeOutStart = Math.max(0, videoDuration - 2);
   console.log(`[export][${exportId}] duration=${videoDuration.toFixed(1)}s fadeOutStart=${fadeOutStart.toFixed(1)}s hasWatermark=${hasWatermark}`);
 
-  // Use pre-rendered watermark PNG (committed to repo) — avoids any font dependency at runtime
   const wmPath = hasWatermark
     ? path.join(process.cwd(), "src/assets/watermark.png")
     : null;
@@ -66,7 +63,6 @@ async function mergeVideoAudio(
     let outputOpts: string[];
 
     if (hasWatermark && wmPath) {
-      // Overlay the PNG at bottom-right: W/H = video dims, w/h = watermark dims
       filterComplex = `${audioChain};[0:v][2:v]overlay=W-w-10:H-h-10[vout]`;
       outputOpts = [
         "-map", "[vout]", "-map", "[aout]",
@@ -85,7 +81,7 @@ async function mergeVideoAudio(
     console.log(`[export][${exportId}] filter_complex: ${filterComplex}`);
 
     const cmd = ffmpeg(videoPath).addInput(audioPath);
-    if (wmPath) cmd.addInput(wmPath); // input 2 = watermark PNG
+    if (wmPath) cmd.addInput(wmPath);
 
     cmd
       .complexFilter(filterComplex)
@@ -107,7 +103,6 @@ async function mergeVideoAudio(
         console.error(`[export][${exportId}] ffmpeg error: ${err.message}`);
         console.error(`[export][${exportId}] stderr: ${stderr}`);
         try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
-        // Surface the real ffmpeg error so the frontend can display it
         reject(new Error(`FFmpeg: ${(stderr || err.message).split("\n").slice(-3).join(" | ")}`));
       })
       .run();
@@ -121,10 +116,10 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = session.user.id;
-  const { videoId, trackId } = await req.json() as { videoId: string; trackId: string };
+  const { videoId } = await req.json() as { videoId: string };
 
-  if (!videoId || !trackId) {
-    return NextResponse.json({ error: "videoId and trackId are required" }, { status: 400 });
+  if (!videoId) {
+    return NextResponse.json({ error: "videoId is required" }, { status: 400 });
   }
 
   const video = await prisma.video.findFirst({ where: { id: videoId, userId } });
@@ -132,9 +127,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Video not found" }, { status: 404 });
   }
 
-  const track = tracks.find((t) => t.id === trackId);
-  if (!track) {
-    return NextResponse.json({ error: "Track not found" }, { status: 404 });
+  // Look up the generated audio for this video
+  const analysis = await prisma.analysis.findUnique({ where: { videoId } });
+  if (!analysis?.generatedAudioKey) {
+    return NextResponse.json(
+      { error: "No generated audio found — please run analysis first." },
+      { status: 404 }
+    );
   }
 
   const plan = await getUserPlan(userId);
@@ -142,21 +141,23 @@ export async function POST(req: NextRequest) {
 
   const exportId = randomUUID();
   await prisma.export.create({
-    data: { id: exportId, videoId, trackId, userId, status: "PROCESSING", hasWatermark },
+    data: { id: exportId, videoId, userId, status: "PROCESSING", hasWatermark },
   });
 
   try {
+    // Fetch original video from input bucket
     console.log(`[export][${exportId}] fetching video S3: ${video.s3Bucket}/${video.s3Key}`);
-    const s3Obj = await s3Client.send(new GetObjectCommand({ Bucket: video.s3Bucket, Key: video.s3Key }));
-    const videoBuffer = await streamToBuffer(s3Obj.Body as Readable);
+    const s3Video = await s3Client.send(new GetObjectCommand({ Bucket: video.s3Bucket, Key: video.s3Key }));
+    const videoBuffer = await streamToBuffer(s3Video.Body as Readable);
     console.log(`[export][${exportId}] video fetched: ${videoBuffer.length}b`);
 
-    console.log(`[export][${exportId}] fetching audio: ${track.preview_url}`);
-    const audioRes = await fetch(track.preview_url);
-    if (!audioRes.ok) throw new Error(`Audio fetch failed: ${audioRes.status} ${audioRes.statusText}`);
-    const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
+    // Fetch generated audio from output bucket
+    console.log(`[export][${exportId}] fetching audio S3: ${OUTPUT_BUCKET}/${analysis.generatedAudioKey}`);
+    const s3Audio = await s3Client.send(new GetObjectCommand({ Bucket: OUTPUT_BUCKET, Key: analysis.generatedAudioKey }));
+    const audioBuffer = await streamToBuffer(s3Audio.Body as Readable);
     console.log(`[export][${exportId}] audio fetched: ${audioBuffer.length}b`);
 
+    // Merge via FFmpeg (fade in/out + optional watermark)
     console.log(`[export][${exportId}] starting FFmpeg (plan=${plan})`);
     const outputBuffer = await mergeVideoAudio(videoBuffer, audioBuffer, exportId, hasWatermark);
 
@@ -180,7 +181,6 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[export][${exportId}] FAILED: ${message}`);
     await prisma.export.update({ where: { id: exportId }, data: { status: "FAILED" } });
-    // Return the real error message so it surfaces in the frontend alert
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

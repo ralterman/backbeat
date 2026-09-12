@@ -1,13 +1,13 @@
-export const maxDuration = 60; // allow up to 60 s for S3 fetch + FFmpeg + Claude
+export const maxDuration = 300; // Claude + ElevenLabs generation can take 60–120 s
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { analyzeVideoFrames } from "@/lib/analyze";
-import { matchTracks } from "@/lib/matching";
-import { incrementUsage, getUserPlan } from "@/lib/usage";
-import { s3Client } from "@/lib/s3";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { generateMusicFromVideo } from "@/lib/elevenlabs";
+import { incrementUsage } from "@/lib/usage";
+import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3";
+import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import { Readable } from "stream";
@@ -17,9 +17,9 @@ import * as os from "os";
 
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
-// Leave a 5 s buffer before maxDuration so we can write the FAILED status
-// and return a clean 504 rather than being killed mid-flight by Vercel.
-const ANALYSIS_TIMEOUT_MS = 55_000;
+// Leave a 20 s buffer before maxDuration so we can write FAILED and return
+// a clean 504 rather than being killed mid-flight by Vercel.
+const ANALYSIS_TIMEOUT_MS = 280_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return Promise.race([
@@ -82,7 +82,8 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = session.user.id;
-  const { videoId } = await req.json() as { videoId: string };
+  const body = await req.json() as { videoId: string; regenerate?: boolean };
+  const { videoId, regenerate = false } = body;
 
   if (!videoId) {
     return NextResponse.json({ error: "videoId is required" }, { status: 400 });
@@ -100,13 +101,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Analysis already in progress" }, { status: 409 });
   }
 
-  if (video.status === "ANALYZED") {
+  // If already analyzed and not regenerating, return the existing result.
+  if (video.status === "ANALYZED" && !regenerate) {
     const analysis = await prisma.analysis.findUnique({ where: { videoId } });
-    const matches = await prisma.trackMatch.findMany({
-      where: { analysisId: analysis?.id },
-      orderBy: { rank: "asc" },
-    });
-    return NextResponse.json({ status: "completed", analysis, matches });
+    if (analysis) {
+      // Refresh the presigned URL if we have the S3 key (it expires every 24 h).
+      let audioUrl = analysis.generatedAudioUrl;
+      if (analysis.generatedAudioKey) {
+        try {
+          audioUrl = await generateDownloadPresignedUrl(OUTPUT_BUCKET, analysis.generatedAudioKey, 86400);
+        } catch { /* leave the stored URL as-is */ }
+      }
+      return NextResponse.json({
+        status: "completed",
+        analysis: { ...analysis, generatedAudioUrl: audioUrl },
+      });
+    }
+  }
+
+  // Regenerate: delete the old analysis so we can create a fresh one.
+  if (regenerate && video.status === "ANALYZED") {
+    const existing = await prisma.analysis.findUnique({ where: { videoId } });
+    if (existing) {
+      await prisma.analysis.delete({ where: { id: existing.id } });
+    }
+    await prisma.video.update({ where: { id: videoId }, data: { status: "UPLOADED" } });
   }
 
   await prisma.video.update({
@@ -118,46 +137,68 @@ export async function POST(req: NextRequest) {
     err instanceof Error && err.message.includes("timed out");
 
   try {
-    const analysisResult = await withTimeout(
+    const result = await withTimeout(
       (async () => {
+        // 1. Fetch video from S3
         const s3Obj = await s3Client.send(
           new GetObjectCommand({ Bucket: video.s3Bucket, Key: video.s3Key })
         );
         const videoBuffer = await streamToBuffer(s3Obj.Body as Readable);
+        console.log(`[analyze][${videoId}] video fetched: ${videoBuffer.length}b`);
 
+        // 2. Extract frames for Claude
         const frames = await extractFrames(videoBuffer, videoId);
         if (frames.length === 0) {
           throw new Error("No frames could be extracted from the video");
         }
+        console.log(`[analyze][${videoId}] extracted ${frames.length} frames`);
 
-        return analyzeVideoFrames(frames);
+        // 3. Claude analyzes the frames → structured JSON
+        const videoAnalysis = await analyzeVideoFrames(frames);
+        console.log(`[analyze][${videoId}] Claude analysis complete: energy=${videoAnalysis.energy_score}`);
+
+        // 4. ElevenLabs generates a custom music track from video + description
+        console.log(`[analyze][${videoId}] calling ElevenLabs...`);
+        const { audioBuffer, description, tags } = await generateMusicFromVideo(
+          videoBuffer,
+          video.mimeType,
+          videoAnalysis
+        );
+        console.log(`[analyze][${videoId}] ElevenLabs returned ${audioBuffer.byteLength}b audio`);
+
+        // 5. Upload generated audio to S3
+        const audioKey = `generated-music/${videoId}/${Date.now()}.mp3`;
+        await s3Client.send(new PutObjectCommand({
+          Bucket: OUTPUT_BUCKET,
+          Key: audioKey,
+          Body: Buffer.from(audioBuffer),
+          ContentType: "audio/mpeg",
+        }));
+        console.log(`[analyze][${videoId}] audio uploaded: ${OUTPUT_BUCKET}/${audioKey}`);
+
+        // 6. Generate a 24-hour presigned playback URL
+        const audioUrl = await generateDownloadPresignedUrl(OUTPUT_BUCKET, audioKey, 86400);
+
+        return { videoAnalysis, description, tags, audioKey, audioUrl };
       })(),
       ANALYSIS_TIMEOUT_MS,
-      "Analysis timed out — please try a shorter video"
+      "Music generation timed out — try uploading a shorter clip."
     );
 
-    const plan = await getUserPlan(userId);
-    const topN = plan === "FREE" ? 3 : 5;
-    const topTracks = await matchTracks(analysisResult, topN);
-
+    // 7. Persist analysis to DB
     const analysis = await prisma.analysis.create({
       data: {
         videoId,
-        moodTags: analysisResult.mood_tags,
-        bpmRange: analysisResult.bpm_range,
-        energyScore: analysisResult.energy_score,
-        sceneTags: analysisResult.scene_tags,
-        recommendedGenres: analysisResult.recommended_genres,
+        moodTags: result.videoAnalysis.mood_tags,
+        bpmRange: result.videoAnalysis.bpm_range,
+        energyScore: result.videoAnalysis.energy_score,
+        sceneTags: result.videoAnalysis.scene_tags,
+        recommendedGenres: result.videoAnalysis.recommended_genres,
+        musicDescription: result.description,
+        musicTags: result.tags,
+        generatedAudioKey: result.audioKey,
+        generatedAudioUrl: result.audioUrl,
       },
-    });
-
-    await prisma.trackMatch.createMany({
-      data: topTracks.map((track, i) => ({
-        analysisId: analysis.id,
-        trackId: track.id,
-        matchScore: track.match_score,
-        rank: i + 1,
-      })),
     });
 
     await prisma.video.update({
@@ -166,14 +207,14 @@ export async function POST(req: NextRequest) {
     });
     await incrementUsage(userId, "analysis");
 
-    return NextResponse.json({ status: "completed", analysis, matches: topTracks });
+    return NextResponse.json({ status: "completed", analysis });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Analysis failed. Please try again.";
     await prisma.video.update({
       where: { id: videoId },
       data: { status: "FAILED" },
     });
-    console.error("Analysis error:", err);
+    console.error(`[analyze][${videoId}] error:`, err);
     return NextResponse.json(
       { error: message },
       { status: isTimeout(err) ? 504 : 500 }
