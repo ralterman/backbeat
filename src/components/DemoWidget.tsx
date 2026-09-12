@@ -114,9 +114,8 @@ export function DemoWidget() {
   const rafRef          = useRef<number>(0);
   const startRef        = useRef<number | null>(null);
   const videoRef        = useRef<HTMLVideoElement>(null);
+  const audioRef        = useRef<HTMLAudioElement>(null);
   const containerRef    = useRef<HTMLDivElement>(null);
-  const audioCtxRef     = useRef<AudioContext | null>(null);
-  const gainRef         = useRef<GainNode | null>(null);
 
   // ── Video setup ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -155,14 +154,8 @@ export function DemoWidget() {
       ([entry]) => {
         if (!entry.isIntersecting) {
           startRef.current = null;
-          if (gainRef.current && audioCtxRef.current) {
-            gainRef.current.gain.linearRampToValueAtTime(0, audioCtxRef.current.currentTime + 0.3);
-            setTimeout(() => {
-              audioCtxRef.current?.close().catch(() => {});
-              audioCtxRef.current = null;
-              gainRef.current = null;
-            }, 400);
-          }
+          const audio = audioRef.current;
+          if (audio) { audio.pause(); audio.currentTime = 0; }
           setMuted(true);
         }
       },
@@ -170,50 +163,18 @@ export function DemoWidget() {
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, []); // no deps needed — all accesses are through refs
-
-  // ── Cleanup audio on unmount ──────────────────────────────────────────────
-  useEffect(() => () => {
-    audioCtxRef.current?.close().catch(() => {});
   }, []);
 
   // ── Mute toggle ───────────────────────────────────────────────────────────
   const toggleMute = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
     if (muted) {
-      // Start audio — requires user gesture
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext;
-        const ctx = new Ctx();
-        const gain = ctx.createGain();
-        gain.gain.setValueAtTime(0, ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.055, ctx.currentTime + 0.8);
-        gain.connect(ctx.destination);
-        // C major chord (C3 + E3 + G3) as a simple musical reference tone
-        ([130.81, 164.81, 196.00] as number[]).forEach((freq) => {
-          const osc = ctx.createOscillator();
-          osc.type = "sine";
-          osc.frequency.value = freq;
-          osc.connect(gain);
-          osc.start();
-        });
-        audioCtxRef.current = ctx;
-        gainRef.current = gain;
-      } catch {}
+      audio.volume = 0.5;
+      audio.play().catch(() => {});
       setMuted(false);
     } else {
-      // Fade out and close
-      if (gainRef.current && audioCtxRef.current) {
-        gainRef.current.gain.linearRampToValueAtTime(0, audioCtxRef.current.currentTime + 0.5);
-        const ctx = audioCtxRef.current;
-        setTimeout(() => {
-          ctx.close().catch(() => {});
-          if (audioCtxRef.current === ctx) {
-            audioCtxRef.current = null;
-            gainRef.current = null;
-          }
-        }, 600);
-      }
+      audio.pause();
       setMuted(true);
     }
   };
@@ -267,6 +228,9 @@ export function DemoWidget() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div ref={containerRef} className="block mt-10 sm:mt-16 max-w-3xl mx-auto px-3 sm:px-0" style={{ opacity }}>
+      {/* Hidden audio element — real ElevenLabs-generated track */}
+      <audio ref={audioRef} src="/demo/demo-track.mp3" loop preload="auto" />
+
       <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-3 sm:p-6 shadow-2xl shadow-black/60">
 
         {/* ── Window chrome ── */}
