@@ -1,33 +1,59 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 
 interface GeneratedTrackResultProps {
   audioUrl: string;
+  videoUrl?: string | null;
   description: string;
   tags: string[];
   videoId: string;
+  optionLabel?: string;         // e.g. "Option A" / "Option B"
   isFreeUser?: boolean;
   onExport?: () => void;
   isExporting?: boolean;
-  onRegenerate?: () => void;
-  isRegenerating?: boolean;
 }
 
 export function GeneratedTrackResult({
   audioUrl,
+  videoUrl,
   description,
   tags,
+  optionLabel,
   isFreeUser = false,
   onExport,
   isExporting = false,
-  onRegenerate,
-  isRegenerating = false,
 }: GeneratedTrackResultProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  // Keep video muted and synced with the audio element.
+  useEffect(() => {
+    const audio = audioRef.current;
+    const video = videoRef.current;
+    if (!audio || !video) return;
+
+    const onPlay = () => { video.currentTime = audio.currentTime; video.play().catch(() => {}); };
+    const onPause = () => { video.pause(); };
+    const onSeeked = () => { video.currentTime = audio.currentTime; };
+    const onEnded = () => { video.pause(); video.currentTime = 0; };
+
+    audio.addEventListener("play",   onPlay);
+    audio.addEventListener("pause",  onPause);
+    audio.addEventListener("seeked", onSeeked);
+    audio.addEventListener("ended",  onEnded);
+
+    return () => {
+      audio.removeEventListener("play",   onPlay);
+      audio.removeEventListener("pause",  onPause);
+      audio.removeEventListener("seeked", onSeeked);
+      audio.removeEventListener("ended",  onEnded);
+    };
+  }, [audioUrl, videoUrl]);
 
   const togglePlay = () => {
     const audio = audioRef.current;
@@ -44,6 +70,7 @@ export function GeneratedTrackResult({
     const audio = audioRef.current;
     if (!audio || !audio.duration) return;
     setProgress((audio.currentTime / audio.duration) * 100);
+    setCurrentTime(audio.currentTime);
   };
 
   const handleLoadedMetadata = () => {
@@ -51,7 +78,7 @@ export function GeneratedTrackResult({
     if (audio) setDuration(audio.duration);
   };
 
-  const handleEnded = () => setPlaying(false);
+  const handleEnded = () => { setPlaying(false); setProgress(0); setCurrentTime(0); };
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     const audio = audioRef.current;
@@ -66,12 +93,8 @@ export function GeneratedTrackResult({
     return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
   };
 
-  const currentTime = audioRef.current
-    ? audioRef.current.currentTime
-    : 0;
-
   return (
-    <div className="bg-[#141414] border border-[#C8A96E]/40 rounded-2xl p-6 shadow-[#C8A96E]/10 shadow-lg">
+    <div className="bg-[#141414] border border-[#C8A96E]/40 rounded-2xl p-6 shadow-[#C8A96E]/10 shadow-lg flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <div className="w-10 h-10 rounded-full bg-[#C8A96E]/15 flex items-center justify-center flex-shrink-0">
@@ -80,13 +103,29 @@ export function GeneratedTrackResult({
           </svg>
         </div>
         <div>
-          <h2 className="text-white font-bold text-lg leading-tight">AI-Generated Music</h2>
+          <h2 className="text-white font-bold text-lg leading-tight">
+            {optionLabel ? `AI Music — ${optionLabel}` : "AI-Generated Music"}
+          </h2>
           <p className="text-[#a0a0b8] text-xs">Custom track generated for your video</p>
         </div>
         <span className="ml-auto bg-[#C8A96E]/15 text-[#C8A96E] text-xs font-bold px-3 py-1 rounded-full">
           ElevenLabs
         </span>
       </div>
+
+      {/* Synced video preview (muted, shows the original clip in sync with the music) */}
+      {videoUrl && (
+        <div className="rounded-xl overflow-hidden mb-5 bg-black aspect-video w-full">
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            muted
+            playsInline
+            preload="metadata"
+            className="w-full h-full object-contain"
+          />
+        </div>
+      )}
 
       {/* Description */}
       <p className="text-[#d0d0d8] text-sm leading-relaxed mb-4 italic">
@@ -105,7 +144,7 @@ export function GeneratedTrackResult({
         ))}
       </div>
 
-      {/* Audio player */}
+      {/* Hidden audio element — drives all playback; video follows it */}
       <audio
         ref={audioRef}
         src={audioUrl}
@@ -115,6 +154,7 @@ export function GeneratedTrackResult({
         preload="metadata"
       />
 
+      {/* Audio player controls */}
       <div className="bg-[#1A1A1A] rounded-xl p-4 mb-5">
         <div className="flex items-center gap-4">
           {/* Play/pause */}
@@ -153,52 +193,28 @@ export function GeneratedTrackResult({
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-3">
-        <button
-          onClick={onRegenerate}
-          disabled={isRegenerating}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#1E1E1E] hover:bg-[#2A2A2A] disabled:opacity-50 text-white rounded-xl text-sm font-medium transition-colors border border-[#2A2A2A]"
-        >
-          {isRegenerating ? (
-            <>
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Regenerating...
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Regenerate
-            </>
-          )}
-        </button>
-
-        <button
-          onClick={onExport}
-          disabled={isExporting}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-[#f0f0f0] disabled:bg-[#1E1E1E] disabled:text-[#9090aa] text-[#0a0a0f] rounded-xl text-sm font-bold transition-colors"
-        >
-          {isExporting ? (
-            <>
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Exporting...
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              {isFreeUser ? "Export (with Watermark)" : "Export Video"}
-            </>
-          )}
-        </button>
-      </div>
+      {/* Export */}
+      <button
+        onClick={onExport}
+        disabled={isExporting}
+        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-[#f0f0f0] disabled:bg-[#1E1E1E] disabled:text-[#9090aa] text-[#0a0a0f] rounded-xl text-sm font-bold transition-colors mt-auto"
+      >
+        {isExporting ? (
+          <>
+            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Exporting...
+          </>
+        ) : (
+          <>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            {isFreeUser ? "Export (with Watermark)" : "Export Video"}
+          </>
+        )}
+      </button>
     </div>
   );
 }

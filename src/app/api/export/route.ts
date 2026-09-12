@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = session.user.id;
-  const { videoId } = await req.json() as { videoId: string };
+  const { videoId, audioOption = 1 } = await req.json() as { videoId: string; audioOption?: 1 | 2 };
 
   if (!videoId) {
     return NextResponse.json({ error: "videoId is required" }, { status: 400 });
@@ -127,9 +127,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Video not found" }, { status: 404 });
   }
 
-  // Look up the generated audio for this video
+  // Look up the generated audio for this video — pick option 1 or 2
   const analysis = await prisma.analysis.findUnique({ where: { videoId } });
-  if (!analysis?.generatedAudioKey) {
+  const audioKey = audioOption === 2 ? analysis?.generatedAudioKey2 : analysis?.generatedAudioKey;
+  if (!audioKey) {
     return NextResponse.json(
       { error: "No generated audio found — please run analysis first." },
       { status: 404 }
@@ -152,8 +153,8 @@ export async function POST(req: NextRequest) {
     console.log(`[export][${exportId}] video fetched: ${videoBuffer.length}b`);
 
     // Fetch generated audio from output bucket
-    console.log(`[export][${exportId}] fetching audio S3: ${OUTPUT_BUCKET}/${analysis.generatedAudioKey}`);
-    const s3Audio = await s3Client.send(new GetObjectCommand({ Bucket: OUTPUT_BUCKET, Key: analysis.generatedAudioKey }));
+    console.log(`[export][${exportId}] fetching audio S3: ${OUTPUT_BUCKET}/${audioKey}`);
+    const s3Audio = await s3Client.send(new GetObjectCommand({ Bucket: OUTPUT_BUCKET, Key: audioKey }));
     const audioBuffer = await streamToBuffer(s3Audio.Body as Readable);
     console.log(`[export][${exportId}] audio fetched: ${audioBuffer.length}b`);
 

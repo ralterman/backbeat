@@ -12,15 +12,22 @@ interface AnalysisData {
   energyScore: number;
   sceneTags: string[];
   recommendedGenres: string[];
+  // Option 1
   musicDescription: string | null;
   musicTags: string[];
   generatedAudioKey: string | null;
   generatedAudioUrl: string | null;
+  // Option 2
+  musicDescription2: string | null;
+  musicTags2: string[];
+  generatedAudioKey2: string | null;
+  generatedAudioUrl2: string | null;
 }
 
 interface AnalysisResponse {
   status: string;
   videoId: string;
+  videoUrl?: string | null;
   analysis?: AnalysisData;
 }
 
@@ -31,7 +38,8 @@ export default function AnalysisResultsPage() {
   const [data, setData] = useState<AnalysisResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
+  // Track which option is currently exporting (null = neither)
+  const [exportingOption, setExportingOption] = useState<1 | 2 | null>(null);
   const [exportResult, setExportResult] = useState<{ exportId: string; downloadUrl: string } | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [isFreeUser, setIsFreeUser] = useState(true);
@@ -67,14 +75,14 @@ export default function AnalysisResultsPage() {
       .catch(() => {});
   }, []);
 
-  const handleExport = async () => {
-    setExporting(true);
+  const handleExport = async (option: 1 | 2) => {
+    setExportingOption(option);
     setExportResult(null);
     try {
       const res = await fetch("/api/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoId }),
+        body: JSON.stringify({ videoId, audioOption: option }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -85,7 +93,7 @@ export default function AnalysisResultsPage() {
     } catch (err) {
       alert(err instanceof Error ? err.message : "Export failed");
     } finally {
-      setExporting(false);
+      setExportingOption(null);
     }
   };
 
@@ -104,9 +112,8 @@ export default function AnalysisResultsPage() {
         const err = await res.json();
         throw new Error(err.error ?? "Regeneration failed");
       }
-      const json = await res.json();
-      setData(json);
-      setLoading(false);
+      // Trigger a fresh poll so we also get the updated videoUrl
+      await fetchResults();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Regeneration failed");
       setLoading(false);
@@ -138,21 +145,21 @@ export default function AnalysisResultsPage() {
           </svg>
         </div>
         <h2 className="text-white text-2xl font-bold mb-2">
-          {regenerating ? "Generating a new track..." : "Analyzing your video..."}
+          {regenerating ? "Generating new options..." : "Analyzing your video..."}
         </h2>
         <p className="text-[#a0a0b8] max-w-sm mx-auto">
           {regenerating
-            ? "Creating a fresh custom track with ElevenLabs. This takes 30–120 seconds."
-            : "Backbeat AI is analyzing your video and composing custom music with ElevenLabs. This takes 30–120 seconds."}
+            ? "Creating two fresh custom tracks with ElevenLabs. This takes 30–120 seconds."
+            : "Backbeat AI is analyzing your video and composing two custom music options with ElevenLabs. This takes 30–120 seconds."}
         </p>
       </div>
     );
   }
 
-  const { analysis } = data;
+  const { analysis, videoUrl } = data;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 mb-6">
         <Link
@@ -240,22 +247,71 @@ export default function AnalysisResultsPage() {
         </div>
       )}
 
-      {/* Generated track */}
-      {analysis.generatedAudioUrl ? (
-        <div>
-          <h2 className="text-xl font-bold text-white mb-4">Your Generated Track</h2>
-          <GeneratedTrackResult
-            audioUrl={analysis.generatedAudioUrl}
-            description={analysis.musicDescription ?? "Custom AI-generated music for your video."}
-            tags={analysis.musicTags ?? []}
-            videoId={videoId}
-            isFreeUser={isFreeUser}
-            onExport={handleExport}
-            isExporting={exporting}
-            onRegenerate={handleRegenerate}
-            isRegenerating={regenerating}
-          />
-        </div>
+      {/* Generated track options */}
+      {(analysis.generatedAudioUrl || analysis.generatedAudioUrl2) ? (
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-white">Choose Your Track</h2>
+            <span className="text-[#a0a0b8] text-sm">Two styles generated — pick the one that fits</span>
+          </div>
+
+          {/* Two cards: side-by-side on ≥md, stacked on mobile */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+            {analysis.generatedAudioUrl && (
+              <GeneratedTrackResult
+                audioUrl={analysis.generatedAudioUrl}
+                videoUrl={videoUrl}
+                description={analysis.musicDescription ?? "Custom AI-generated music for your video."}
+                tags={analysis.musicTags ?? []}
+                videoId={videoId}
+                optionLabel="Option A"
+                isFreeUser={isFreeUser}
+                onExport={() => handleExport(1)}
+                isExporting={exportingOption === 1}
+              />
+            )}
+
+            {analysis.generatedAudioUrl2 && (
+              <GeneratedTrackResult
+                audioUrl={analysis.generatedAudioUrl2}
+                videoUrl={videoUrl}
+                description={analysis.musicDescription2 ?? "Cinematic alternative track for your video."}
+                tags={analysis.musicTags2 ?? []}
+                videoId={videoId}
+                optionLabel="Option B"
+                isFreeUser={isFreeUser}
+                onExport={() => handleExport(2)}
+                isExporting={exportingOption === 2}
+              />
+            )}
+          </div>
+
+          {/* Single "Generate New Options" button below both cards */}
+          <div className="text-center">
+            <button
+              onClick={handleRegenerate}
+              disabled={regenerating}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[#1E1E1E] hover:bg-[#2A2A2A] disabled:opacity-50 text-white rounded-xl text-sm font-medium transition-colors border border-[#2A2A2A]"
+            >
+              {regenerating ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Generating new options...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Generate New Options
+                </>
+              )}
+            </button>
+            <p className="text-[#9090aa] text-xs mt-2">Keeps your video analysis — skips re-analyzing with Claude</p>
+          </div>
+        </>
       ) : (
         <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl p-8 text-center">
           <p className="text-[#a0a0b8]">No audio generated yet. Try re-analyzing this video.</p>

@@ -97,12 +97,17 @@ model Analysis {
   sceneTags         String[]
   recommendedGenres String[]
   rawResponse       String?  @db.Text
-  // ElevenLabs-generated music fields
+  // ElevenLabs-generated music — option 1 (primary genre match)
   musicDescription  String?  @db.Text
   musicTags         String[]
-  generatedAudioKey String?          // S3 key (permanent)
+  generatedAudioKey String?           // S3 key (permanent)
   generatedAudioUrl String?  @db.Text // presigned URL (24 h, refreshed on read)
-  createdAt         DateTime @default(now())
+  // ElevenLabs-generated music — option 2 (cinematic / orchestral alternative)
+  musicDescription2  String?  @db.Text
+  musicTags2         String[] @default([])
+  generatedAudioKey2 String?
+  generatedAudioUrl2 String?  @db.Text
+  createdAt          DateTime @default(now())
 
   video        Video        @relation(fields: [videoId], references: [id], onDelete: Cascade)
   trackMatches TrackMatch[]

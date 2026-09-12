@@ -3,8 +3,8 @@ export const maxDuration = 300; // Claude + ElevenLabs generation can take 60–
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { analyzeVideoFrames } from "@/lib/analyze";
-import { generateMusicFromVideo } from "@/lib/elevenlabs";
+import { analyzeVideoFrames, VideoAnalysis } from "@/lib/analyze";
+import { generateMusicOptionsFromVideo } from "@/lib/elevenlabs";
 import { incrementUsage } from "@/lib/usage";
 import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -105,24 +105,39 @@ export async function POST(req: NextRequest) {
   if (video.status === "ANALYZED" && !regenerate) {
     const analysis = await prisma.analysis.findUnique({ where: { videoId } });
     if (analysis) {
-      // Refresh the presigned URL if we have the S3 key (it expires every 24 h).
+      // Refresh presigned URLs if we have the S3 keys (they expire every 24 h).
       let audioUrl = analysis.generatedAudioUrl;
       if (analysis.generatedAudioKey) {
         try {
           audioUrl = await generateDownloadPresignedUrl(OUTPUT_BUCKET, analysis.generatedAudioKey, 86400);
         } catch { /* leave the stored URL as-is */ }
       }
+      let audioUrl2 = analysis.generatedAudioUrl2;
+      if (analysis.generatedAudioKey2) {
+        try {
+          audioUrl2 = await generateDownloadPresignedUrl(OUTPUT_BUCKET, analysis.generatedAudioKey2, 86400);
+        } catch { /* leave the stored URL as-is */ }
+      }
       return NextResponse.json({
         status: "completed",
-        analysis: { ...analysis, generatedAudioUrl: audioUrl },
+        analysis: { ...analysis, generatedAudioUrl: audioUrl, generatedAudioUrl2: audioUrl2 },
       });
     }
   }
 
-  // Regenerate: delete the old analysis so we can create a fresh one.
+  // ── Part 3: On regenerate, reconstruct VideoAnalysis from the stored Analysis
+  // (skip the Claude API call — saves credits and ~10–20 s of latency).
+  let cachedVideoAnalysis: VideoAnalysis | null = null;
   if (regenerate && video.status === "ANALYZED") {
     const existing = await prisma.analysis.findUnique({ where: { videoId } });
     if (existing) {
+      cachedVideoAnalysis = {
+        mood_tags:           existing.moodTags,
+        bpm_range:           existing.bpmRange as { min: number; max: number },
+        energy_score:        existing.energyScore,
+        scene_tags:          existing.sceneTags,
+        recommended_genres:  existing.recommendedGenres,
+      };
       await prisma.analysis.delete({ where: { id: existing.id } });
     }
     await prisma.video.update({ where: { id: videoId }, data: { status: "UPLOADED" } });
@@ -146,58 +161,85 @@ export async function POST(req: NextRequest) {
         const videoBuffer = await streamToBuffer(s3Obj.Body as Readable);
         console.log(`[analyze][${videoId}] video fetched: ${videoBuffer.length}b`);
 
-        // 2. Extract frames for Claude
-        const frames = await extractFrames(videoBuffer, videoId);
-        if (frames.length === 0) {
-          throw new Error("No frames could be extracted from the video");
+        // 2. Get VideoAnalysis — either from cache (regenerate) or from Claude
+        let videoAnalysis: VideoAnalysis;
+        if (cachedVideoAnalysis) {
+          console.log(`[analyze][${videoId}] regenerate: reusing cached VideoAnalysis (skipping Claude)`);
+          videoAnalysis = cachedVideoAnalysis;
+        } else {
+          // Extract frames for Claude
+          const frames = await extractFrames(videoBuffer, videoId);
+          if (frames.length === 0) {
+            throw new Error("No frames could be extracted from the video");
+          }
+          console.log(`[analyze][${videoId}] extracted ${frames.length} frames`);
+
+          // Claude analyzes the frames → structured JSON
+          videoAnalysis = await analyzeVideoFrames(frames);
+          console.log(`[analyze][${videoId}] Claude analysis complete: energy=${videoAnalysis.energy_score}`);
         }
-        console.log(`[analyze][${videoId}] extracted ${frames.length} frames`);
 
-        // 3. Claude analyzes the frames → structured JSON
-        const videoAnalysis = await analyzeVideoFrames(frames);
-        console.log(`[analyze][${videoId}] Claude analysis complete: energy=${videoAnalysis.energy_score}`);
-
-        // 4. ElevenLabs generates a custom music track from video + description
-        console.log(`[analyze][${videoId}] calling ElevenLabs...`);
-        const { audioBuffer, description, tags } = await generateMusicFromVideo(
+        // 3. ElevenLabs generates two custom tracks in parallel
+        console.log(`[analyze][${videoId}] calling ElevenLabs (two options in parallel)...`);
+        const { option1, option2 } = await generateMusicOptionsFromVideo(
           videoBuffer,
           video.mimeType,
           videoAnalysis
         );
-        console.log(`[analyze][${videoId}] ElevenLabs returned ${audioBuffer.byteLength}b audio`);
+        console.log(`[analyze][${videoId}] ElevenLabs opt1: ${option1.audioBuffer.byteLength}b, opt2: ${option2.audioBuffer.byteLength}b`);
 
-        // 5. Upload generated audio to S3
-        const audioKey = `generated-music/${videoId}/${Date.now()}.mp3`;
-        await s3Client.send(new PutObjectCommand({
-          Bucket: OUTPUT_BUCKET,
-          Key: audioKey,
-          Body: Buffer.from(audioBuffer),
-          ContentType: "audio/mpeg",
-        }));
-        console.log(`[analyze][${videoId}] audio uploaded: ${OUTPUT_BUCKET}/${audioKey}`);
+        // 4. Upload both audio tracks to S3
+        const timestamp = Date.now();
+        const audioKey1 = `generated-music/${videoId}/${timestamp}-opt1.mp3`;
+        const audioKey2 = `generated-music/${videoId}/${timestamp}-opt2.mp3`;
 
-        // 6. Generate a 24-hour presigned playback URL
-        const audioUrl = await generateDownloadPresignedUrl(OUTPUT_BUCKET, audioKey, 86400);
+        await Promise.all([
+          s3Client.send(new PutObjectCommand({
+            Bucket: OUTPUT_BUCKET,
+            Key: audioKey1,
+            Body: Buffer.from(option1.audioBuffer),
+            ContentType: "audio/mpeg",
+          })),
+          s3Client.send(new PutObjectCommand({
+            Bucket: OUTPUT_BUCKET,
+            Key: audioKey2,
+            Body: Buffer.from(option2.audioBuffer),
+            ContentType: "audio/mpeg",
+          })),
+        ]);
+        console.log(`[analyze][${videoId}] audio uploaded: ${audioKey1}, ${audioKey2}`);
 
-        return { videoAnalysis, description, tags, audioKey, audioUrl };
+        // 5. Generate 24-hour presigned playback URLs for both
+        const [audioUrl1, audioUrl2] = await Promise.all([
+          generateDownloadPresignedUrl(OUTPUT_BUCKET, audioKey1, 86400),
+          generateDownloadPresignedUrl(OUTPUT_BUCKET, audioKey2, 86400),
+        ]);
+
+        return { videoAnalysis, option1, option2, audioKey1, audioUrl1, audioKey2, audioUrl2 };
       })(),
       ANALYSIS_TIMEOUT_MS,
       "Music generation timed out — try uploading a shorter clip."
     );
 
-    // 7. Persist analysis to DB
+    // 6. Persist analysis to DB (both options)
     const analysis = await prisma.analysis.create({
       data: {
         videoId,
-        moodTags: result.videoAnalysis.mood_tags,
-        bpmRange: result.videoAnalysis.bpm_range,
-        energyScore: result.videoAnalysis.energy_score,
-        sceneTags: result.videoAnalysis.scene_tags,
+        moodTags:          result.videoAnalysis.mood_tags,
+        bpmRange:          result.videoAnalysis.bpm_range,
+        energyScore:       result.videoAnalysis.energy_score,
+        sceneTags:         result.videoAnalysis.scene_tags,
         recommendedGenres: result.videoAnalysis.recommended_genres,
-        musicDescription: result.description,
-        musicTags: result.tags,
-        generatedAudioKey: result.audioKey,
-        generatedAudioUrl: result.audioUrl,
+        // Option 1
+        musicDescription:  result.option1.description,
+        musicTags:         result.option1.tags,
+        generatedAudioKey: result.audioKey1,
+        generatedAudioUrl: result.audioUrl1,
+        // Option 2
+        musicDescription2:  result.option2.description,
+        musicTags2:         result.option2.tags,
+        generatedAudioKey2: result.audioKey2,
+        generatedAudioUrl2: result.audioUrl2,
       },
     });
 
