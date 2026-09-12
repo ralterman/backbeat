@@ -1,6 +1,12 @@
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+interface ExportResult {
+  exportId: string;
+  downloadUrl: string;
+}
 
 interface GeneratedTrackResultProps {
   audioUrl: string;
@@ -8,10 +14,10 @@ interface GeneratedTrackResultProps {
   description: string;
   tags: string[];
   videoId: string;
-  optionLabel?: string;             // e.g. "Option A" / "Option B"
+  optionLabel?: string;
   isFreeUser?: boolean;
-  /** Called on export click; must return the presigned download URL on success. */
-  onExport?: () => Promise<string>;
+  /** Called on export click; must resolve with { exportId, downloadUrl } on success. */
+  onExport?: () => Promise<ExportResult>;
 }
 
 export function GeneratedTrackResult({
@@ -23,15 +29,15 @@ export function GeneratedTrackResult({
   isFreeUser = false,
   onExport,
 }: GeneratedTrackResultProps) {
+  const router = useRouter();
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [playing, setPlaying]           = useState(false);
-  const [progress, setProgress]         = useState(0);
-  const [duration, setDuration]         = useState(0);
-  const [currentTime, setCurrentTime]   = useState(0);
-  const [isExporting, setIsExporting]   = useState(false);
-  const [exportComplete, setExportComplete] = useState(false);
-  const [downloadUrl, setDownloadUrl]   = useState<string | null>(null);
+  const [playing, setPlaying]                     = useState(false);
+  const [progress, setProgress]                   = useState(0);
+  const [duration, setDuration]                   = useState(0);
+  const [currentTime, setCurrentTime]             = useState(0);
+  const [isExporting, setIsExporting]             = useState(false);
+  const [exportResult, setExportResult]           = useState<ExportResult | null>(null);
 
   // Keep the muted video in sync with the audio element.
   useEffect(() => {
@@ -84,13 +90,25 @@ export function GeneratedTrackResult({
     audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
   };
 
+  /** Force the browser to download the file rather than previewing it. */
+  const triggerDownload = (url: string) => {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "backbeat-export.mp4";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
   const handleExportClick = async () => {
     if (!onExport) return;
     setIsExporting(true);
     try {
-      const url = await onExport();
-      setDownloadUrl(url);
-      setExportComplete(true);
+      const result = await onExport();
+      setExportResult(result);
+      // Immediately kick off the download so it starts in the background
+      // while the user reads the success state / decides to share.
+      triggerDownload(result.downloadUrl);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Export failed");
     } finally {
@@ -125,19 +143,16 @@ export function GeneratedTrackResult({
       {/* Card body */}
       <div className="p-5 flex flex-col flex-1">
 
-        {/* Subtle option label */}
         {optionLabel && (
           <p className="text-[#6a6a8a] text-xs font-semibold uppercase tracking-widest mb-3">
             {optionLabel}
           </p>
         )}
 
-        {/* Music description */}
         <p className="text-[#d0d0d8] text-sm leading-relaxed mb-4 italic">
           &ldquo;{description}&rdquo;
         </p>
 
-        {/* Tags */}
         <div className="flex flex-wrap gap-1.5 mb-5">
           {tags.map((tag) => (
             <span
@@ -149,7 +164,7 @@ export function GeneratedTrackResult({
           ))}
         </div>
 
-        {/* Hidden audio element — drives all playback */}
+        {/* Hidden audio — drives all playback */}
         <audio
           ref={audioRef}
           src={audioUrl}
@@ -179,10 +194,7 @@ export function GeneratedTrackResult({
             </button>
 
             <div className="flex-1">
-              <div
-                className="h-2 bg-[#2A2A2A] rounded-full cursor-pointer"
-                onClick={handleSeek}
-              >
+              <div className="h-2 bg-[#2A2A2A] rounded-full cursor-pointer" onClick={handleSeek}>
                 <div
                   className="h-2 bg-[#C8A96E] rounded-full transition-all"
                   style={{ width: `${progress}%` }}
@@ -196,28 +208,40 @@ export function GeneratedTrackResult({
           </div>
         </div>
 
-        {/* Export button — or success state when export is done */}
+        {/* Export button ↔ inline success state */}
         <div className="mt-auto">
-          {exportComplete && downloadUrl ? (
-            /* Success state — same size/position as the export button */
-            <div className="w-full flex items-center justify-between gap-3 px-4 py-2.5 bg-green-900/30 border border-green-700/40 rounded-xl">
-              <div className="flex items-center gap-2 min-w-0">
-                <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span className="text-green-300 text-sm font-medium truncate">Export complete!</span>
+          {exportResult ? (
+            /* Success state — replaces Export button in place */
+            <div className="rounded-xl overflow-hidden border border-green-700/40">
+              {/* Top row: checkmark + message + re-download */}
+              <div className="flex items-center justify-between gap-3 px-4 py-3 bg-green-900/30">
+                <div className="flex items-center gap-2 min-w-0">
+                  <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-green-300 text-sm font-medium truncate">Download started!</span>
+                </div>
+                <button
+                  onClick={() => triggerDownload(exportResult.downloadUrl)}
+                  className="flex-shrink-0 flex items-center gap-1.5 text-green-400 hover:text-green-300 text-xs font-medium transition-colors"
+                  title="Download again"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download again
+                </button>
               </div>
-              <a
-                href={downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-shrink-0 flex items-center gap-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+              {/* Bottom row: share page CTA */}
+              <button
+                onClick={() => router.push(`/export/${exportResult.exportId}`)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#1E1E1E] hover:bg-[#2A2A2A] text-[#C8A96E] text-sm font-bold transition-colors"
               >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                 </svg>
-                Download
-              </a>
+                Share your video →
+              </button>
             </div>
           ) : (
             <button
