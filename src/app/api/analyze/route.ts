@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { analyzeVideoFrames, VideoAnalysis } from "@/lib/analyze";
 import { generateMusicOptionsFromVideo } from "@/lib/elevenlabs";
 import { incrementUsage } from "@/lib/usage";
+import { isAdminEmail } from "@/lib/admin";
 import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import ffmpeg from "fluent-ffmpeg";
@@ -82,6 +83,7 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = session.user.id;
+  const admin = isAdminEmail(session.user.email);
   const body = await req.json() as { videoId: string; regenerate?: boolean };
   const { videoId, regenerate = false } = body;
 
@@ -247,7 +249,10 @@ export async function POST(req: NextRequest) {
       where: { id: videoId },
       data: { status: "ANALYZED" },
     });
-    await incrementUsage(userId, "analysis");
+    // Admin accounts bypass usage tracking so test runs don't consume credits.
+    if (!admin) {
+      await incrementUsage(userId, "analysis");
+    }
 
     return NextResponse.json({ status: "completed", analysis });
   } catch (err) {

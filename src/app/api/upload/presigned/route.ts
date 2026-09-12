@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { generateUploadPresignedUrl, INPUT_BUCKET } from "@/lib/s3";
 import { prisma } from "@/lib/prisma";
 import { canAnalyze } from "@/lib/usage";
+import { isAdminEmail } from "@/lib/admin";
 import { randomUUID } from "crypto";
 
 const ALLOWED_TYPES: Record<string, string> = {
@@ -21,14 +22,17 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = session.user.id;
+  const admin = isAdminEmail(session.user.email);
 
-  // Check usage limit
-  const allowed = await canAnalyze(userId);
-  if (!allowed) {
-    return NextResponse.json(
-      { error: "Monthly analysis limit reached. Please upgrade your plan." },
-      { status: 429 }
-    );
+  // Check usage limit (skipped for admin accounts)
+  if (!admin) {
+    const allowed = await canAnalyze(userId);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Monthly analysis limit reached. Please upgrade your plan." },
+        { status: 429 }
+      );
+    }
   }
 
   const body = await req.json();

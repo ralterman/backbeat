@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getUserPlan } from "@/lib/usage";
+import { isAdminEmail } from "@/lib/admin";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import { Readable } from "stream";
@@ -137,8 +138,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const plan = await getUserPlan(userId);
-  const hasWatermark = plan === "FREE";
+  // Admin accounts always get watermark-free exports regardless of plan.
+  const hasWatermark = isAdminEmail(session.user.email)
+    ? false
+    : (await getUserPlan(userId)) === "FREE";
 
   const exportId = randomUUID();
   await prisma.export.create({
@@ -159,7 +162,7 @@ export async function POST(req: NextRequest) {
     console.log(`[export][${exportId}] audio fetched: ${audioBuffer.length}b`);
 
     // Merge via FFmpeg (fade in/out + optional watermark)
-    console.log(`[export][${exportId}] starting FFmpeg (plan=${plan})`);
+    console.log(`[export][${exportId}] starting FFmpeg (hasWatermark=${hasWatermark})`);
     const outputBuffer = await mergeVideoAudio(videoBuffer, audioBuffer, exportId, hasWatermark);
 
     const outputKey = `exports/${userId}/${exportId}.mp4`;
