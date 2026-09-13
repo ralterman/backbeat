@@ -111,8 +111,8 @@ export function DemoWidget() {
   const [animTick, setAnimTick]         = useState(0);
   const [analysisCount, setAnalysisCount] = useState(0);
   const videoRef                        = useRef<HTMLVideoElement>(null);
-  const audioARef                       = useRef<HTMLAudioElement>(null); // Option A track
-  const audioBRef                       = useRef<HTMLAudioElement>(null); // Option B track
+  const audioARef                       = useRef<HTMLAudioElement>(null);
+  const audioBRef                       = useRef<HTMLAudioElement>(null);
   const containerRef                    = useRef<HTMLDivElement>(null);
 
   // ── Phase timer ───────────────────────────────────────────────────────────
@@ -120,20 +120,16 @@ export function DemoWidget() {
   // Phase 2  4 s    analyzing + analysis tags
   // Phase 3  3 s    options appear (neither selected)
   // Phase 4  6 s    Option A selected + audio plays
-  // Phase 5  6 s    Option B selected + audio restarts
+  // Phase 5  8 s    Option B selected + audio restarts  ← extended to 8 s
   // Phase 6  4 s    export (2 s exporting → 2 s ready)
   // Phase 7  2 s    fade out / reset
   useEffect(() => {
-    const timings = [3000, 4000, 3000, 6000, 6000, 4000, 2000];
+    const timings = [3000, 4000, 3000, 6000, 8000, 4000, 2000];
     const timer = setTimeout(() => setPhase(p => p === 7 ? 1 : p + 1), timings[phase - 1]);
     return () => clearTimeout(timer);
   }, [phase]);
 
   // ── Audio sync ────────────────────────────────────────────────────────────
-  // Phase 4 → play Option A track, silence Option B.
-  // Phase 5 → play Option B track, silence Option A.
-  // Phase 7 → fade out whichever is playing, reset both.
-  // All other phases → both silent and reset.
   useEffect(() => {
     const a = audioARef.current;
     const b = audioBRef.current;
@@ -153,7 +149,6 @@ export function DemoWidget() {
       b.currentTime = 0;
       if (!muted) b.play().catch(() => {});
     } else if (phase === 7) {
-      // Fade out whichever track is currently playing
       const active = !a.paused ? a : !b.paused ? b : null;
       if (!active) { resetBoth(); return; }
       const fadeOut = setInterval(() => {
@@ -182,9 +177,7 @@ export function DemoWidget() {
     }
   }, [phase]);
 
-  // ── Phase 6 sub-state: "exporting" for first 2 s, "ready" for next 2 s ───
-  // Phase 1 resets back to 'exporting' so the button is gold at the start
-  // of every loop (not stuck green from the previous cycle).
+  // ── Phase 6 sub-state: "exporting" → "ready" ─────────────────────────────
   useEffect(() => {
     if (phase === 6) {
       setExportLabel('exporting');
@@ -239,7 +232,6 @@ export function DemoWidget() {
     const b = audioBRef.current;
     if (!a || !b) return;
     if (muted) {
-      // Play whichever track belongs to the current phase
       if (phase === 4) { a.volume = 0.5; a.play().catch(() => {}); }
       else if (phase === 5) { b.volume = 0.5; b.play().catch(() => {}); }
       setMuted(false);
@@ -252,17 +244,11 @@ export function DemoWidget() {
 
   // ── Derived state ─────────────────────────────────────────────────────────
   const optASelected = phase === 4;
-  const optBSelected = phase >= 5; // B stays selected through phases 5, 6, 7
-
+  const optBSelected = phase >= 5;
   const aVis = ANALYSIS.map((_, i) => i < analysisCount);
-
-  // Export button: visible phases 3–6 (never in phase 7 or 1–2).
-  // selectedLabel is the static "Export Option A/B" text used in phases 3–5;
-  // during phase 6 the exportLabel state drives the button content instead.
   const showExport    = phase >= 3 && phase <= 6;
   const selectedLabel = phase >= 5 ? "Export Option B" : "Export Option A";
 
-  // Waveform bars animated by tick (8 bars for option cards, 7 for analyzing)
   const waveH = Array.from({ length: 8 }, (_, i) =>
     0.22 + 0.65 * ((Math.sin(animTick * 0.3 + i * 0.75) + 1) / 2)
   );
@@ -270,10 +256,7 @@ export function DemoWidget() {
     0.22 + 0.65 * ((Math.sin(animTick * 0.25 + i * 0.65) + 1) / 2)
   );
 
-  // Video: dim in phase 1 (first frame peek), full for phases 2–5, fade to black 6–7
-  const videoOpacity = phase === 1 ? 0.1 : phase >= 6 ? 0 : 1;
-
-  // Widget: fades out entirely during phase 7 (reset)
+  const videoOpacity  = phase === 1 ? 0.1 : phase >= 6 ? 0 : 1;
   const widgetOpacity = phase === 7 ? 0 : 1;
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -283,11 +266,15 @@ export function DemoWidget() {
       className="block mt-10 sm:mt-16 max-w-3xl mx-auto px-3 sm:px-0"
       style={{ opacity: widgetOpacity, transition: "opacity 1.5s ease" }}
     >
-      {/* Audio elements — preload="none" so neither loads until play() is called */}
+      {/* Audio elements */}
       <audio ref={audioARef} src="/demo/demo-track.mp3"   loop preload="none" />
       <audio ref={audioBRef} src="/demo/demo-track-b.mp3" loop preload="none" />
 
-      <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-3 sm:p-6 shadow-2xl shadow-black/60">
+      {/*
+        Fixed-height card — min-h keeps the card stable as phase content
+        transitions, preventing layout jumps on mobile (flex-col stack).
+      */}
+      <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-3 sm:p-6 shadow-2xl shadow-black/60 min-h-[600px] sm:min-h-0">
 
         {/* ── Window chrome ── */}
         <div className="flex items-center gap-2 mb-4">
@@ -313,9 +300,16 @@ export function DemoWidget() {
                 transition: "border-color 0.6s",
               }}
             >
+              {/*
+                poster: shows the first frame immediately, eliminating the
+                black-screen flash on mobile before the video decodes.
+                preload="auto": browser loads enough to display the first frame.
+                muted + playsInline: required for autoplay on iOS.
+              */}
               <video
                 ref={videoRef}
                 src="/demo-video.mp4"
+                poster="/demo/demo-poster.jpg"
                 muted loop playsInline preload="auto" controls={false}
                 style={{
                   position: "absolute", top: 0, left: 0,
@@ -326,7 +320,7 @@ export function DemoWidget() {
                 }}
               />
 
-              {/* Phase 1: upload drop zone with drag-in animation */}
+              {/* Phase 1: upload drop zone */}
               {phase === 1 && (
                 <div
                   className="absolute inset-0 border-2 border-dashed border-[#2A2A2A] rounded-xl flex flex-col items-center justify-center gap-3"
@@ -345,7 +339,6 @@ export function DemoWidget() {
                     <span className="text-[#a0a0b8] text-xs font-medium">demo-video.mp4</span>
                     <span className="text-[#9090aa] text-[10px]">58 MB</span>
                   </div>
-                  {/* Upload progress — CSS animates 0→100% over 2 s */}
                   <div className="w-4/5" style={{ animation: "fileDrop 0.3s ease-out 0.7s both" }}>
                     <div className="flex justify-between text-[10px] mb-1">
                       <span className="text-[#9090aa]">Uploading…</span>
@@ -365,131 +358,150 @@ export function DemoWidget() {
             </div>
           </div>
 
-          {/* ── RIGHT PANEL ── */}
-          <div className="sm:flex-1 flex flex-col gap-2 min-h-0">
-
+          {/* ── RIGHT PANEL ──
+              All three content blocks are always mounted and layered via
+              position:absolute. Opacity + pointer-events toggle visibility.
+              This means the panel has a fixed height at all times — no
+              reflow, no layout jump on mobile as phases change.
+          */}
+          <div
+            className="sm:flex-1 relative"
+            style={{ minHeight: "clamp(240px, 50vw, 330px)" }}
+          >
             {/* Phase 1 — quiet placeholder while upload runs */}
-            {phase === 1 && (
-              <div className="flex-1 flex flex-col items-center justify-center gap-2 py-6">
-                <svg className="w-8 h-8 text-[#252530]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                    d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                </svg>
-                <span className="text-[#383848] text-[11px]">Your AI soundtrack will appear here</span>
-              </div>
-            )}
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-2"
+              style={{
+                opacity: phase === 1 ? 1 : 0,
+                pointerEvents: phase === 1 ? "auto" : "none",
+                transition: "opacity 0.3s ease",
+              }}
+            >
+              <svg className="w-8 h-8 text-[#252530]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              </svg>
+              <span className="text-[#383848] text-[11px]">Your AI soundtrack will appear here</span>
+            </div>
 
             {/* Phase 2 — analyzing waveform + analysis tags staggering in */}
-            {phase === 2 && (
-              <div className="flex-1 flex flex-col justify-start gap-1.5 pt-2">
-                <div className="flex flex-col items-center gap-2 mb-2">
-                  <div className="flex items-end gap-0.5 h-6">
-                    {analyzeH.map((h, i) => (
-                      <div
-                        key={i}
-                        className="w-1 rounded-full bg-[#C8A96E]/50"
-                        style={{ height: `${h * 100}%` }}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-[#a0a0b8] text-[11px]">Analyzing your video...</span>
+            <div
+              className="absolute inset-0 flex flex-col justify-start gap-1.5 pt-2 overflow-y-auto"
+              style={{
+                opacity: phase === 2 ? 1 : 0,
+                pointerEvents: phase === 2 ? "auto" : "none",
+                transition: "opacity 0.3s ease",
+              }}
+            >
+              <div className="flex flex-col items-center gap-2 mb-2">
+                <div className="flex items-end gap-0.5 h-6">
+                  {analyzeH.map((h, i) => (
+                    <div
+                      key={i}
+                      className="w-1 rounded-full bg-[#C8A96E]/50"
+                      style={{ height: `${h * 100}%` }}
+                    />
+                  ))}
                 </div>
-
-                {ANALYSIS.map((item, i) => (
-                  <div
-                    key={i}
-                    className="bg-[#1E1E1E]/60 rounded-lg px-2.5 py-2"
-                    style={{
-                      opacity: aVis[i] ? 1 : 0,
-                      transform: aVis[i] ? "translateY(0)" : "translateY(6px)",
-                      transition: "opacity 0.4s ease-out, transform 0.4s ease-out",
-                    }}
-                  >
-                    <div className="text-[#9090aa] text-[9px] uppercase tracking-wide mb-1">{item.label}</div>
-                    {item.type === "bar" ? (
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: aVis[i] ? `${(item.value as number) * 10}%` : "0%",
-                              background: "linear-gradient(90deg,#C8A96E,#e8d09a)",
-                              transition: "width 0.9s ease-out",
-                            }}
-                          />
-                        </div>
-                        <span className="text-[#C8A96E] text-[10px] font-bold shrink-0">{item.value}/10</span>
-                      </div>
-                    ) : item.type === "tags" ? (
-                      <div className="flex flex-wrap gap-1">
-                        {(item.value as readonly string[]).map((tag) => (
-                          <span key={tag} className="text-[#C8A96E] text-[9px] bg-[#C8A96E]/10 rounded px-1.5 py-0.5">{tag}</span>
-                        ))}
-                      </div>
-                    ) : item.type === "mood" ? (
-                      <span className="text-[#C8A96E] text-[11px] font-semibold">{item.value as string}</span>
-                    ) : (
-                      <span className="text-white text-[11px]">{item.value as string}</span>
-                    )}
-                  </div>
-                ))}
+                <span className="text-[#a0a0b8] text-[11px]">Analyzing your video...</span>
               </div>
-            )}
+
+              {ANALYSIS.map((item, i) => (
+                <div
+                  key={i}
+                  className="bg-[#1E1E1E]/60 rounded-lg px-2.5 py-2"
+                  style={{
+                    opacity: aVis[i] ? 1 : 0,
+                    transform: aVis[i] ? "translateY(0)" : "translateY(6px)",
+                    transition: "opacity 0.4s ease-out, transform 0.4s ease-out",
+                  }}
+                >
+                  <div className="text-[#9090aa] text-[9px] uppercase tracking-wide mb-1">{item.label}</div>
+                  {item.type === "bar" ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: aVis[i] ? `${(item.value as number) * 10}%` : "0%",
+                            background: "linear-gradient(90deg,#C8A96E,#e8d09a)",
+                            transition: "width 0.9s ease-out",
+                          }}
+                        />
+                      </div>
+                      <span className="text-[#C8A96E] text-[10px] font-bold shrink-0">{item.value}/10</span>
+                    </div>
+                  ) : item.type === "tags" ? (
+                    <div className="flex flex-wrap gap-1">
+                      {(item.value as readonly string[]).map((tag) => (
+                        <span key={tag} className="text-[#C8A96E] text-[9px] bg-[#C8A96E]/10 rounded px-1.5 py-0.5">{tag}</span>
+                      ))}
+                    </div>
+                  ) : item.type === "mood" ? (
+                    <span className="text-[#C8A96E] text-[11px] font-semibold">{item.value as string}</span>
+                  ) : (
+                    <span className="text-white text-[11px]">{item.value as string}</span>
+                  )}
+                </div>
+              ))}
+            </div>
 
             {/* Phases 3–6 — option cards + export button */}
-            {phase >= 3 && phase <= 6 && (
-              <div className="flex-1 flex flex-col gap-3 min-h-0">
-                <OptionCard
-                  label="Option A"
-                  description={OPTIONS[0].description}
-                  tags={OPTIONS[0].tags}
-                  selected={optASelected}
-                  bars={optASelected ? waveH : STATIC_A}
-                  visible={true}
-                />
-                <OptionCard
-                  label="Option B"
-                  description={OPTIONS[1].description}
-                  tags={OPTIONS[1].tags}
-                  selected={optBSelected}
-                  bars={optBSelected ? waveH : STATIC_B}
-                  visible={true}
-                />
+            <div
+              className="absolute inset-0 flex flex-col gap-3"
+              style={{
+                opacity: phase >= 3 && phase <= 6 ? 1 : 0,
+                pointerEvents: phase >= 3 && phase <= 6 ? "auto" : "none",
+                transition: "opacity 0.3s ease",
+              }}
+            >
+              <OptionCard
+                label="Option A"
+                description={OPTIONS[0].description}
+                tags={OPTIONS[0].tags}
+                selected={optASelected}
+                bars={optASelected ? waveH : STATIC_A}
+                visible={true}
+              />
+              <OptionCard
+                label="Option B"
+                description={OPTIONS[1].description}
+                tags={OPTIONS[1].tags}
+                selected={optBSelected}
+                bars={optBSelected ? waveH : STATIC_B}
+                visible={true}
+              />
 
-                {/* Export button — not rendered in phases 7, 1, 2 (showExport is false).
-                    Phase 6 uses exportLabel state; other phases use selectedLabel string.
-                    This guarantees "Export Option A" never appears during the reset fade. */}
-                {showExport && (
-                  <button
-                    className="flex-shrink-0 w-full rounded-xl text-[12px] font-bold h-[36px] flex items-center justify-center gap-2"
-                    style={{
-                      background: exportLabel === 'ready' ? "rgba(34,197,94,0.12)" : "rgba(200,169,110,0.09)",
-                      border: exportLabel === 'ready'
-                        ? "1px solid rgba(34,197,94,0.55)"
-                        : "1px solid rgba(200,169,110,0.28)",
-                      color: exportLabel === 'ready' ? "#4ade80" : "#C8A96E",
-                      transition: "background 0.3s, border-color 0.2s, color 0.4s",
-                    }}
-                  >
-                    {phase === 6 ? (
-                      exportLabel === 'ready' ? (
-                        "✓  Ready to download ↓"
-                      ) : (
-                        <>
-                          <span
-                            className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#C8A96E] border-t-transparent"
-                            style={{ animation: "spin 0.7s linear infinite" }}
-                          />
-                          Exporting...
-                        </>
-                      )
+              {showExport && (
+                <button
+                  className="flex-shrink-0 w-full rounded-xl text-[12px] font-bold h-[36px] flex items-center justify-center gap-2"
+                  style={{
+                    background: exportLabel === 'ready' ? "rgba(34,197,94,0.12)" : "rgba(200,169,110,0.09)",
+                    border: exportLabel === 'ready'
+                      ? "1px solid rgba(34,197,94,0.55)"
+                      : "1px solid rgba(200,169,110,0.28)",
+                    color: exportLabel === 'ready' ? "#4ade80" : "#C8A96E",
+                    transition: "background 0.3s, border-color 0.2s, color 0.4s",
+                  }}
+                >
+                  {phase === 6 ? (
+                    exportLabel === 'ready' ? (
+                      "✓  Ready to download ↓"
                     ) : (
-                      selectedLabel
-                    )}
-                  </button>
-                )}
-              </div>
-            )}
+                      <>
+                        <span
+                          className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#C8A96E] border-t-transparent"
+                          style={{ animation: "spin 0.7s linear infinite" }}
+                        />
+                        Exporting...
+                      </>
+                    )
+                  ) : (
+                    selectedLabel
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -503,7 +515,6 @@ export function DemoWidget() {
             background: muted ? "rgba(200,169,110,0.08)" : "rgba(200,169,110,0.18)",
             border: "1px solid rgba(200,169,110,0.35)",
             color: "#C8A96E",
-            // Pulse when music would be playing but user hasn't unmuted yet
             animation: (muted && phase >= 4 && phase <= 5) ? "audioPulse 2s ease-in-out infinite" : "none",
           }}
         >
