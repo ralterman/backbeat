@@ -27,8 +27,6 @@ const ANALYSIS = [
 const STATIC_A = [0.35, 0.65, 0.45, 0.80, 0.30, 0.60, 0.40, 0.65];
 const STATIC_B = [0.30, 0.55, 0.75, 0.42, 0.68, 0.38, 0.58, 0.48];
 
-function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
-function norm(v: number, lo: number, hi: number)   { return clamp((v - lo) / (hi - lo), 0, 1); }
 
 // ── Option card ──────────────────────────────────────────────────────────────
 interface CardProps {
@@ -107,62 +105,37 @@ function OptionCard({ label, description, tags, selected, bars, visible }: CardP
 
 // ── DemoWidget ────────────────────────────────────────────────────────────────
 export function DemoWidget() {
-  const [phase, setPhase] = useState(1);
-  const [muted, setMuted] = useState(true);
-  const videoRef          = useRef<HTMLVideoElement>(null);
-  const audioRef          = useRef<HTMLAudioElement>(null);
-  const containerRef      = useRef<HTMLDivElement>(null);
-
-  // ── Video setup ───────────────────────────────────────────────────────────
-  useEffect(() => {
-    const vid = videoRef.current;
-    if (!vid) return;
-    vid.muted = true;
-    const onMeta = () => { vid.currentTime = 0.1; };
-    vid.addEventListener("loadedmetadata", onMeta, { once: true });
-    const tryPlay = () =>
-      vid.play().catch(() => {
-        const retry = () => vid.play().catch(() => {});
-        document.addEventListener("click", retry, { once: true });
-        document.addEventListener("touchstart", retry, { once: true });
-      });
-    if (vid.readyState >= 1) { vid.currentTime = 0.1; tryPlay(); }
-    else vid.addEventListener("loadedmetadata", tryPlay, { once: true });
-    vid.addEventListener("error", (e) => console.error("Demo video error:", e));
-  }, []);
+  const [phase, setPhase]               = useState(1);
+  const [muted, setMuted]               = useState(true);
+  const [exportDone, setExportDone]     = useState(false);
+  const [animTick, setAnimTick]         = useState(0);
+  const [analysisCount, setAnalysisCount] = useState(0);
+  const videoRef                        = useRef<HTMLVideoElement>(null);
+  const audioRef                        = useRef<HTMLAudioElement>(null);
+  const containerRef                    = useRef<HTMLDivElement>(null);
 
   // ── Phase timer ───────────────────────────────────────────────────────────
-  //
-  // A single `phase` state (1–7) drives everything — audio, video, labels,
-  // selected card.  Each phase advances after its allotted duration.
-  //
+  // Phase 1  3 s    upload
+  // Phase 2  4 s    analyzing + analysis tags
+  // Phase 3  3 s    options appear (neither selected)
+  // Phase 4  6 s    Option A selected + audio plays
+  // Phase 5  6 s    Option B selected + audio restarts
+  // Phase 6  4 s    export (2 s exporting → 2 s ready)
+  // Phase 7  2 s    fade out / reset
   useEffect(() => {
-    const timings = [3000, 4000, 3000, 6000, 6000, 4000, 2000]; // ms per phase
-    const timer = setTimeout(() => {
-      setPhase(p => p === 7 ? 1 : p + 1);
-    }, timings[phase - 1]);
+    const timings = [3000, 4000, 3000, 6000, 6000, 4000, 2000];
+    const timer = setTimeout(() => setPhase(p => p === 7 ? 1 : p + 1), timings[phase - 1]);
     return () => clearTimeout(timer);
   }, [phase]);
 
   // ── Audio sync ────────────────────────────────────────────────────────────
-  //
-  // Runs whenever phase or muted changes.  Phase 4 and 5 restart the track
-  // from the top; phase 7 fades out over ~1.5 s; all other phases silence it.
-  //
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-
-    if (phase === 4) {
-      // Option A selected — start audio from beginning
-      audio.currentTime = 0;
-      if (!muted) audio.play().catch(() => {});
-    } else if (phase === 5) {
-      // Option B selected — restart audio from beginning
+    if (phase === 4 || phase === 5) {
       audio.currentTime = 0;
       if (!muted) audio.play().catch(() => {});
     } else if (phase === 7) {
-      // Reset — fade out audio over ~1.5 s
       const fadeOut = setInterval(() => {
         if (audio.volume > 0.05) {
           audio.volume = Math.max(0, audio.volume - 0.05);
@@ -175,13 +148,51 @@ export function DemoWidget() {
       }, 75);
       return () => clearInterval(fadeOut);
     } else {
-      // All other phases — audio silent
       audio.pause();
       audio.currentTime = 0;
     }
   }, [phase, muted]);
 
-  // ── Reset + mute when scrolled out ───────────────────────────────────────
+  // ── Video control per phase ───────────────────────────────────────────────
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid) return;
+    if (phase === 4 || phase === 5) {
+      vid.currentTime = 0;
+      vid.play().catch(() => {});
+    } else if (phase >= 6) {
+      vid.pause();
+    }
+  }, [phase]);
+
+  // ── Phase 6 sub-state: "Exporting…" for first 2 s, then "Ready" ──────────
+  useEffect(() => {
+    if (phase === 6) {
+      setExportDone(false);
+      const timer = setTimeout(() => setExportDone(true), 2000);
+      return () => clearTimeout(timer);
+    } else {
+      setExportDone(false);
+    }
+  }, [phase]);
+
+  // ── Animation tick — drives waveform bars in active phases ────────────────
+  useEffect(() => {
+    if (phase === 2 || phase === 4 || phase === 5) {
+      const id = setInterval(() => setAnimTick(n => n + 1), 60);
+      return () => clearInterval(id);
+    }
+  }, [phase]);
+
+  // ── Analysis items stagger in during phase 2 ─────────────────────────────
+  useEffect(() => {
+    if (phase !== 2) { setAnalysisCount(0); return; }
+    if (analysisCount >= ANALYSIS.length) return;
+    const timer = setTimeout(() => setAnalysisCount(c => c + 1), 600);
+    return () => clearTimeout(timer);
+  }, [phase, analysisCount]);
+
+  // ── Reset when scrolled out ───────────────────────────────────────────────
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -190,7 +201,7 @@ export function DemoWidget() {
         if (!entry.isIntersecting) {
           setPhase(1);
           const audio = audioRef.current;
-          if (audio) { audio.pause(); audio.currentTime = 0; }
+          if (audio) { audio.pause(); audio.currentTime = 0; audio.volume = 0.5; }
           setMuted(true);
         }
       },
@@ -215,58 +226,36 @@ export function DemoWidget() {
   };
 
   // ── Derived state ─────────────────────────────────────────────────────────
-  //
-  // Phase 1  3 s    upload
-  // Phase 2  4 s    analysis
-  // Phase 3  3 s    options appear
-  // Phase 4  6 s    Option A selected
-  // Phase 5  6 s    Option B selected
-  // Phase 6  4 s    export
-  // Phase 7  2 s    fade out / reset
-  //
-  // t=0 placeholder keeps existing sub-phase micro-animations compiling
-  // until they are rebuilt in the next pass.
-  const t = 0;
+  const optASelected = phase === 4;
+  const optBSelected = phase >= 5; // B stays selected through phases 5, 6, 7
 
-  // Phase 1
-  const fileDrop    = norm(t, 400, 750);
-  const fileVisible = t > 400 && t < 2000;
+  const aVis = ANALYSIS.map((_, i) => i < analysisCount);
 
-  // Phase 2
-  const uploadPct = Math.round(clamp(norm(t, 2100, 3900) * 100, 0, 100));
+  // Export button: visible phases 3–6 (never in phase 7 or 1–2)
+  const showExport  = phase >= 3 && phase <= 6;
+  const exportLabel = phase >= 5 ? "Export Option B" : "Export Option A";
 
-  // Phase 3 — analysis items fade in
-  const aVis = ANALYSIS.map((_, i) => t > 5000 + i * 600);
-
-  // Phase 4 — option cards appear, then selection cycles
-  const optVis: [boolean, boolean] = [t > 12200, t > 14200];
-  const optASelected = t >= 12200 && t < 17500;
-  const optBSelected = t >= 17500 && t < 23500;
-
-  // Export sequence
-  const showExport   = optVis[0];
-  const exportLabel  = optBSelected ? "Export Option B" : "Export Option A";
-  const exportPulse  = t >= 21500 && t < 23200;
-  const exportSpin   = t >= 23200 && t < 24500;
-  const exportDone   = t >= 24500 && t < 26500;
-  const exportBorder = exportPulse
-    ? 0.25 + 0.28 * ((Math.sin(t / 190) + 1) / 2)
-    : exportDone ? 0.7 : 0.28;
-
-  // Animated waveform bars (8 bars, driven by t)
+  // Waveform bars animated by tick (8 bars for option cards, 7 for analyzing)
   const waveH = Array.from({ length: 8 }, (_, i) =>
-    0.22 + 0.65 * ((Math.sin(t / 270 + i * 0.75) + 1) / 2)
+    0.22 + 0.65 * ((Math.sin(animTick * 0.3 + i * 0.75) + 1) / 2)
+  );
+  const analyzeH = Array.from({ length: 7 }, (_, i) =>
+    0.22 + 0.65 * ((Math.sin(animTick * 0.25 + i * 0.65) + 1) / 2)
   );
 
-  // Borders / glows
-  const borderGlow = phase >= 3 ? 0.15 + 0.12 * Math.sin(t / 900) : 0;
+  // Video: dim in phase 1 (first frame peek), full for phases 2–5, fade to black 6–7
+  const videoOpacity = phase === 1 ? 0.1 : phase >= 6 ? 0 : 1;
 
-  // Fade envelope
-  const opacity = t < 600 ? t / 600 : t > 25000 ? clamp(1 - (t - 25000) / 3000, 0, 1) : 1;
+  // Widget: fades out entirely during phase 7 (reset)
+  const widgetOpacity = phase === 7 ? 0 : 1;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div ref={containerRef} className="block mt-10 sm:mt-16 max-w-3xl mx-auto px-3 sm:px-0" style={{ opacity }}>
+    <div
+      ref={containerRef}
+      className="block mt-10 sm:mt-16 max-w-3xl mx-auto px-3 sm:px-0"
+      style={{ opacity: widgetOpacity, transition: "opacity 1.5s ease" }}
+    >
       {/* Hidden audio element — real ElevenLabs-generated track */}
       <audio ref={audioRef} src="/demo/demo-track.mp3" loop preload="auto" />
 
@@ -305,7 +294,6 @@ export function DemoWidget() {
         </div>
 
         {/* ── Main layout ── */}
-        {/* items-stretch so right panel inherits left panel's height on desktop */}
         <div className="flex flex-col sm:flex-row gap-3 sm:items-stretch">
 
           {/* ── LEFT PANEL — portrait video ── */}
@@ -315,68 +303,56 @@ export function DemoWidget() {
               style={{
                 aspectRatio: "9/16",
                 background: "#0a0a0a",
-                border: `1px solid rgba(200,169,110,${borderGlow})`,
+                border: `1px solid rgba(200,169,110,${phase >= 4 && phase <= 5 ? 0.22 : 0})`,
                 transition: "border-color 0.6s",
               }}
             >
               <video
                 ref={videoRef}
                 src="/demo-video.mp4"
-                autoPlay muted loop playsInline controls={false}
+                muted loop playsInline preload="auto" controls={false}
                 style={{
                   position: "absolute", top: 0, left: 0,
                   width: "100%", height: "100%",
                   objectFit: "cover", zIndex: 0,
-                  opacity: phase === 1 ? 0.25 : phase >= 2 ? 1 : 0,
+                  opacity: videoOpacity,
                   transition: "opacity 0.8s ease",
                 }}
               />
 
-              {/* Phase 1: drop zone */}
+              {/* Phase 1: upload drop zone with drag-in animation */}
               {phase === 1 && (
                 <div
-                  className="absolute inset-0 border-2 border-dashed border-[#2A2A2A] rounded-xl flex flex-col items-center justify-center"
+                  className="absolute inset-0 border-2 border-dashed border-[#2A2A2A] rounded-xl flex flex-col items-center justify-center gap-3"
                   style={{ zIndex: 1 }}
                 >
-                  {fileVisible ? (
-                    <div
-                      className="flex flex-col items-center gap-1.5"
-                      style={{ opacity: fileDrop, transform: `translateY(${(1 - fileDrop) * -36}px)` }}
-                    >
-                      <svg className="w-9 h-9 text-[#C8A96E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
-                      <span className="text-[#a0a0b8] text-xs font-medium">demo-video.mp4</span>
-                      <span className="text-[#9090aa] text-[10px]">58 MB</span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 text-[#9090aa]">
-                      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                      </svg>
-                      <span className="text-xs">Drop a video to analyze</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Phase 2: upload progress bar */}
-              {phase === 2 && (
-                <div
-                  className="absolute inset-0 bg-black/30 rounded-xl flex flex-col justify-end p-4"
-                  style={{ zIndex: 1 }}
-                >
-                  <div className="flex justify-between text-[10px] mb-1.5">
-                    <span className="text-[#a0a0b8]">demo-video.mp4</span>
-                    <span className="text-[#C8A96E] font-semibold">{uploadPct}%</span>
+                  <div style={{ animation: "fileDrop 0.45s ease-out 0.4s both" }}>
+                    <svg className="w-9 h-9 text-[#C8A96E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
                   </div>
-                  <div className="h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${uploadPct}%`, background: "linear-gradient(90deg,#C8A96E,#e8d09a)" }}
-                    />
+                  <div
+                    className="flex flex-col items-center gap-1"
+                    style={{ animation: "fileDrop 0.45s ease-out 0.55s both" }}
+                  >
+                    <span className="text-[#a0a0b8] text-xs font-medium">demo-video.mp4</span>
+                    <span className="text-[#9090aa] text-[10px]">58 MB</span>
+                  </div>
+                  {/* Upload progress — CSS animates 0→100% over 2 s */}
+                  <div className="w-4/5" style={{ animation: "fileDrop 0.3s ease-out 0.7s both" }}>
+                    <div className="flex justify-between text-[10px] mb-1">
+                      <span className="text-[#9090aa]">Uploading…</span>
+                    </div>
+                    <div className="h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          background: "linear-gradient(90deg,#C8A96E,#e8d09a)",
+                          animation: "uploadFill 2s ease-out 0.9s both",
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -384,28 +360,35 @@ export function DemoWidget() {
           </div>
 
           {/* ── RIGHT PANEL ── */}
-          {/* flex-col + flex-1 on children fills the full panel height on desktop */}
           <div className="sm:flex-1 flex flex-col gap-2 min-h-0">
 
-            {/* Phase 2 — analyzing waveform */}
-            {phase === 2 && (
+            {/* Phase 1 — quiet placeholder while upload runs */}
+            {phase === 1 && (
               <div className="flex-1 flex flex-col items-center justify-center gap-2 py-6">
-                <div className="flex items-end gap-0.5 h-6">
-                  {[0.4, 0.8, 1.0, 0.6, 0.9, 0.5, 0.75].map((base, i) => (
-                    <div
-                      key={i}
-                      className="w-1 rounded-full bg-[#C8A96E]/50"
-                      style={{ height: `${(0.3 + 0.7 * base * ((Math.sin(t / 180 + i * 0.65) + 1) / 2)) * 100}%` }}
-                    />
-                  ))}
-                </div>
-                <span className="text-[#a0a0b8] text-[11px]">Analyzing your video...</span>
+                <svg className="w-8 h-8 text-[#252530]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                    d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+                <span className="text-[#383848] text-[11px]">Your AI soundtrack will appear here</span>
               </div>
             )}
 
-            {/* Phase 3 — analysis results */}
-            {phase === 3 && (
-              <div className="flex-1 flex flex-col justify-center gap-1.5">
+            {/* Phase 2 — analyzing waveform + analysis tags staggering in */}
+            {phase === 2 && (
+              <div className="flex-1 flex flex-col justify-start gap-1.5 pt-2">
+                <div className="flex flex-col items-center gap-2 mb-2">
+                  <div className="flex items-end gap-0.5 h-6">
+                    {analyzeH.map((h, i) => (
+                      <div
+                        key={i}
+                        className="w-1 rounded-full bg-[#C8A96E]/50"
+                        style={{ height: `${h * 100}%` }}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[#a0a0b8] text-[11px]">Analyzing your video...</span>
+                </div>
+
                 {ANALYSIS.map((item, i) => (
                   <div
                     key={i}
@@ -447,80 +430,55 @@ export function DemoWidget() {
               </div>
             )}
 
-            {/* Phase 4 — generating → two option cards → export */}
-            {phase >= 4 && (
+            {/* Phases 3–6 — option cards + export button */}
+            {phase >= 3 && phase <= 6 && (
               <div className="flex-1 flex flex-col gap-3 min-h-0">
+                <OptionCard
+                  label="Option A"
+                  description={OPTIONS[0].description}
+                  tags={OPTIONS[0].tags}
+                  selected={optASelected}
+                  bars={optASelected ? waveH : STATIC_A}
+                  visible={true}
+                />
+                <OptionCard
+                  label="Option B"
+                  description={OPTIONS[1].description}
+                  tags={OPTIONS[1].tags}
+                  selected={optBSelected}
+                  bars={optBSelected ? waveH : STATIC_B}
+                  visible={true}
+                />
 
-                {/* "Generating..." shown before Option A appears */}
-                {!optVis[0] && (
-                  <div className="flex-1 flex flex-col items-center justify-center gap-2">
-                    <div className="flex items-end gap-0.5 h-5">
-                      {[0.5, 0.9, 0.7, 1.0, 0.6, 0.8, 0.4, 0.75].map((base, i) => (
-                        <div
-                          key={i}
-                          className="w-1 rounded-full bg-[#C8A96E]/50"
-                          style={{ height: `${(0.25 + 0.75 * base * ((Math.sin(t / 220 + i * 0.8) + 1) / 2)) * 100}%` }}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-[#a0a0b8] text-[11px]">Generating your soundtrack...</span>
-                    <span className="text-[#9090aa] text-[10px]">30–60 seconds</span>
-                  </div>
-                )}
-
-                {/* Option cards + export (once Option A is ready) */}
-                {optVis[0] && (
-                  <>
-                    <OptionCard
-                      label="Option A"
-                      description={OPTIONS[0].description}
-                      tags={OPTIONS[0].tags}
-                      selected={optASelected}
-                      bars={optASelected ? waveH : STATIC_A}
-                      visible={optVis[0]}
-                    />
-                    <OptionCard
-                      label="Option B"
-                      description={OPTIONS[1].description}
-                      tags={OPTIONS[1].tags}
-                      selected={optBSelected}
-                      bars={optBSelected ? waveH : STATIC_B}
-                      visible={optVis[1]}
-                    />
-
-                    {/* Export button — anchored to bottom of right panel */}
-                    {showExport && (
-                      <button
-                        className="flex-shrink-0 w-full rounded-xl text-[12px] font-bold h-[36px] flex items-center justify-center gap-2"
-                        style={{
-                          background: exportDone
-                            ? "rgba(34,197,94,0.12)"
-                            : exportPulse
-                            ? `rgba(200,169,110,${0.10 + 0.12 * ((Math.sin(t / 190) + 1) / 2)})`
-                            : "rgba(200,169,110,0.09)",
-                          border: exportDone
-                            ? "1px solid rgba(34,197,94,0.55)"
-                            : `1px solid rgba(200,169,110,${exportBorder})`,
-                          color: exportDone ? "#4ade80" : "#C8A96E",
-                          transition: "background 0.3s, border-color 0.2s, color 0.4s",
-                        }}
-                      >
-                        {exportSpin ? (
-                          <>
-                            <span
-                              className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#C8A96E] border-t-transparent"
-                              style={{ animation: "spin 0.7s linear infinite" }}
-                            />
-                            Exporting...
-                          </>
-                        ) : exportDone ? (
-                          "✓  Ready to download"
-                        ) : (
-                          exportLabel
-                        )}
-                      </button>
+                {/* Export button — hidden in phase 7, shown phases 3–6 */}
+                {showExport && (
+                  <button
+                    className="flex-shrink-0 w-full rounded-xl text-[12px] font-bold h-[36px] flex items-center justify-center gap-2"
+                    style={{
+                      background: exportDone ? "rgba(34,197,94,0.12)" : "rgba(200,169,110,0.09)",
+                      border: exportDone
+                        ? "1px solid rgba(34,197,94,0.55)"
+                        : "1px solid rgba(200,169,110,0.28)",
+                      color: exportDone ? "#4ade80" : "#C8A96E",
+                      transition: "background 0.3s, border-color 0.2s, color 0.4s",
+                    }}
+                  >
+                    {phase === 6 ? (
+                      exportDone ? (
+                        "✓  Ready to download"
+                      ) : (
+                        <>
+                          <span
+                            className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#C8A96E] border-t-transparent"
+                            style={{ animation: "spin 0.7s linear infinite" }}
+                          />
+                          Exporting...
+                        </>
+                      )
+                    ) : (
+                      exportLabel
                     )}
-                  </>
+                  </button>
                 )}
               </div>
             )}
@@ -528,7 +486,11 @@ export function DemoWidget() {
         </div>
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin       { to { transform: rotate(360deg); } }
+        @keyframes fileDrop   { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes uploadFill { from { width: 0%; } to { width: 100%; } }
+      `}</style>
     </div>
   );
 }
