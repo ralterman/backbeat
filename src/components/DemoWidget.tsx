@@ -272,9 +272,10 @@ export function DemoWidget() {
 
   // ── Mute toggle — only place play() is called on audio ───────────────────
   // iOS Safari requires audio.play() inside a direct user gesture handler.
-  // We call it here and only here. Phase effects call play() too after first
-  // gesture — that's fine because by then iOS has granted permission.
-  const handleMuteToggle = () => {
+  // On first tap we "unlock" both elements by playing them muted then
+  // immediately pausing — this primes both elements so subsequent play()
+  // calls from phase effects work without needing another gesture.
+  const handleMuteToggle = async () => {
     const newMuted = !isMuted;
     isMutedRef.current = newMuted;
     setIsMuted(newMuted);
@@ -284,7 +285,28 @@ export function DemoWidget() {
     if (!a || !b) return;
 
     if (!newMuted) {
-      hasUserGestureRef.current = true;
+      // iOS Safari requires audio elements to be "unlocked" with a
+      // play() call on the first user gesture, even if we immediately pause
+      if (!hasUserGestureRef.current) {
+        hasUserGestureRef.current = true;
+
+        // Unlock both elements simultaneously on first gesture
+        try {
+          a.muted = true;
+          b.muted = true;
+          await Promise.all([a.play(), b.play()]);
+          a.pause();
+          b.pause();
+          a.muted = false;
+          b.muted = false;
+          a.currentTime = 0;
+          b.currentTime = 0;
+        } catch (e) {
+          console.error("Audio unlock failed:", e);
+        }
+      }
+
+      // Now play the correct track for current phase
       if (phase === 4) {
         a.volume = 0.6;
         b.volume = 0;
@@ -294,7 +316,7 @@ export function DemoWidget() {
         b.volume = 0.6;
         b.play().catch(console.error);
       }
-      // Other phases: gesture recorded, audio starts when phase 4/5 arrives
+      // Other phases — unlocked and ready, will play when phase 4/5 arrives
     } else {
       a.pause();
       b.pause();
