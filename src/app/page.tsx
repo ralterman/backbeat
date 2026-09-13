@@ -109,11 +109,26 @@ export default function LandingPage() {
       <ScrollToTop />
       {/* ── Hero ──────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
-        {/* Radial glow behind headline */}
-        <div
-          className="absolute top-[80px] left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(ellipse 80% 60% at 50% 40%, rgba(200,169,110,0.12) 0%, transparent 70%)" }}
-        />
+        {/* Hero atmosphere */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {/* Main gold bloom — large and prominent */}
+          <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[120vw] h-[80vh] rounded-full"
+            style={{
+              background: 'radial-gradient(ellipse 70% 60% at 50% 30%, rgba(200, 169, 110, 0.18) 0%, rgba(200, 169, 110, 0.06) 40%, transparent 70%)'
+            }}
+          />
+          {/* Subtle warm edge glows */}
+          <div className="absolute top-0 left-[-10%] w-[50vw] h-[60vh]"
+            style={{
+              background: 'radial-gradient(ellipse 80% 80% at 20% 20%, rgba(200, 169, 110, 0.06) 0%, transparent 60%)'
+            }}
+          />
+          <div className="absolute top-0 right-[-10%] w-[50vw] h-[60vh]"
+            style={{
+              background: 'radial-gradient(ellipse 80% 80% at 80% 20%, rgba(200, 169, 110, 0.06) 0%, transparent 60%)'
+            }}
+          />
+        </div>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-32 text-center">
           {/* Logo lockup */}
