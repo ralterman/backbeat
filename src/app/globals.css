@@ -23,9 +23,7 @@
 }
 
 body {
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(200, 169, 110, 0.08) 0%, transparent 70%),
-    var(--background);
+  background: #0a0a0f;
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
 }
