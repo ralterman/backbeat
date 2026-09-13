@@ -127,35 +127,102 @@ export function DemoWidget() {
   const [analysisCount, setAnalysisCount] = useState(0);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
-  const isMutedRef   = useRef(true);
-  const hasPlayedRef = useRef(false);   // true after first successful play() call
-  const audioARef    = useRef<HTMLAudioElement>(null);
-  const audioBRef    = useRef<HTMLAudioElement>(null);
-  const videoRef     = useRef<HTMLVideoElement>(null);
-  const demoRef      = useRef<HTMLDivElement>(null);
+  // Web Audio API — all null until first user gesture (initAudio).
+  const audioContextRef  = useRef<AudioContext | null>(null);
+  const sourceARef       = useRef<AudioBufferSourceNode | null>(null);
+  const sourceBRef       = useRef<AudioBufferSourceNode | null>(null);
+  const gainRef          = useRef<GainNode | null>(null);
+  const bufferARef       = useRef<AudioBuffer | null>(null);
+  const bufferBRef       = useRef<AudioBuffer | null>(null);
+  const activeTrackRef   = useRef<"a" | "b" | null>(null);
+  const hasUserGestureRef = useRef(false);
+  const isMutedRef       = useRef(true);
+  const videoRef         = useRef<HTMLVideoElement>(null);
+  const demoRef          = useRef<HTMLDivElement>(null);
 
-  // ── Intersection observer — single source of visibility truth ─────────────
+  // ── Web Audio helpers ─────────────────────────────────────────────────────
+
+  // initAudio — called once, inside handleMuteToggle (user gesture).
+  // Creates the AudioContext, GainNode, and decodes both MP3 buffers.
+  // No audio nodes exist in the browser until this function completes.
+  const initAudio = async () => {
+    if (audioContextRef.current) return; // already done
+    const ctx = new AudioContext();
+    audioContextRef.current = ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.6;
+    gain.connect(ctx.destination);
+    gainRef.current = gain;
+    const [bufA, bufB] = await Promise.all([
+      fetch("/demo/demo-track.mp3").then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)),
+      fetch("/demo/demo-track-b.mp3").then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)),
+    ]);
+    bufferARef.current = bufA;
+    bufferBRef.current = bufB;
+  };
+
+  // playTrack — starts a looping BufferSourceNode for track a or b.
+  // Stops any currently running source first. Idempotent if already playing.
+  const playTrack = (track: "a" | "b") => {
+    const ctx  = audioContextRef.current;
+    const gain = gainRef.current;
+    if (!ctx || !gain) return;
+    if (activeTrackRef.current === track) return;
+    // Stop both sources safely
+    try { sourceARef.current?.stop(); } catch {}
+    try { sourceBRef.current?.stop(); } catch {}
+    const buffer = track === "a" ? bufferARef.current : bufferBRef.current;
+    if (!buffer) return;
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop   = true;
+    source.connect(gain);
+    source.start(0);
+    if (track === "a") sourceARef.current = source;
+    else               sourceBRef.current = source;
+    activeTrackRef.current = track;
+  };
+
+  // stopAllAudio — stops both sources and resets tracking state.
+  const stopAllAudio = () => {
+    try { sourceARef.current?.stop(); } catch {}
+    try { sourceBRef.current?.stop(); } catch {}
+    sourceARef.current = null;
+    sourceBRef.current = null;
+    activeTrackRef.current = null;
+  };
+
+  // ── Intersection observer — suspend/resume AudioContext on visibility ──────
+  // Re-registered on each phase change so the `phase` value inside the
+  // callback is always current (no phaseRef workaround needed).
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
         setIsVisible(entry.isIntersecting);
+        if (!entry.isIntersecting) {
+          // Scrolled out: suspend audio context (works on locked screen too)
+          audioContextRef.current?.suspend();
+          if (videoRef.current) videoRef.current.pause();
+        } else {
+          // Back in view: resume only if user has already unmuted
+          if (!isMutedRef.current && hasUserGestureRef.current) {
+            audioContextRef.current?.resume();
+            if (phase === 4 || phase === 5) {
+              videoRef.current?.play().catch(() => {});
+            }
+          }
+        }
       },
       { threshold: 0.2 },
     );
     if (demoRef.current) observer.observe(demoRef.current);
     return () => observer.disconnect();
-  }, []);
+  }, [phase]); // re-register so callback closes over current phase
 
-  // ── Phase timer — only runs when visible ──────────────────────────────────
-  // When not visible, mutes audio and pauses video. When visible, advances
-  // the phase on schedule. The timer is cancelled and restarted whenever
-  // visibility or phase changes, so it always counts down the correct
-  // remaining duration.
+  // ── Phase timer — pauses video when not visible, advances phase when visible
   useEffect(() => {
     if (!isVisible) {
-      if (audioARef.current) audioARef.current.volume = 0;
-      if (audioBRef.current) audioBRef.current.volume = 0;
-      if (videoRef.current)  videoRef.current.pause();
+      if (videoRef.current) videoRef.current.pause();
       return;
     }
     const timer = setTimeout(() => {
@@ -192,49 +259,31 @@ export function DemoWidget() {
     return () => clearTimeout(t);
   }, [phase, analysisCount]);
 
-  // ── applyVolumes — ONLY called after hasPlayedRef.current === true ─────────
-  // Plain function (no useCallback needed) — only reads refs, never state.
-  const applyVolumes = (p: number) => {
-    if (!hasPlayedRef.current) return; // never touch audio before user gesture
-    if (isMutedRef.current) return;
-    const a = audioARef.current;
-    const b = audioBRef.current;
-    if (!a || !b) return;
-    a.volume = p === 4 ? 0.6 : 0;
-    b.volume = p === 5 ? 0.6 : 0;
-  };
-
-  // ── Audio: phase changes adjust volume only — never call play() ───────────
+  // ── Audio: phase changes drive track selection ────────────────────────────
+  // Only acts after first user gesture (hasUserGestureRef) and when unmuted.
+  // Uses GainNode scheduling for smooth fade-out on phases 6, 7, and reset.
   useEffect(() => {
-    applyVolumes(phase);
-    // Reset track positions at the start of each loop
-    if (phase === 1) {
-      const a = audioARef.current;
-      const b = audioBRef.current;
-      if (a) { a.currentTime = 0; a.volume = 0; }
-      if (b) { b.currentTime = 0; b.volume = 0; }
+    if (isMutedRef.current || !hasUserGestureRef.current) return;
+    if (phase === 4) {
+      playTrack("a");
+    } else if (phase === 5) {
+      playTrack("b");
+    } else if (phase === 6 || phase === 7 || phase === 1) {
+      // Smooth fade out via GainNode automation
+      const gain = gainRef.current;
+      const ctx  = audioContextRef.current;
+      if (gain && ctx) {
+        gain.gain.setTargetAtTime(0, ctx.currentTime, 0.5);
+        setTimeout(() => {
+          stopAllAudio();
+          gain.gain.value = 0.6; // restore for next loop
+        }, 2000);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
-  // ── Audio: phase 7 fade-out ────────────────────────────────────────────────
-  useEffect(() => {
-    if (phase !== 7 || !hasPlayedRef.current) return;
-    const a = audioARef.current;
-    const b = audioBRef.current;
-    if (!a && !b) return;
-    let vol = 0.6;
-    const fade = setInterval(() => {
-      vol = Math.max(0, vol - 0.06);
-      if (a) a.volume = vol;
-      if (b) b.volume = vol;
-      if (vol <= 0) clearInterval(fade);
-    }, 100);
-    return () => clearInterval(fade);
-  }, [phase]);
-
-  // ── Video control ──────────────────────────────────────────────────────────
-  // Video is muted so play() is always permitted (iOS allows muted autoplay).
+  // ── Video control — muted video, play() always permitted on iOS ───────────
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -247,36 +296,45 @@ export function DemoWidget() {
     // phase 6: leave playing
   }, [phase]);
 
-  // ── Mute toggle — async, first play() gated by hasPlayedRef ───────────────
-  // iOS Safari requires audio.play() to be called inside a real user gesture.
-  // We call it ONCE (the first tap), await the Promise so we know it succeeded,
-  // then set hasPlayedRef = true. All future taps only adjust volume.
+  // ── Cleanup on unmount ────────────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      stopAllAudio();
+      audioContextRef.current?.close();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Mute toggle — only place where AudioContext is created ────────────────
+  // Web Audio API requires AudioContext creation inside a user gesture on iOS.
+  // initAudio() creates the context + decodes buffers on first tap.
+  // Subsequent taps only suspend/resume the context — no new allocations.
   const handleMuteToggle = async () => {
     const newMuted = !isMuted;
     isMutedRef.current = newMuted;
     setIsMuted(newMuted);
 
-    const a = audioARef.current;
-    const b = audioBRef.current;
-    if (!a || !b) return;
-
-    // First tap: call play() inside user gesture and wait for it to succeed
-    if (!hasPlayedRef.current) {
-      try {
-        await Promise.all([a.play(), b.play()]);
-        hasPlayedRef.current = true;
-      } catch (e) {
-        console.error("[DemoWidget] Audio play failed:", e);
-        return;
+    if (!newMuted) {
+      // User wants sound — initialize on first gesture
+      if (!hasUserGestureRef.current) {
+        hasUserGestureRef.current = true;
+        try {
+          await initAudio();
+        } catch (e) {
+          console.error("[DemoWidget] initAudio failed:", e);
+          return;
+        }
       }
-    }
-
-    // Subsequent taps (and after first-tap play() succeeds): volume only
-    if (newMuted) {
-      a.volume = 0;
-      b.volume = 0;
+      // Resume context if iOS suspended it (e.g. screen lock, tab switch)
+      if (audioContextRef.current?.state === "suspended") {
+        await audioContextRef.current.resume();
+      }
+      // Start correct track for current phase
+      if (phase === 4) playTrack("a");
+      else if (phase === 5) playTrack("b");
     } else {
-      applyVolumes(phase);
+      // Muting — suspend context (kills all sound including through speakers)
+      await audioContextRef.current?.suspend();
     }
   };
 
@@ -298,11 +356,8 @@ export function DemoWidget() {
   return (
     <div ref={demoRef} className="mt-10 sm:mt-16 max-w-3xl mx-auto px-3 sm:px-0">
 
-      {/* Audio — always in DOM, no autoPlay, no muted attribute.
-          loop is set as an attribute here (equivalent to a.loop = true).
-          play() is called only in handleMuteToggle after a real user gesture. */}
-      <audio ref={audioARef} src="/demo/demo-track.mp3"   preload="auto" loop />
-      <audio ref={audioBRef} src="/demo/demo-track-b.mp3" preload="auto" loop />
+      {/* No <audio> elements — Web Audio API nodes are created lazily
+          inside handleMuteToggle (user gesture) via initAudio(). */}
 
       {/* ── Browser mockup card ── */}
       <div
@@ -558,15 +613,33 @@ export function DemoWidget() {
       </div>{/* end card */}
 
       {/* ── Mute toggle ── */}
-      {/* relative z-20: sits above all absolute-positioned phase panels */}
+      {/* z-20 relative: above all absolute-positioned phase panels */}
       <div className="relative z-20 flex justify-center mt-5">
         <button
           type="button"
           onClick={handleMuteToggle}
           style={{ touchAction: "manipulation" }}
-          className="relative z-20 flex items-center gap-2 px-5 py-3 rounded-full border border-[#C8A96E]/40 text-[#C8A96E] text-sm font-medium min-h-[44px] min-w-[44px] cursor-pointer select-none bg-transparent hover:bg-[#C8A96E]/10 transition-colors duration-200"
+          className="relative z-20 flex items-center gap-2 px-5 py-3 rounded-full border border-[#C8A96E]/40 text-[#C8A96E] text-sm font-medium min-h-[44px] cursor-pointer select-none bg-transparent hover:bg-[#C8A96E]/10 transition-colors duration-200"
         >
-          {isMuted ? "♪ Hear the music" : "⏸ Mute"}
+          {isMuted ? (
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <line x1="23" y1="9" x2="17" y2="15"/>
+                <line x1="17" y1="9" x2="23" y2="15"/>
+              </svg>
+              Hear the music
+            </>
+          ) : (
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              </svg>
+              Mute
+            </>
+          )}
         </button>
       </div>
 
