@@ -117,10 +117,10 @@ export default function LandingPage() {
             <Image
               src="/brand/logo-icon.png"
               alt="Backbeat icon"
-              width={152}
-              height={152}
+              width={120}
+              height={120}
               priority
-              className="h-[152px] w-auto"
+              className="h-[120px] w-auto"
             />
             <span style={{ color: "#C8A96E", fontSize: "56px", fontWeight: 400, lineHeight: 1, letterSpacing: "0.05em", fontFamily: "'TAN Pearl', serif" }}>
               Backbeat
