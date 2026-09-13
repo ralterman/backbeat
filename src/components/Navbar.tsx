@@ -50,7 +50,7 @@ export function Navbar() {
             priority
             className="h-9 w-auto"
           />
-          <span style={{ color: "#C8A96E", fontSize: "22px", fontWeight: 700, lineHeight: 1, letterSpacing: "0.03em", fontFamily: "var(--font-cormorant)" }}>
+          <span style={{ color: "#C8A96E", fontSize: "22px", fontWeight: 400, lineHeight: 1, letterSpacing: "0.03em", fontFamily: "'TAN Pearl', serif" }}>
             Backbeat
           </span>
         </Link>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Cormorant_Garamond } from "next/font/google";
+import { Geist } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import { Navbar } from "@/components/Navbar";
@@ -9,12 +9,6 @@ import { CookiePreferencesButton } from "@/components/CookiePreferencesButton";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-});
-
-const cormorant = Cormorant_Garamond({
-  variable: "--font-cormorant",
-  subsets: ["latin"],
-  weight: "700",
 });
 
 export const metadata: Metadata = {
@@ -58,7 +52,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${cormorant.variable} h-full antialiased`}>
+    <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-[#0A0A0A] text-white">
         <SessionProvider>
           <Navbar />
@@ -66,7 +60,7 @@ export default function RootLayout({
           <ConditionalAnalytics />
           <footer className="border-t border-white/5 py-12 text-center text-[#9090aa] text-sm">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <p className="mb-5" style={{ color: "#C8A96E", fontSize: "20px", fontWeight: 700, letterSpacing: "0.04em", fontFamily: "var(--font-cormorant)" }}>
+              <p className="mb-5" style={{ color: "#C8A96E", fontSize: "20px", fontWeight: 400, letterSpacing: "0.04em", fontFamily: "'TAN Pearl', serif" }}>
                 Backbeat
               </p>
               <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-5">

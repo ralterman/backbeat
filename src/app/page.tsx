@@ -122,7 +122,7 @@ export default function LandingPage() {
               priority
               className="h-24 w-auto"
             />
-            <span style={{ color: "#C8A96E", fontSize: "32px", fontWeight: 700, lineHeight: 1, letterSpacing: "0.05em", fontFamily: "var(--font-cormorant)" }}>
+            <span style={{ color: "#C8A96E", fontSize: "32px", fontWeight: 400, lineHeight: 1, letterSpacing: "0.05em", fontFamily: "'TAN Pearl', serif" }}>
               Backbeat
             </span>
           </div>

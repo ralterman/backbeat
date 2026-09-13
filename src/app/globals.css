@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* ── TAN Pearl — self-hosted wordmark font ─────────────────────────────────── */
+@font-face {
+  font-family: 'TAN Pearl';
+  src: url('/fonts/TAN-PEARL.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
 :root {
   --background: #0a0a0f;
   --foreground: #ffffff;
