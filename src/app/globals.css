@@ -24,8 +24,9 @@
 
 body {
   background:
-    radial-gradient(ellipse 140% 80% at 50% 0%, rgba(200, 169, 110, 0.40) 0%, rgba(200, 169, 110, 0.15) 30%, transparent 60%),
+    radial-gradient(ellipse 100% 60% at 50% 0%, rgba(200, 169, 110, 0.35) 0%, rgba(200, 169, 110, 0.10) 40%, transparent 65%),
     #0a0a0f;
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
 }
