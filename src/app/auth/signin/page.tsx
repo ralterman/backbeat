@@ -126,16 +126,16 @@ export default function SignInPage() {
     <div className="min-h-screen flex items-center justify-center py-12 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-3 mb-6">
+          <Link href="/" className="flex flex-col items-center gap-6 mb-10">
             <Image
               src="/brand/logo-icon.png"
               alt="Backbeat icon"
-              width={36}
-              height={36}
+              width={120}
+              height={120}
               priority
-              className="h-9 w-auto"
+              className="h-[120px] w-auto"
             />
-            <span style={{ color: "#C8A96E", fontSize: "22px", fontWeight: 400, lineHeight: 1, letterSpacing: "0.03em", fontFamily: "'TAN Pearl', serif" }}>
+            <span style={{ color: "#C8A96E", fontSize: "56px", fontWeight: 400, lineHeight: 1, letterSpacing: "0.05em", fontFamily: "'TAN Pearl', serif" }}>
               Backbeat
             </span>
           </Link>
