@@ -26,10 +26,15 @@ const ANALYSIS = [
 const STATIC_A = [0.35, 0.65, 0.45, 0.80, 0.30, 0.60, 0.40, 0.65];
 const STATIC_B = [0.30, 0.55, 0.75, 0.42, 0.68, 0.38, 0.58, 0.48];
 
-// Phase timing constants — easy to change without hunting through logic
+// Phase durations in ms. Index = phase - 1.
 const TIMINGS = [3000, 4000, 3000, 6000, 9000, 4000, 2000];
-// Phase:           1     2     3     4     5     6     7
-// Phase 5 = Option B selected → 9 000 ms so the track has time to play
+// Phase 1  3s  upload
+// Phase 2  4s  analyzing
+// Phase 3  3s  options appear (video visible, paused)
+// Phase 4  6s  Option A selected + audio plays
+// Phase 5  9s  Option B selected + audio switches
+// Phase 6  4s  export  (2s exporting → 2s ready)
+// Phase 7  2s  fade out / reset
 
 
 // ── Option card ──────────────────────────────────────────────────────────────
@@ -101,14 +106,23 @@ export function DemoWidget() {
   const [exportLabel, setExportLabel]     = useState<'exporting' | 'ready'>('exporting');
   const [animTick, setAnimTick]           = useState(0);
   const [analysisCount, setAnalysisCount] = useState(0);
-  const videoRef                          = useRef<HTMLVideoElement>(null);
-  const audioARef                         = useRef<HTMLAudioElement>(null);
-  const audioBRef                         = useRef<HTMLAudioElement>(null);
-  const containerRef                      = useRef<HTMLDivElement>(null);
 
-  // ── Phase timer ───────────────────────────────────────────────────────────
-  // Each phase fires a single setTimeout; when it expires the phase increments
-  // (or wraps back to 1 after phase 7).
+  // Refs updated every render — safe to read inside async callbacks and
+  // intervals where the closed-over state value would be stale.
+  const mutedRef          = useRef(true);
+  mutedRef.current        = muted;
+
+  // True after the first successful play() call (requires a user gesture).
+  // Lets us skip re-calling play() on every phase change once audio is running.
+  const audioStartedRef   = useRef(false);
+
+  const videoRef          = useRef<HTMLVideoElement>(null);
+  const audioARef         = useRef<HTMLAudioElement>(null);
+  const audioBRef         = useRef<HTMLAudioElement>(null);
+  const containerRef      = useRef<HTMLDivElement>(null);
+
+
+  // ── Phase timer ────────────────────────────────────────────────────────────
   useEffect(() => {
     const ms = TIMINGS[phase - 1];
     console.log(`[DemoWidget] phase ${phase} → ${ms}ms`);
@@ -116,78 +130,72 @@ export function DemoWidget() {
     return () => clearTimeout(timer);
   }, [phase]);
 
-  // ── Audio sync ────────────────────────────────────────────────────────────
-  // Phase 4 → Option A; Phase 5 → Option B; Phase 7 → fade out; else → reset.
-  // play() failures (iOS no-gesture restriction) reset muted to true so the
-  // UI stays consistent instead of showing "unmuted" with silent audio.
+
+  // ── Audio — volume-based phase switching ────────────────────────────────────
+  //
+  // KEY DESIGN: we never call audio.pause() between phases 4 and 5.
+  // Both tracks stay in a "playing" state once the user taps the button;
+  // we switch between them purely by setting volume.  This avoids iOS
+  // Safari's requirement for a fresh user gesture on every play() call,
+  // which was the root cause of audio silently stopping on mobile.
+  //
+  // Phase 4  → track A vol 0.5, track B vol 0
+  // Phase 5  → track A vol 0,   track B vol 0.5
+  // Other    → both vol 0  (phase 7 handled by fade effect below)
   useEffect(() => {
     const a = audioARef.current;
     const b = audioBRef.current;
+    if (!a || !b || !audioStartedRef.current) return;
+    if (phase === 7) return; // handled by the fade-out effect
+
+    const vol = mutedRef.current ? 0 : 0.5;
+    a.volume = phase === 4 ? vol : 0;
+    b.volume = phase === 5 ? vol : 0;
+  }, [phase, muted]);  // `muted` in deps ensures re-run on toggle; ref keeps value current in intervals
+
+  // Phase 7 — fade both tracks out over ~750 ms then leave them at 0
+  useEffect(() => {
+    if (phase !== 7) return;
+    const a = audioARef.current;
+    const b = audioBRef.current;
     if (!a || !b) return;
+    const fade = setInterval(() => {
+      if (a.volume > 0.05) a.volume = Math.max(0, a.volume - 0.05);
+      else a.volume = 0;
+      if (b.volume > 0.05) b.volume = Math.max(0, b.volume - 0.05);
+      else b.volume = 0;
+      if (a.volume === 0 && b.volume === 0) clearInterval(fade);
+    }, 75);
+    return () => clearInterval(fade);
+  }, [phase]);
 
-    const resetBoth = () => {
-      a.pause(); a.currentTime = 0; a.volume = 0.5;
-      b.pause(); b.currentTime = 0; b.volume = 0.5;
-    };
 
-    if (phase === 4) {
-      b.pause(); b.currentTime = 0;
-      a.currentTime = 0;
-      if (!muted) {
-        a.play().catch((err) => {
-          console.warn('[DemoWidget] track-a autoplay blocked:', err);
-          setMuted(true);
-        });
-      }
-    } else if (phase === 5) {
-      a.pause(); a.currentTime = 0;
-      b.currentTime = 0;
-      if (!muted) {
-        b.play().catch((err) => {
-          console.warn('[DemoWidget] track-b autoplay blocked:', err);
-          setMuted(true);
-        });
-      }
-    } else if (phase === 7) {
-      const active = !a.paused ? a : !b.paused ? b : null;
-      if (!active) { resetBoth(); return; }
-      const fadeOut = setInterval(() => {
-        if (active.volume > 0.05) {
-          active.volume = Math.max(0, active.volume - 0.05);
-        } else {
-          resetBoth();
-          clearInterval(fadeOut);
-        }
-      }, 75);
-      return () => clearInterval(fadeOut);
-    } else {
-      resetBoth();
-    }
-  }, [phase, muted]);
-
-  // ── Video control per phase ───────────────────────────────────────────────
+  // ── Video control ──────────────────────────────────────────────────────────
+  // Video plays in phases 4-5 only; paused (but visible) in all others.
   useEffect(() => {
     const vid = videoRef.current;
     if (!vid) return;
     if (phase === 4 || phase === 5) {
       vid.currentTime = 0;
       vid.play().catch(() => {});
-    } else if (phase >= 6) {
+    } else {
       vid.pause();
     }
   }, [phase]);
 
-  // ── Phase 6 sub-state: "exporting" → "ready" ─────────────────────────────
+
+  // ── Phase 6: exporting → ready ─────────────────────────────────────────────
   useEffect(() => {
     if (phase === 6) {
       setExportLabel('exporting');
-      const timer = setTimeout(() => setExportLabel('ready'), 2000);
-      return () => clearTimeout(timer);
+      const t = setTimeout(() => setExportLabel('ready'), 2000);
+      return () => clearTimeout(t);
     }
     if (phase === 1) setExportLabel('exporting');
   }, [phase]);
 
-  // ── Animation tick ────────────────────────────────────────────────────────
+
+  // ── Animation tick ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase === 2 || phase === 4 || phase === 5) {
       const id = setInterval(() => setAnimTick(n => n + 1), 60);
@@ -195,66 +203,81 @@ export function DemoWidget() {
     }
   }, [phase]);
 
-  // ── Analysis stagger ─────────────────────────────────────────────────────
+
+  // ── Analysis stagger ───────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 2) { setAnalysisCount(0); return; }
     if (analysisCount >= ANALYSIS.length) return;
-    const timer = setTimeout(() => setAnalysisCount(c => c + 1), 600);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setAnalysisCount(c => c + 1), 600);
+    return () => clearTimeout(t);
   }, [phase, analysisCount]);
 
-  // ── Reset on scroll out ───────────────────────────────────────────────────
+
+  // ── Reset on scroll out ────────────────────────────────────────────────────
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) {
-          setPhase(1);
-          [audioARef, audioBRef].forEach(ref => {
-            const a = ref.current;
-            if (a) { a.pause(); a.currentTime = 0; a.volume = 0.5; }
-          });
-          setMuted(true);
-        }
-      },
-      { threshold: 0.1 }
-    );
+    const obs = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) {
+        setPhase(1);
+        const a = audioARef.current;
+        const b = audioBRef.current;
+        // Pause and reset position; audioStartedRef resets so the next
+        // "Hear the music" tap will re-call play() with a user gesture.
+        if (a) { a.pause(); a.currentTime = 0; a.volume = 0; }
+        if (b) { b.pause(); b.currentTime = 0; b.volume = 0; }
+        audioStartedRef.current = false;
+        setMuted(true);
+        // mutedRef.current is kept in sync by the render-time assignment above
+      }
+    }, { threshold: 0.1 });
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
-  // ── Mute toggle ───────────────────────────────────────────────────────────
-  // The button click is a user gesture, satisfying iOS Safari's requirement.
-  // We only set muted=false once play() actually resolves; if it rejects
-  // (no-gesture restriction in other contexts) we stay muted.
+
+  // ── Mute toggle ────────────────────────────────────────────────────────────
+  // This handler runs inside a user-gesture, which is the only context iOS
+  // Safari permits calling play() from without a policy rejection.
   const toggleMute = () => {
     const a = audioARef.current;
     const b = audioBRef.current;
     if (!a || !b) return;
 
     if (muted) {
-      const track = phase === 4 ? a : phase === 5 ? b : null;
-      if (track) {
-        track.volume = 0.5;
-        track.play()
-          .then(() => setMuted(false))
-          .catch((err) => {
-            console.warn('[DemoWidget] play() blocked by browser:', err);
-            // stay muted — button keeps correct label
-          });
+      if (!audioStartedRef.current) {
+        // First unmute — start both tracks simultaneously at vol 0 to
+        // satisfy the single user-gesture requirement, then ramp up the
+        // active track.  Both tracks stay "playing" from this point on;
+        // phase switches happen via volume only (no further play() calls).
+        a.volume = 0;
+        b.volume = 0;
+        Promise.all([a.play(), b.play()])
+          .then(() => {
+            audioStartedRef.current = true;
+            setMuted(false);
+            // Set volume for whichever phase we're currently in.
+            // mutedRef.current will have already been updated by the
+            // render triggered from setMuted(false) before this runs,
+            // but we set directly here to avoid a frame of silence.
+            a.volume = phase === 4 ? 0.5 : 0;
+            b.volume = phase === 5 ? 0.5 : 0;
+          })
+          .catch(err => console.warn('[DemoWidget] play() blocked by browser:', err));
       } else {
-        // Phases without audio: allow toggle freely
+        // Audio already running — just raise the right track's volume.
         setMuted(false);
+        // The audio useEffect will fire on the next render and apply volumes.
       }
     } else {
-      a.pause();
-      b.pause();
       setMuted(true);
+      a.volume = 0;
+      b.volume = 0;
     }
   };
 
-  // ── Derived state ─────────────────────────────────────────────────────────
+
+  // ── Derived state ──────────────────────────────────────────────────────────
   const optASelected  = phase === 4;
   const optBSelected  = phase >= 5;
   const aVis          = ANALYSIS.map((_, i) => i < analysisCount);
@@ -268,14 +291,13 @@ export function DemoWidget() {
     0.22 + 0.65 * ((Math.sin(animTick * 0.25 + i * 0.65) + 1) / 2)
   );
 
-  // Video: only visible while actually playing (phases 4–5). During phases 1–3
-  // the dark container background shows instead of a blank/black video frame.
-  // During phase 6–7 it fades out. The poster attribute covers any brief
-  // moment between opacity-0→1 and the first decoded frame.
-  const videoOpacity  = (phase === 4 || phase === 5) ? 1 : 0;
+  // Video visible from phase 3 onward (poster/first frame shown while paused).
+  // Only actually plays in phases 4-5. Hidden in phases 1-2 (upload/analysis).
+  const videoOpacity  = phase >= 3 ? 1 : 0;
   const widgetOpacity = phase === 7 ? 0 : 1;
 
-  // ── Render ────────────────────────────────────────────────────────────────
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div
       ref={containerRef}
@@ -283,9 +305,9 @@ export function DemoWidget() {
       style={{ opacity: widgetOpacity, transition: "opacity 1.5s ease" }}
     >
       {/*
-        Audio elements — preload="none" so neither fetches until play() is called.
-        Both carry loop so they repeat during their phase regardless of track length.
-        onError logs to console so Vercel logs surface load failures.
+        preload="none" — don't fetch until play() is called.
+        loop on both tracks so they repeat within their phase.
+        onError surfaces load failures in browser console / Vercel logs.
       */}
       <audio
         ref={audioARef}
@@ -302,10 +324,7 @@ export function DemoWidget() {
         onError={() => console.error('[DemoWidget] demo-track-b.mp3 failed to load')}
       />
 
-      {/*
-        Fixed-height card — min-h keeps it stable on mobile (flex-col stack)
-        as phases transition so the page never jumps.
-      */}
+      {/* Fixed-height card prevents layout jumps on mobile as phases switch */}
       <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-3 sm:p-6 shadow-2xl shadow-black/60 min-h-[600px] sm:min-h-0">
 
         {/* ── Window chrome ── */}
@@ -333,13 +352,11 @@ export function DemoWidget() {
               }}
             >
               {/*
-                poster="/demo/demo-poster.jpg" — first frame shown immediately,
-                preventing any black flash while the video decodes.
-                preload="auto" — browser buffers ahead so the first frame is
-                ready when phase 4 starts playing.
-                muted + playsInline — required for iOS autoplay.
-                Video is opacity:0 during non-playing phases so the dark
-                container background is shown instead of blank video.
+                poster: first frame shown immediately — no black flash.
+                preload="auto": browser buffers before play() is called.
+                muted + playsInline: required for autoplay on iOS Safari.
+                opacity transitions from 0→1 when phase hits 3, so the
+                poster fades in smoothly once analysis completes.
               */}
               <video
                 ref={videoRef}
@@ -395,16 +412,14 @@ export function DemoWidget() {
           </div>
 
           {/* ── RIGHT PANEL ──
-              All three content blocks are always mounted and stacked via
-              position:absolute + inset:0. Opacity + pointer-events toggle
-              visibility. The panel has a fixed minimum height so it never
-              reflows between phases → no mobile layout jumps.
+              All three blocks always mounted; opacity + pointer-events toggle.
+              Fixed min-height prevents mobile layout jumps between phases.
           */}
           <div
             className="sm:flex-1 relative"
             style={{ minHeight: "clamp(240px, 50vw, 330px)" }}
           >
-            {/* Phase 1 — quiet placeholder */}
+            {/* Phase 1 — placeholder */}
             <div
               className="absolute inset-0 flex flex-col items-center justify-center gap-2"
               style={{
@@ -515,9 +530,7 @@ export function DemoWidget() {
                   }}
                 >
                   {phase === 6 ? (
-                    exportLabel === 'ready' ? (
-                      "✓  Ready to download ↓"
-                    ) : (
+                    exportLabel === 'ready' ? "✓  Ready to download ↓" : (
                       <>
                         <span
                           className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#C8A96E] border-t-transparent"
@@ -526,9 +539,7 @@ export function DemoWidget() {
                         Exporting...
                       </>
                     )
-                  ) : (
-                    selectedLabel
-                  )}
+                  ) : selectedLabel}
                 </button>
               )}
             </div>

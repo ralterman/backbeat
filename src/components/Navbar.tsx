@@ -33,15 +33,16 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Always use a solid background — backdrop-blur alone is not enough on
-  // mobile Safari to fully occlude scrolling content beneath the navbar.
-  // bg-[#0a0a0f] ensures no bleed-through regardless of browser support.
+  // Fully solid background — no backdrop-blur, no partial opacity.
+  // Partial opacity + backdrop-blur bleeds through on mobile Safari;
+  // isolation: isolate + will-change: transform ensure the navbar is
+  // composited on its own layer so fixed children don't flicker on iOS.
   const navClass = scrolled
-    ? "border-b border-white/5 bg-[#0a0a0f]/95 backdrop-blur-md"
+    ? "border-b border-white/5 bg-[#0a0a0f]"
     : "border-b border-transparent bg-[#0a0a0f]";
 
   return (
-    <nav className={`${navClass} fixed top-0 left-0 right-0 w-full z-50 transition-all duration-300`}>
+    <nav className={`${navClass} fixed top-0 left-0 right-0 w-full z-[9999] isolate will-change-transform transition-[border-color] duration-300`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-[14px] flex-shrink-0" onClick={() => setMenuOpen(false)}>
@@ -120,7 +121,7 @@ export function Navbar() {
 
       {/* Mobile dropdown */}
       {menuOpen && (
-        <div className="sm:hidden border-t border-white/5 bg-[#0a0a0f]/95 backdrop-blur-md px-4 py-4 flex flex-col gap-4">
+        <div className="sm:hidden border-t border-white/5 bg-[#0a0a0f] px-4 py-4 flex flex-col gap-4">
           {status === "authenticated" && session?.user ? (
             <>
               {session.user.image && (
