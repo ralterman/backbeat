@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { PricingCard } from "@/components/PricingCard";
 import { DemoWidget } from "@/components/DemoWidget";
+import FadeInSection from "@/components/FadeInSection";
 import ScrollToTop from "@/components/ScrollToTop";
 
 const features = [
@@ -109,13 +110,11 @@ export default function LandingPage() {
       <section className="relative overflow-hidden">
         {/* Hero atmosphere */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {/* Main gold bloom */}
           <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[150vw] h-[100vh] rounded-full"
             style={{
               background: 'radial-gradient(ellipse 70% 60% at 50% 30%, rgba(200, 169, 110, 0.20) 0%, rgba(200, 169, 110, 0.06) 40%, transparent 70%)'
             }}
           />
-          {/* Subtle warm edge glows */}
           <div className="absolute top-0 left-[-10%] w-[50vw] h-[60vh]"
             style={{
               background: 'radial-gradient(ellipse 80% 80% at 20% 20%, rgba(200, 169, 110, 0.06) 0%, transparent 60%)'
@@ -144,12 +143,10 @@ export default function LandingPage() {
             </span>
           </div>
 
-          {/* Section label */}
           <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">
             AI Music Generation
           </p>
 
-          {/* Headline */}
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight tracking-tight mb-6">
             Upload your video.
             <br />
@@ -158,12 +155,10 @@ export default function LandingPage() {
             </span>
           </h1>
 
-          {/* Sub */}
           <p className="text-lg text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
             Backbeat analyzes your video and generates a custom soundtrack in minutes — no music theory, no searching, no copyright strikes.
           </p>
 
-          {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/auth/signup"
@@ -191,7 +186,7 @@ export default function LandingPage() {
       {/* ── Features ──────────────────────────────────────────────────── */}
       <section className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
+          <FadeInSection delay={0} className="text-center mb-12">
             <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-4">Features</p>
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
               Everything you need to score your videos
@@ -199,29 +194,30 @@ export default function LandingPage() {
             <p className="text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
               From upload to export in minutes. No music theory knowledge required.
             </p>
-          </div>
+          </FadeInSection>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {features.map((feature, i) => (
-              <div
-                key={i}
-                className="rounded-2xl p-6 transition-all duration-300 hover:-translate-y-0.5 border border-white/[0.06] hover:border-[#C8A96E]/30 hover:shadow-[0_0_20px_rgba(200,169,110,0.08)]"
-                style={{
-                  background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 100%)",
-                }}
-              >
+              <FadeInSection key={i} delay={i * 80}>
                 <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+                  className="rounded-2xl p-6 h-full transition-all duration-300 hover:-translate-y-0.5 border border-white/[0.06] hover:border-[#C8A96E]/30 hover:shadow-[0_0_20px_rgba(200,169,110,0.08)]"
                   style={{
-                    background: "rgba(200,169,110,0.08)",
-                    boxShadow: "0 0 12px rgba(200,169,110,0.15)",
+                    background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 100%)",
                   }}
                 >
-                  {feature.icon}
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+                    style={{
+                      background: "rgba(200,169,110,0.08)",
+                      boxShadow: "0 0 12px rgba(200,169,110,0.15)",
+                    }}
+                  >
+                    {feature.icon}
+                  </div>
+                  <h3 className="text-white font-semibold text-lg mb-2 tracking-tight">{feature.title}</h3>
+                  <p className="text-gray-400 text-sm leading-relaxed">{feature.description}</p>
                 </div>
-                <h3 className="text-white font-semibold text-lg mb-2 tracking-tight">{feature.title}</h3>
-                <p className="text-gray-400 text-sm leading-relaxed">{feature.description}</p>
-              </div>
+              </FadeInSection>
             ))}
           </div>
         </div>
@@ -230,11 +226,11 @@ export default function LandingPage() {
       {/* ── How It Works ──────────────────────────────────────────────── */}
       <section className="py-16">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
+          <FadeInSection delay={0} className="text-center mb-12">
             <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-4">Process</p>
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">How Backbeat works</h2>
             <p className="text-gray-400 text-lg">Three steps to a perfectly scored video</p>
-          </div>
+          </FadeInSection>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             {[
@@ -242,28 +238,33 @@ export default function LandingPage() {
                 step: "01",
                 title: "Upload your video",
                 desc: "Drag and drop your video file (MP4, MOV, AVI, MKV). Up to 500MB.",
+                delay: 0,
               },
               {
                 step: "02",
                 title: "AI analysis",
                 desc: "Our AI extracts keyframes and analyzes mood, energy, scene type, and ideal BPM range in seconds.",
+                delay: 150,
               },
               {
                 step: "03",
                 title: "Export with music",
                 desc: "Choose your favorite option, preview it synced to your video, then export with music mixed in.",
+                delay: 300,
               },
             ].map((item) => (
-              <div key={item.step} className="text-center relative">
-                <div className="text-[80px] font-bold leading-none mb-2 select-none" style={{ color: "rgba(200,169,110,0.12)" }}>
-                  {item.step}
+              <FadeInSection key={item.step} delay={item.delay}>
+                <div className="text-center relative">
+                  <div className="text-[80px] font-bold leading-none mb-2 select-none" style={{ color: "rgba(200,169,110,0.12)" }}>
+                    {item.step}
+                  </div>
+                  <div className="w-10 h-10 bg-[#C8A96E] rounded-full flex items-center justify-center mx-auto mb-4 -mt-2">
+                    <span className="text-[#0a0a0f] font-bold text-xs">{item.step}</span>
+                  </div>
+                  <h3 className="text-white font-semibold text-lg mb-2 tracking-tight">{item.title}</h3>
+                  <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
                 </div>
-                <div className="w-10 h-10 bg-[#C8A96E] rounded-full flex items-center justify-center mx-auto mb-4 -mt-2">
-                  <span className="text-[#0a0a0f] font-bold text-xs">{item.step}</span>
-                </div>
-                <h3 className="text-white font-semibold text-lg mb-2 tracking-tight">{item.title}</h3>
-                <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
-              </div>
+              </FadeInSection>
             ))}
           </div>
         </div>
@@ -272,66 +273,74 @@ export default function LandingPage() {
       {/* ── Early Access CTA ──────────────────────────────────────────── */}
       <section className="py-16">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">Early access</p>
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
-            Be one of our first creators.
-          </h2>
-          <p className="text-gray-400 text-lg mb-8 leading-relaxed">
-            Try Backbeat free — no credit card required.
-          </p>
-          <Link
-            href="/auth/signup"
-            className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] font-bold text-base px-8 py-4 rounded-xl transition-all duration-200 shadow-lg"
-            style={{ animation: "pulse-gold 3s ease-in-out infinite" }}
-          >
-            Try it free
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
+          <FadeInSection delay={0}>
+            <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">Early access</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
+              Be one of our first creators.
+            </h2>
+            <p className="text-gray-400 text-lg mb-8 leading-relaxed">
+              Try Backbeat free — no credit card required.
+            </p>
+            <Link
+              href="/auth/signup"
+              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] font-bold text-base px-8 py-4 rounded-xl transition-all duration-200 shadow-lg"
+              style={{ animation: "pulse-gold 3s ease-in-out infinite" }}
+            >
+              Try it free
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </FadeInSection>
         </div>
       </section>
 
       {/* ── Pricing Preview ───────────────────────────────────────────── */}
       <section className="py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
+          <FadeInSection delay={0} className="text-center mb-12">
             <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-4">Pricing</p>
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">Simple, transparent pricing</h2>
             <p className="text-gray-400 text-lg">Start free. Upgrade when you need more.</p>
-          </div>
+          </FadeInSection>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
-            <PricingCard
-              name="Try it free"
-              price={0}
-              priceSuffix=""
-              description="One free analysis, no card needed"
-              features={FREE_FEATURES}
-              cta="Try it free"
-              ctaHref="/auth/signup"
-            />
-            <PricingCard
-              name="Creator"
-              price={15}
-              priceSuffix="/mo"
-              description="For serious video creators"
-              features={CREATOR_FEATURES}
-              cta="Start Creator plan"
-              ctaHref="/api/stripe/checkout?plan=creator"
-              highlighted
-              badge="Most Popular"
-              priceNote="Introductory price — lock it in now."
-            />
-            <PricingCard
-              name="Team"
-              price={39}
-              priceSuffix="/mo"
-              description="For agencies and teams"
-              features={TEAM_FEATURES}
-              cta="Start Team plan"
-              ctaHref="/api/stripe/checkout?plan=team"
-            />
+            <FadeInSection delay={0}>
+              <PricingCard
+                name="Try it free"
+                price={0}
+                priceSuffix=""
+                description="One free analysis, no card needed"
+                features={FREE_FEATURES}
+                cta="Try it free"
+                ctaHref="/auth/signup"
+              />
+            </FadeInSection>
+            <FadeInSection delay={100}>
+              <PricingCard
+                name="Creator"
+                price={15}
+                priceSuffix="/mo"
+                description="For serious video creators"
+                features={CREATOR_FEATURES}
+                cta="Start Creator plan"
+                ctaHref="/api/stripe/checkout?plan=creator"
+                highlighted
+                badge="Most Popular"
+                priceNote="Introductory price — lock it in now."
+              />
+            </FadeInSection>
+            <FadeInSection delay={200}>
+              <PricingCard
+                name="Team"
+                price={39}
+                priceSuffix="/mo"
+                description="For agencies and teams"
+                features={TEAM_FEATURES}
+                cta="Start Team plan"
+                ctaHref="/api/stripe/checkout?plan=team"
+              />
+            </FadeInSection>
           </div>
         </div>
       </section>
@@ -339,30 +348,32 @@ export default function LandingPage() {
       {/* ── Final CTA ─────────────────────────────────────────────────── */}
       <section className="py-16">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div
-            className="rounded-2xl py-12 px-8"
-            style={{
-              background: "linear-gradient(135deg, rgba(200,169,110,0.07) 0%, rgba(30,22,8,0.15) 100%)",
-              border: "1px solid rgba(200,169,110,0.15)",
-            }}
-          >
-            <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">Get started</p>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
-              Ready to score your video?
-            </h2>
-            <p className="text-gray-400 text-lg mb-8 leading-relaxed">
-              Analyze your first video free. No credit card required.
-            </p>
-            <Link
-              href="/auth/signup"
-              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] font-bold text-base px-8 py-4 rounded-xl transition-all duration-200 shadow-lg"
+          <FadeInSection delay={0}>
+            <div
+              className="rounded-2xl py-12 px-8"
+              style={{
+                background: "linear-gradient(135deg, rgba(200,169,110,0.07) 0%, rgba(30,22,8,0.15) 100%)",
+                border: "1px solid rgba(200,169,110,0.15)",
+              }}
             >
-              Upload your first video — free
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          </div>
+              <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">Get started</p>
+              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
+                Ready to score your video?
+              </h2>
+              <p className="text-gray-400 text-lg mb-8 leading-relaxed">
+                Analyze your first video free. No credit card required.
+              </p>
+              <Link
+                href="/auth/signup"
+                className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] font-bold text-base px-8 py-4 rounded-xl transition-all duration-200 shadow-lg"
+              >
+                Upload your first video — free
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+          </FadeInSection>
         </div>
       </section>
     </div>
