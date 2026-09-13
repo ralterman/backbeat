@@ -1,95 +1,100 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
-import { UsageCounter } from "./UsageCounter";
-
-function NavLink({ href, children, onClick }: { href: string; children: React.ReactNode; onClick?: () => void }) {
-  return (
-    <Link
-      href={href}
-      onClick={onClick}
-      className="relative text-[#a0a0b8] hover:text-white text-sm transition-colors group"
-    >
-      {children}
-      <span
-        className="absolute -bottom-0.5 left-0 h-px w-0 bg-[#C8A96E] transition-all duration-300 group-hover:w-full"
-        aria-hidden
-      />
-    </Link>
-  );
-}
 
 export function Navbar() {
   const { data: session, status } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
 
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  // Fully solid background — no backdrop-blur, no partial opacity.
-  // Partial opacity + backdrop-blur bleeds through on mobile Safari;
-  // isolation: isolate + will-change: transform ensure the navbar is
-  // composited on its own layer so fixed children don't flicker on iOS.
-  // Suppress unused-variable warning — scrolled kept in case it's needed later.
-  void scrolled;
+  const isAuthed = status === "authenticated" && !!session?.user;
 
   return (
-    <nav className="bg-[#0a0a0f] border-b border-[#C8A96E]/20 fixed top-0 left-0 right-0 w-full z-[9999] isolate will-change-transform">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <nav className="bg-[#0a0a0f] fixed top-0 left-0 right-0 w-full z-50 isolate will-change-transform">
+      <div className="max-w-7xl mx-auto px-6 md:px-12 h-14 flex items-center justify-between">
+
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-[14px] flex-shrink-0" onClick={() => setMenuOpen(false)}>
+        <Link
+          href="/"
+          className="flex items-center gap-3 flex-shrink-0"
+          onClick={() => setMenuOpen(false)}
+        >
           <Image
             src="/brand/logo-icon.png"
             alt="Backbeat icon"
-            width={36}
-            height={36}
+            width={30}
+            height={30}
             priority
-            className="h-9 w-auto"
+            className="h-[30px] w-auto"
           />
-          <span style={{ color: "#C8A96E", fontSize: "22px", fontWeight: 400, lineHeight: 1, letterSpacing: "0.03em", fontFamily: "'TAN Pearl', serif" }}>
+          <span style={{
+            color: "#C8A96E",
+            fontSize: "20px",
+            fontWeight: 400,
+            lineHeight: 1,
+            letterSpacing: "0.03em",
+            fontFamily: "'TAN Pearl', serif",
+          }}>
             Backbeat
           </span>
         </Link>
 
-        {/* Desktop nav */}
+        {/* Desktop right side */}
         <div className="hidden sm:flex items-center gap-6">
-          {status === "authenticated" && session?.user ? (
+          {isAuthed ? (
             <>
-              <UsageCounter />
-              <NavLink href="/dashboard">Dashboard</NavLink>
-              <NavLink href="/pricing">Pricing</NavLink>
-              <NavLink href="/account">Account</NavLink>
-              <div className="flex items-center gap-2">
-                {session.user.image && (
-                  <img
-                    src={session.user.image}
-                    alt={session.user.name ?? "User"}
-                    className="w-8 h-8 rounded-full"
-                  />
-                )}
+              <Link
+                href="/pricing"
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Pricing
+              </Link>
+              <Link
+                href="/dashboard"
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Dashboard
+              </Link>
+              {session.user.image ? (
                 <button
                   onClick={() => signOut({ callbackUrl: "/" })}
-                  className="relative text-[#a0a0b8] hover:text-white text-sm transition-colors group"
+                  className="flex items-center gap-2 group"
+                  title="Sign out"
+                >
+                  <img
+                    src={session.user.image}
+                    alt={session.user.name ?? "Account"}
+                    className="w-7 h-7 rounded-full opacity-90 group-hover:opacity-100 transition-opacity"
+                  />
+                </button>
+              ) : (
+                <button
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
                   Sign out
-                  <span className="absolute -bottom-0.5 left-0 h-px w-0 bg-[#C8A96E] transition-all duration-300 group-hover:w-full" aria-hidden />
                 </button>
-              </div>
+              )}
             </>
           ) : status === "unauthenticated" ? (
             <>
-              <NavLink href="/pricing">Pricing</NavLink>
-              <NavLink href="/auth/signin">Sign in</NavLink>
+              <Link
+                href="/pricing"
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Pricing
+              </Link>
+              <Link
+                href="/auth/signin"
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Sign in
+              </Link>
               <Link
                 href="/auth/signup"
-                className="bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] text-sm px-4 py-2 rounded-lg transition-all font-bold shadow-sm"
+                className="bg-white hover:bg-gray-100 text-black text-sm font-medium px-4 py-2 rounded-full transition-colors"
               >
                 Get started
               </Link>
@@ -97,21 +102,30 @@ export function Navbar() {
           ) : null}
         </div>
 
-        {/* Mobile: usage counter + hamburger */}
+        {/* Mobile: CTA + hamburger */}
         <div className="flex sm:hidden items-center gap-3">
-          {status === "authenticated" && <UsageCounter />}
+          {!isAuthed && status === "unauthenticated" && (
+            <Link
+              href="/auth/signup"
+              className="bg-white hover:bg-gray-100 text-black text-sm font-medium px-4 py-1.5 rounded-full transition-colors"
+              onClick={() => setMenuOpen(false)}
+            >
+              Get started
+            </Link>
+          )}
           <button
+            type="button"
             onClick={() => setMenuOpen((o) => !o)}
-            className="text-[#a0a0b8] hover:text-white p-1 transition-colors"
+            className="text-gray-400 hover:text-white p-1 transition-colors"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
           >
             {menuOpen ? (
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             ) : (
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             )}
           </button>
@@ -120,35 +134,63 @@ export function Navbar() {
 
       {/* Mobile dropdown */}
       {menuOpen && (
-        <div className="sm:hidden border-t border-[#C8A96E]/20 bg-[#0a0a0f] px-4 py-4 flex flex-col gap-4">
-          {status === "authenticated" && session?.user ? (
+        <div className="sm:hidden bg-[#0a0a0f] px-6 pb-5 pt-2 flex flex-col gap-4 border-t border-white/5">
+          {isAuthed ? (
             <>
               {session.user.image && (
-                <div className="flex items-center gap-2 pb-2 border-b border-white/5">
-                  <img src={session.user.image} alt={session.user.name ?? "User"} className="w-8 h-8 rounded-full" />
-                  <span className="text-white text-sm font-medium">{session.user.name ?? session.user.email}</span>
+                <div className="flex items-center gap-2.5 pb-3 border-b border-white/5">
+                  <img
+                    src={session.user.image}
+                    alt={session.user.name ?? "Account"}
+                    className="w-7 h-7 rounded-full"
+                  />
+                  <span className="text-white text-sm">{session.user.name ?? session.user.email}</span>
                 </div>
               )}
-              <Link href="/dashboard" className="text-[#a0a0b8] hover:text-white text-sm transition-colors" onClick={() => setMenuOpen(false)}>Dashboard</Link>
-              <Link href="/pricing" className="text-[#a0a0b8] hover:text-white text-sm transition-colors" onClick={() => setMenuOpen(false)}>Pricing</Link>
-              <Link href="/account" className="text-[#a0a0b8] hover:text-white text-sm transition-colors" onClick={() => setMenuOpen(false)}>Account</Link>
+              <Link
+                href="/dashboard"
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+                onClick={() => setMenuOpen(false)}
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/pricing"
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+                onClick={() => setMenuOpen(false)}
+              >
+                Pricing
+              </Link>
+              <Link
+                href="/account"
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+                onClick={() => setMenuOpen(false)}
+              >
+                Account
+              </Link>
               <button
+                type="button"
                 onClick={() => { setMenuOpen(false); signOut({ callbackUrl: "/" }); }}
-                className="text-left text-[#a0a0b8] hover:text-white text-sm transition-colors"
+                className="text-left text-sm text-gray-400 hover:text-white transition-colors"
               >
                 Sign out
               </button>
             </>
           ) : status === "unauthenticated" ? (
             <>
-              <Link href="/pricing" className="text-[#a0a0b8] hover:text-white text-sm transition-colors" onClick={() => setMenuOpen(false)}>Pricing</Link>
-              <Link href="/auth/signin" className="text-[#a0a0b8] hover:text-white text-sm transition-colors" onClick={() => setMenuOpen(false)}>Sign in</Link>
               <Link
-                href="/auth/signup"
-                className="bg-white hover:bg-[#f0f0f0] text-[#0a0a0f] text-sm px-4 py-2.5 rounded-lg transition-colors font-bold text-center"
+                href="/pricing"
+                className="text-sm text-gray-400 hover:text-white transition-colors"
                 onClick={() => setMenuOpen(false)}
               >
-                Get started free
+                Pricing
+              </Link>
+              <Link
+                href="/auth/signin"
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+                onClick={() => setMenuOpen(false)}
+              >
+                Sign in
               </Link>
             </>
           ) : null}
