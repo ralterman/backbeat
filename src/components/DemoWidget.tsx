@@ -131,6 +131,12 @@ export function DemoWidget() {
   const audioARef         = useRef<HTMLAudioElement>(null);
   const audioBRef         = useRef<HTMLAudioElement>(null);
   const videoRef          = useRef<HTMLVideoElement>(null);
+  const demoRef           = useRef<HTMLDivElement>(null);
+  // phaseRef is written every render so IntersectionObserver callbacks
+  // (which close over a stale scope from their setup useEffect) can read
+  // the live phase value without being re-registered on every phase change.
+  const phaseRef          = useRef(phase);
+  phaseRef.current        = phase;
 
   // ── Phase timer — single effect, fixed deterministic durations ────────────
   useEffect(() => {
@@ -241,6 +247,36 @@ export function DemoWidget() {
     return () => clearInterval(fade);
   }, [phase]);
 
+  // ── Intersection observer — pause when scrolled out, resume on scroll back ─
+  // Mounted once ([] deps). Uses phaseRef / isMutedRef / hasUserGestureRef for
+  // live values without needing to re-register on every phase or mute change.
+  useEffect(() => {
+    const el = demoRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) {
+          // Out of view — silence audio and pause video
+          if (audioARef.current) audioARef.current.volume = 0;
+          if (audioBRef.current) audioBRef.current.volume = 0;
+          if (videoRef.current) videoRef.current.pause();
+        } else {
+          // Back in view — restore audio for current phase (if user has unmuted)
+          applyAudioForPhase(phaseRef.current, isMutedRef.current);
+          // Resume video if we're in a playing phase
+          if (videoRef.current && (phaseRef.current === 4 || phaseRef.current === 5)) {
+            videoRef.current.play().catch(() => {});
+          }
+        }
+      },
+      { threshold: 0.1 }, // fires when < 10% of demo is visible
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [applyAudioForPhase]); // applyAudioForPhase is stable (useCallback [])
+
   // ── Video control ──────────────────────────────────────────────────────────
   useEffect(() => {
     const v = videoRef.current;
@@ -272,6 +308,11 @@ export function DemoWidget() {
   }, [phase]);
 
   // ── Mute toggle — the ONE user gesture that unlocks all audio ─────────────
+  // IMPORTANT: play() is called HERE and ONLY HERE.
+  // iOS Safari blocks audio.play() outside a real touch/click handler.
+  // play() is called unconditionally so both tracks become "playing" (at
+  // volume 0) on the very first tap. All future phase switches adjust
+  // volume only — zero additional play() calls are ever made.
   const handleMuteToggle = () => {
     const newMuted = !isMuted;
     isMutedRef.current = newMuted;
@@ -282,20 +323,17 @@ export function DemoWidget() {
     const b = audioBRef.current;
     if (!a || !b) return;
 
+    // play() must be the FIRST audio call inside this gesture handler.
+    // Calling it before volume assignment means iOS unlocks audio at the
+    // system level before we decide what volume to set.
+    Promise.all([a.play(), b.play()]).catch(() => {});
+
     if (newMuted) {
       a.volume = 0;
       b.volume = 0;
     } else {
       applyAudioForPhase(phase, false);
     }
-
-    // Call play() on BOTH tracks inside the user-gesture handler.
-    // iOS Safari requires play() to be called within a user interaction.
-    // Both start at volume=0; applyAudioForPhase above sets the right
-    // one audible. All future phase switches use volume only — no
-    // additional play() calls needed.
-    a.play().catch(() => {});
-    b.play().catch(() => {});
   };
 
   // ── Derived state ──────────────────────────────────────────────────────────
@@ -314,7 +352,7 @@ export function DemoWidget() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="mt-10 sm:mt-16 max-w-3xl mx-auto px-3 sm:px-0">
+    <div ref={demoRef} className="mt-10 sm:mt-16 max-w-3xl mx-auto px-3 sm:px-0">
 
       {/* Audio elements — always in DOM, never unmounted */}
       <audio ref={audioARef} src="/demo/demo-track.mp3"   preload="auto" />
@@ -574,14 +612,20 @@ export function DemoWidget() {
       </div>{/* end card */}
 
       {/* ── Mute toggle ── */}
-      <div className="flex justify-center mt-5">
+      {/*
+        z-10 relative: prevents the button from being obscured by absolutely-
+        positioned phase panels inside the card above it on some mobile browsers.
+      */}
+      <div className="relative z-10 flex justify-center mt-5">
         <button
+          type="button"
           onClick={handleMuteToggle}
-          className="flex items-center gap-2.5 px-5 py-2.5 rounded-full text-sm font-semibold hover:opacity-90 active:scale-95 transition-all duration-200"
+          className="flex items-center gap-2.5 px-5 py-3 min-h-[44px] min-w-[44px] rounded-full text-sm font-semibold hover:opacity-90 active:scale-95 transition-all duration-200"
           style={{
             background: isMuted ? "rgba(200,169,110,0.08)" : "rgba(200,169,110,0.18)",
             border: "1px solid rgba(200,169,110,0.35)",
             color: "#C8A96E",
+            touchAction: "manipulation", // prevents double-tap zoom stealing the first tap
             // Pulse when audio is ready to play but user hasn't tapped yet
             animation: (isMuted && (phase === 4 || phase === 5))
               ? "audioPulse 2s ease-in-out infinite"

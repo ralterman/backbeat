@@ -3,6 +3,7 @@ import Image from "next/image";
 import { PricingCard } from "@/components/PricingCard";
 import { DemoWidget } from "@/components/DemoWidget";
 import { RevealSection } from "@/components/RevealSection";
+import ScrollToTop from "@/components/ScrollToTop";
 
 const features = [
   {
@@ -103,6 +104,9 @@ const TEAM_FEATURES = [
 export default function LandingPage() {
   return (
     <div className="bg-transparent">
+      {/* Scroll to top on every page load — prevents mobile browsers from
+          restoring the previous scroll position after a hard refresh. */}
+      <ScrollToTop />
       {/* ── Hero ──────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
         {/* Radial glow behind headline */}
