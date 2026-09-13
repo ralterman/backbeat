@@ -110,9 +110,9 @@ export default function LandingPage() {
       <section className="relative overflow-hidden">
         {/* Hero atmosphere */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[150vw] h-[100vh] rounded-full"
+          <div className="absolute top-[-60px] left-1/2 -translate-x-1/2 w-[150vw] h-[100vh] rounded-full pointer-events-none"
             style={{
-              background: 'radial-gradient(ellipse 70% 60% at 50% 30%, rgba(200, 169, 110, 0.20) 0%, rgba(200, 169, 110, 0.06) 40%, transparent 70%)'
+              background: 'radial-gradient(ellipse 70% 60% at 50% 30%, rgba(200, 169, 110, 0.22) 0%, rgba(200, 169, 110, 0.06) 50%, transparent 70%)'
             }}
           />
           <div className="absolute top-0 left-[-10%] w-[50vw] h-[60vh]"
