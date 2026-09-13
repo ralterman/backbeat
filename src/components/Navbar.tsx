@@ -37,7 +37,7 @@ export function Navbar() {
     <nav
       className="fixed top-0 left-0 right-0 w-full z-[9999] transition-all duration-500"
       style={{
-        background: scrolled ? "rgba(10, 10, 15, 0.85)" : "transparent",
+        background: scrolled ? "rgba(10, 10, 15, 0.50)" : "transparent",
         backdropFilter: scrolled ? "blur(12px)" : "none",
         WebkitBackdropFilter: scrolled ? "blur(12px)" : "none",
         paddingTop: "env(safe-area-inset-top)",
