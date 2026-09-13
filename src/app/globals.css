@@ -13,6 +13,7 @@
   --foreground: #ffffff;
   --gold: #C8A96E;
   --gold-dim: rgba(200, 169, 110, 0.08);
+  --sat: env(safe-area-inset-top);
 }
 
 @theme inline {

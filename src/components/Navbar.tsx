@@ -27,7 +27,7 @@ export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <nav className="bg-[#0a0a0f]/80 backdrop-blur-md fixed top-0 left-0 right-0 w-full z-[9999] isolate will-change-transform">
+    <nav className="bg-[#0a0a0f] fixed top-0 left-0 right-0 w-full z-[9999] isolate will-change-transform pt-[env(safe-area-inset-top)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-[14px] flex-shrink-0" onClick={() => setMenuOpen(false)}>
