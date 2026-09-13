@@ -41,7 +41,7 @@ export function Navbar() {
     <nav className={`${navClass} sticky top-0 z-50 transition-all duration-300`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-[10px] flex-shrink-0" onClick={() => setMenuOpen(false)}>
+        <Link href="/" className="flex items-center gap-[14px] flex-shrink-0" onClick={() => setMenuOpen(false)}>
           <Image
             src="/brand/logo-icon.png"
             alt="Backbeat icon"

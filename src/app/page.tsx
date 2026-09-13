@@ -113,16 +113,16 @@ export default function LandingPage() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-32 text-center">
           {/* Logo lockup */}
-          <div className="flex flex-col items-center gap-2 mb-10">
+          <div className="flex flex-col items-center gap-6 mb-10">
             <Image
               src="/brand/logo-icon.png"
               alt="Backbeat icon"
-              width={96}
-              height={96}
+              width={152}
+              height={152}
               priority
-              className="h-24 w-auto"
+              className="h-[152px] w-auto"
             />
-            <span style={{ color: "#C8A96E", fontSize: "32px", fontWeight: 400, lineHeight: 1, letterSpacing: "0.05em", fontFamily: "'TAN Pearl', serif" }}>
+            <span style={{ color: "#C8A96E", fontSize: "56px", fontWeight: 400, lineHeight: 1, letterSpacing: "0.05em", fontFamily: "'TAN Pearl', serif" }}>
               Backbeat
             </span>
           </div>
