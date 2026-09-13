@@ -33,15 +33,12 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Fully solid background — no backdrop-blur, no partial opacity.
-  // Partial opacity + backdrop-blur bleeds through on mobile Safari;
-  // isolation: isolate + will-change: transform ensure the navbar is
-  // composited on its own layer so fixed children don't flicker on iOS.
-  // Suppress unused-variable warning — scrolled kept in case it's needed later.
-  void scrolled;
-
   return (
-    <nav className="bg-[#0a0a0f] border-b border-[#C8A96E]/20 fixed top-0 left-0 right-0 w-full z-[9999] isolate will-change-transform">
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 isolate will-change-transform ${
+      scrolled
+        ? "bg-[#0a0a0f] border-b border-white/5"
+        : "bg-transparent border-b border-transparent"
+    }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-[14px] flex-shrink-0" onClick={() => setMenuOpen(false)}>
