@@ -107,7 +107,7 @@ function OptionCard({ label, description, tags, selected, bars, visible }: CardP
 export function DemoWidget() {
   const [phase, setPhase]               = useState(1);
   const [muted, setMuted]               = useState(true);
-  const [exportDone, setExportDone]     = useState(false);
+  const [exportLabel, setExportLabel]   = useState<'exporting' | 'ready'>('exporting');
   const [animTick, setAnimTick]         = useState(0);
   const [analysisCount, setAnalysisCount] = useState(0);
   const videoRef                        = useRef<HTMLVideoElement>(null);
@@ -165,14 +165,12 @@ export function DemoWidget() {
     }
   }, [phase]);
 
-  // ── Phase 6 sub-state: "Exporting…" for first 2 s, then "Ready" ──────────
+  // ── Phase 6 sub-state: "exporting" for first 2 s, "ready" for next 2 s ───
   useEffect(() => {
     if (phase === 6) {
-      setExportDone(false);
-      const timer = setTimeout(() => setExportDone(true), 2000);
+      setExportLabel('exporting');
+      const timer = setTimeout(() => setExportLabel('ready'), 2000);
       return () => clearTimeout(timer);
-    } else {
-      setExportDone(false);
     }
   }, [phase]);
 
@@ -231,9 +229,11 @@ export function DemoWidget() {
 
   const aVis = ANALYSIS.map((_, i) => i < analysisCount);
 
-  // Export button: visible phases 3–6 (never in phase 7 or 1–2)
-  const showExport  = phase >= 3 && phase <= 6;
-  const exportLabel = phase >= 5 ? "Export Option B" : "Export Option A";
+  // Export button: visible phases 3–6 (never in phase 7 or 1–2).
+  // selectedLabel is the static "Export Option A/B" text used in phases 3–5;
+  // during phase 6 the exportLabel state drives the button content instead.
+  const showExport    = phase >= 3 && phase <= 6;
+  const selectedLabel = phase >= 5 ? "Export Option B" : "Export Option A";
 
   // Waveform bars animated by tick (8 bars for option cards, 7 for analyzing)
   const waveH = Array.from({ length: 8 }, (_, i) =>
@@ -257,7 +257,8 @@ export function DemoWidget() {
       style={{ opacity: widgetOpacity, transition: "opacity 1.5s ease" }}
     >
       {/* Hidden audio element — real ElevenLabs-generated track */}
-      <audio ref={audioRef} src="/demo/demo-track.mp3" loop preload="auto" />
+      {/* preload="none" — audio must not load or play until phase 4 */}
+      <audio ref={audioRef} src="/demo/demo-track.mp3" loop preload="none" />
 
       <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-3 sm:p-6 shadow-2xl shadow-black/60">
 
@@ -450,22 +451,24 @@ export function DemoWidget() {
                   visible={true}
                 />
 
-                {/* Export button — hidden in phase 7, shown phases 3–6 */}
+                {/* Export button — not rendered in phases 7, 1, 2 (showExport is false).
+                    Phase 6 uses exportLabel state; other phases use selectedLabel string.
+                    This guarantees "Export Option A" never appears during the reset fade. */}
                 {showExport && (
                   <button
                     className="flex-shrink-0 w-full rounded-xl text-[12px] font-bold h-[36px] flex items-center justify-center gap-2"
                     style={{
-                      background: exportDone ? "rgba(34,197,94,0.12)" : "rgba(200,169,110,0.09)",
-                      border: exportDone
+                      background: exportLabel === 'ready' ? "rgba(34,197,94,0.12)" : "rgba(200,169,110,0.09)",
+                      border: exportLabel === 'ready'
                         ? "1px solid rgba(34,197,94,0.55)"
                         : "1px solid rgba(200,169,110,0.28)",
-                      color: exportDone ? "#4ade80" : "#C8A96E",
+                      color: exportLabel === 'ready' ? "#4ade80" : "#C8A96E",
                       transition: "background 0.3s, border-color 0.2s, color 0.4s",
                     }}
                   >
                     {phase === 6 ? (
-                      exportDone ? (
-                        "✓  Ready to download"
+                      exportLabel === 'ready' ? (
+                        "✓  Ready to download ↓"
                       ) : (
                         <>
                           <span
@@ -476,7 +479,7 @@ export function DemoWidget() {
                         </>
                       )
                     ) : (
-                      exportLabel
+                      selectedLabel
                     )}
                   </button>
                 )}
