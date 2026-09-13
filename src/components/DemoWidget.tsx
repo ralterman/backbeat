@@ -111,7 +111,8 @@ export function DemoWidget() {
   const [animTick, setAnimTick]         = useState(0);
   const [analysisCount, setAnalysisCount] = useState(0);
   const videoRef                        = useRef<HTMLVideoElement>(null);
-  const audioRef                        = useRef<HTMLAudioElement>(null);
+  const audioARef                       = useRef<HTMLAudioElement>(null); // Option A track
+  const audioBRef                       = useRef<HTMLAudioElement>(null); // Option B track
   const containerRef                    = useRef<HTMLDivElement>(null);
 
   // ── Phase timer ───────────────────────────────────────────────────────────
@@ -129,27 +130,43 @@ export function DemoWidget() {
   }, [phase]);
 
   // ── Audio sync ────────────────────────────────────────────────────────────
+  // Phase 4 → play Option A track, silence Option B.
+  // Phase 5 → play Option B track, silence Option A.
+  // Phase 7 → fade out whichever is playing, reset both.
+  // All other phases → both silent and reset.
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (phase === 4 || phase === 5) {
-      audio.currentTime = 0;
-      if (!muted) audio.play().catch(() => {});
+    const a = audioARef.current;
+    const b = audioBRef.current;
+    if (!a || !b) return;
+
+    const resetBoth = () => {
+      a.pause(); a.currentTime = 0; a.volume = 0.5;
+      b.pause(); b.currentTime = 0; b.volume = 0.5;
+    };
+
+    if (phase === 4) {
+      b.pause(); b.currentTime = 0;
+      a.currentTime = 0;
+      if (!muted) a.play().catch(() => {});
+    } else if (phase === 5) {
+      a.pause(); a.currentTime = 0;
+      b.currentTime = 0;
+      if (!muted) b.play().catch(() => {});
     } else if (phase === 7) {
+      // Fade out whichever track is currently playing
+      const active = !a.paused ? a : !b.paused ? b : null;
+      if (!active) { resetBoth(); return; }
       const fadeOut = setInterval(() => {
-        if (audio.volume > 0.05) {
-          audio.volume = Math.max(0, audio.volume - 0.05);
+        if (active.volume > 0.05) {
+          active.volume = Math.max(0, active.volume - 0.05);
         } else {
-          audio.pause();
-          audio.currentTime = 0;
-          audio.volume = 0.5;
+          resetBoth();
           clearInterval(fadeOut);
         }
       }, 75);
       return () => clearInterval(fadeOut);
     } else {
-      audio.pause();
-      audio.currentTime = 0;
+      resetBoth();
     }
   }, [phase, muted]);
 
@@ -166,11 +183,16 @@ export function DemoWidget() {
   }, [phase]);
 
   // ── Phase 6 sub-state: "exporting" for first 2 s, "ready" for next 2 s ───
+  // Phase 1 resets back to 'exporting' so the button is gold at the start
+  // of every loop (not stuck green from the previous cycle).
   useEffect(() => {
     if (phase === 6) {
       setExportLabel('exporting');
       const timer = setTimeout(() => setExportLabel('ready'), 2000);
       return () => clearTimeout(timer);
+    }
+    if (phase === 1) {
+      setExportLabel('exporting');
     }
   }, [phase]);
 
@@ -198,8 +220,10 @@ export function DemoWidget() {
       ([entry]) => {
         if (!entry.isIntersecting) {
           setPhase(1);
-          const audio = audioRef.current;
-          if (audio) { audio.pause(); audio.currentTime = 0; audio.volume = 0.5; }
+          [audioARef, audioBRef].forEach(ref => {
+            const a = ref.current;
+            if (a) { a.pause(); a.currentTime = 0; a.volume = 0.5; }
+          });
           setMuted(true);
         }
       },
@@ -211,14 +235,17 @@ export function DemoWidget() {
 
   // ── Mute toggle ───────────────────────────────────────────────────────────
   const toggleMute = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
+    const a = audioARef.current;
+    const b = audioBRef.current;
+    if (!a || !b) return;
     if (muted) {
-      audio.volume = 0.5;
-      audio.play().catch(() => {});
+      // Play whichever track belongs to the current phase
+      if (phase === 4) { a.volume = 0.5; a.play().catch(() => {}); }
+      else if (phase === 5) { b.volume = 0.5; b.play().catch(() => {}); }
       setMuted(false);
     } else {
-      audio.pause();
+      a.pause();
+      b.pause();
       setMuted(true);
     }
   };
@@ -256,9 +283,9 @@ export function DemoWidget() {
       className="block mt-10 sm:mt-16 max-w-3xl mx-auto px-3 sm:px-0"
       style={{ opacity: widgetOpacity, transition: "opacity 1.5s ease" }}
     >
-      {/* Hidden audio element — real ElevenLabs-generated track */}
-      {/* preload="none" — audio must not load or play until phase 4 */}
-      <audio ref={audioRef} src="/demo/demo-track.mp3" loop preload="none" />
+      {/* Audio elements — preload="none" so neither loads until play() is called */}
+      <audio ref={audioARef} src="/demo/demo-track.mp3"   loop preload="none" />
+      <audio ref={audioBRef} src="/demo/demo-track-b.mp3" loop preload="none" />
 
       <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-3 sm:p-6 shadow-2xl shadow-black/60">
 
@@ -270,28 +297,6 @@ export function DemoWidget() {
           <div className="flex-1 bg-[#1E1E1E] rounded-lg h-5 ml-2 flex items-center px-3">
             <span className="text-[#9090aa] text-[10px]">backbeat.me/analyze</span>
           </div>
-          {/* Mute toggle */}
-          <button
-            onClick={toggleMute}
-            title={muted ? "Play ambient audio" : "Mute"}
-            className="ml-1 text-[#C8A96E] opacity-30 hover:opacity-90 transition-opacity"
-          >
-            {muted ? (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M15.536 8.464a5 5 0 010 7.072M17.95 5.05a10 10 0 010 13.9" />
-              </svg>
-            )}
-          </button>
         </div>
 
         {/* ── Main layout ── */}
@@ -489,10 +494,48 @@ export function DemoWidget() {
         </div>
       </div>
 
+      {/* ── Audio toggle — centered below the mockup ── */}
+      <div className="flex justify-center mt-5">
+        <button
+          onClick={toggleMute}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all hover:opacity-90"
+          style={{
+            background: muted ? "rgba(200,169,110,0.08)" : "rgba(200,169,110,0.18)",
+            border: "1px solid rgba(200,169,110,0.35)",
+            color: "#C8A96E",
+            // Pulse when music would be playing but user hasn't unmuted yet
+            animation: (muted && phase >= 4 && phase <= 5) ? "audioPulse 2s ease-in-out infinite" : "none",
+          }}
+        >
+          {muted ? (
+            <>
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+              </svg>
+              Hear the music
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M15.536 8.464a5 5 0 010 7.072M17.95 5.05a10 10 0 010 13.9" />
+              </svg>
+              Mute
+            </>
+          )}
+        </button>
+      </div>
+
       <style>{`
-        @keyframes spin       { to { transform: rotate(360deg); } }
-        @keyframes fileDrop   { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes uploadFill { from { width: 0%; } to { width: 100%; } }
+        @keyframes spin        { to { transform: rotate(360deg); } }
+        @keyframes fileDrop    { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes uploadFill  { from { width: 0%; } to { width: 100%; } }
+        @keyframes audioPulse  { 0%, 100% { box-shadow: 0 0 0 0 rgba(200,169,110,0); } 50% { box-shadow: 0 0 0 8px rgba(200,169,110,0.18); } }
       `}</style>
     </div>
   );
