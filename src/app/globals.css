@@ -24,7 +24,7 @@
 
 body {
   background:
-    radial-gradient(ellipse 80% 50% at 50% 20%, rgba(200, 169, 110, 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(200, 169, 110, 0.08) 0%, transparent 70%),
     var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;

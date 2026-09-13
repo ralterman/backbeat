@@ -112,7 +112,7 @@ export default function LandingPage() {
         {/* Radial glow behind headline */}
         <div
           className="absolute top-[-80px] left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(200,169,110,0.12) 0%, transparent 70%)" }}
+          style={{ background: "radial-gradient(ellipse 80% 60% at 50% 40%, rgba(200,169,110,0.12) 0%, transparent 70%)" }}
         />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-32 text-center">
