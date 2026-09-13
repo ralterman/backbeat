@@ -111,7 +111,7 @@ export default function LandingPage() {
       <section className="relative overflow-hidden">
         {/* Radial glow behind headline */}
         <div
-          className="absolute top-[-80px] left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full pointer-events-none"
+          className="absolute top-[80px] left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full pointer-events-none"
           style={{ background: "radial-gradient(ellipse 80% 60% at 50% 40%, rgba(200,169,110,0.12) 0%, transparent 70%)" }}
         />
 

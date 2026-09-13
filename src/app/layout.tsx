@@ -59,7 +59,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[#0A0A0A] text-white">
+      <body className="min-h-full flex flex-col bg-[#0a0a0f] text-white">
         <SessionProvider>
           <Navbar />
           {/* pt-16 = navbar height (h-16) — compensates for fixed positioning */}
