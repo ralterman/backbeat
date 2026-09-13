@@ -191,7 +191,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features ──────────────────────────────────────────────────── */}
-      <section className="py-28" style={{ background: "rgba(255,255,255,0.01)" }}>
+      <section className="py-28" style={{ background: "transparent" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <RevealSection className="text-center mb-16">
             <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-4">Features</p>
@@ -273,7 +273,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Early Access CTA ──────────────────────────────────────────── */}
-      <section className="py-28" style={{ background: "rgba(255,255,255,0.01)" }}>
+      <section className="py-28" style={{ background: "transparent" }}>
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <RevealSection>
             <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">Early access</p>
