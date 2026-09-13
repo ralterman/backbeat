@@ -144,6 +144,43 @@ export function DemoWidget() {
     return () => clearTimeout(timer);
   }, [phase]);
 
+  // ── Audio sync ────────────────────────────────────────────────────────────
+  //
+  // Runs whenever phase or muted changes.  Phase 4 and 5 restart the track
+  // from the top; phase 7 fades out over ~1.5 s; all other phases silence it.
+  //
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (phase === 4) {
+      // Option A selected — start audio from beginning
+      audio.currentTime = 0;
+      if (!muted) audio.play().catch(() => {});
+    } else if (phase === 5) {
+      // Option B selected — restart audio from beginning
+      audio.currentTime = 0;
+      if (!muted) audio.play().catch(() => {});
+    } else if (phase === 7) {
+      // Reset — fade out audio over ~1.5 s
+      const fadeOut = setInterval(() => {
+        if (audio.volume > 0.05) {
+          audio.volume = Math.max(0, audio.volume - 0.05);
+        } else {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = 0.5;
+          clearInterval(fadeOut);
+        }
+      }, 75);
+      return () => clearInterval(fadeOut);
+    } else {
+      // All other phases — audio silent
+      audio.pause();
+      audio.currentTime = 0;
+    }
+  }, [phase, muted]);
+
   // ── Reset + mute when scrolled out ───────────────────────────────────────
   useEffect(() => {
     const el = containerRef.current;
