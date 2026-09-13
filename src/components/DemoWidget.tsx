@@ -23,9 +23,13 @@ const ANALYSIS = [
   { label: "BPM range", value: "120–140",                                       type: "text" },
 ] as const;
 
-// Static bar heights for unselected state (8 bars each)
 const STATIC_A = [0.35, 0.65, 0.45, 0.80, 0.30, 0.60, 0.40, 0.65];
 const STATIC_B = [0.30, 0.55, 0.75, 0.42, 0.68, 0.38, 0.58, 0.48];
+
+// Phase timing constants — easy to change without hunting through logic
+const TIMINGS = [3000, 4000, 3000, 6000, 9000, 4000, 2000];
+// Phase:           1     2     3     4     5     6     7
+// Phase 5 = Option B selected → 9 000 ms so the track has time to play
 
 
 // ── Option card ──────────────────────────────────────────────────────────────
@@ -50,7 +54,6 @@ function OptionCard({ label, description, tags, selected, bars, visible }: CardP
         transition: "opacity 0.35s ease-out, transform 0.35s ease-out, background 0.5s, border-color 0.4s",
       }}
     >
-      {/* Header: label + badge + bars */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-[#9090aa] text-[9px] uppercase tracking-widest font-semibold shrink-0">{label}</span>
@@ -60,30 +63,17 @@ function OptionCard({ label, description, tags, selected, bars, visible }: CardP
             </span>
           )}
         </div>
-        {/* Waveform bars */}
-        <div
-          className="flex items-end gap-px h-3.5 shrink-0"
-          style={{ opacity: selected ? 1 : 0.28 }}
-        >
+        <div className="flex items-end gap-px h-3.5 shrink-0" style={{ opacity: selected ? 1 : 0.28 }}>
           {bars.map((h, i) => (
             <div
               key={i}
               className="w-0.5 rounded-full"
-              style={{
-                height: `${Math.round(h * 100)}%`,
-                background: selected ? "#C8A96E" : "#a0a0b8",
-              }}
+              style={{ height: `${Math.round(h * 100)}%`, background: selected ? "#C8A96E" : "#a0a0b8" }}
             />
           ))}
         </div>
       </div>
-
-      {/* Description */}
-      <p className="text-[#c0c0d0] text-[9px] leading-snug flex-1">
-        {description}
-      </p>
-
-      {/* Tags */}
+      <p className="text-[#c0c0d0] text-[9px] leading-snug flex-1">{description}</p>
       <div className="flex flex-wrap gap-1">
         {tags.map((tag) => (
           <span
@@ -103,33 +93,33 @@ function OptionCard({ label, description, tags, selected, bars, visible }: CardP
   );
 }
 
+
 // ── DemoWidget ────────────────────────────────────────────────────────────────
 export function DemoWidget() {
-  const [phase, setPhase]               = useState(1);
-  const [muted, setMuted]               = useState(true);
-  const [exportLabel, setExportLabel]   = useState<'exporting' | 'ready'>('exporting');
-  const [animTick, setAnimTick]         = useState(0);
+  const [phase, setPhase]                 = useState(1);
+  const [muted, setMuted]                 = useState(true);
+  const [exportLabel, setExportLabel]     = useState<'exporting' | 'ready'>('exporting');
+  const [animTick, setAnimTick]           = useState(0);
   const [analysisCount, setAnalysisCount] = useState(0);
-  const videoRef                        = useRef<HTMLVideoElement>(null);
-  const audioARef                       = useRef<HTMLAudioElement>(null);
-  const audioBRef                       = useRef<HTMLAudioElement>(null);
-  const containerRef                    = useRef<HTMLDivElement>(null);
+  const videoRef                          = useRef<HTMLVideoElement>(null);
+  const audioARef                         = useRef<HTMLAudioElement>(null);
+  const audioBRef                         = useRef<HTMLAudioElement>(null);
+  const containerRef                      = useRef<HTMLDivElement>(null);
 
   // ── Phase timer ───────────────────────────────────────────────────────────
-  // Phase 1  3 s    upload
-  // Phase 2  4 s    analyzing + analysis tags
-  // Phase 3  3 s    options appear (neither selected)
-  // Phase 4  6 s    Option A selected + audio plays
-  // Phase 5  8 s    Option B selected + audio restarts  ← extended to 8 s
-  // Phase 6  4 s    export (2 s exporting → 2 s ready)
-  // Phase 7  2 s    fade out / reset
+  // Each phase fires a single setTimeout; when it expires the phase increments
+  // (or wraps back to 1 after phase 7).
   useEffect(() => {
-    const timings = [3000, 4000, 3000, 6000, 8000, 4000, 2000];
-    const timer = setTimeout(() => setPhase(p => p === 7 ? 1 : p + 1), timings[phase - 1]);
+    const ms = TIMINGS[phase - 1];
+    console.log(`[DemoWidget] phase ${phase} → ${ms}ms`);
+    const timer = setTimeout(() => setPhase(p => p === 7 ? 1 : p + 1), ms);
     return () => clearTimeout(timer);
   }, [phase]);
 
   // ── Audio sync ────────────────────────────────────────────────────────────
+  // Phase 4 → Option A; Phase 5 → Option B; Phase 7 → fade out; else → reset.
+  // play() failures (iOS no-gesture restriction) reset muted to true so the
+  // UI stays consistent instead of showing "unmuted" with silent audio.
   useEffect(() => {
     const a = audioARef.current;
     const b = audioBRef.current;
@@ -143,11 +133,21 @@ export function DemoWidget() {
     if (phase === 4) {
       b.pause(); b.currentTime = 0;
       a.currentTime = 0;
-      if (!muted) a.play().catch(() => {});
+      if (!muted) {
+        a.play().catch((err) => {
+          console.warn('[DemoWidget] track-a autoplay blocked:', err);
+          setMuted(true);
+        });
+      }
     } else if (phase === 5) {
       a.pause(); a.currentTime = 0;
       b.currentTime = 0;
-      if (!muted) b.play().catch(() => {});
+      if (!muted) {
+        b.play().catch((err) => {
+          console.warn('[DemoWidget] track-b autoplay blocked:', err);
+          setMuted(true);
+        });
+      }
     } else if (phase === 7) {
       const active = !a.paused ? a : !b.paused ? b : null;
       if (!active) { resetBoth(); return; }
@@ -184,12 +184,10 @@ export function DemoWidget() {
       const timer = setTimeout(() => setExportLabel('ready'), 2000);
       return () => clearTimeout(timer);
     }
-    if (phase === 1) {
-      setExportLabel('exporting');
-    }
+    if (phase === 1) setExportLabel('exporting');
   }, [phase]);
 
-  // ── Animation tick — drives waveform bars in active phases ────────────────
+  // ── Animation tick ────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase === 2 || phase === 4 || phase === 5) {
       const id = setInterval(() => setAnimTick(n => n + 1), 60);
@@ -197,7 +195,7 @@ export function DemoWidget() {
     }
   }, [phase]);
 
-  // ── Analysis items stagger in during phase 2 ─────────────────────────────
+  // ── Analysis stagger ─────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 2) { setAnalysisCount(0); return; }
     if (analysisCount >= ANALYSIS.length) return;
@@ -205,7 +203,7 @@ export function DemoWidget() {
     return () => clearTimeout(timer);
   }, [phase, analysisCount]);
 
-  // ── Reset when scrolled out ───────────────────────────────────────────────
+  // ── Reset on scroll out ───────────────────────────────────────────────────
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -227,14 +225,28 @@ export function DemoWidget() {
   }, []);
 
   // ── Mute toggle ───────────────────────────────────────────────────────────
+  // The button click is a user gesture, satisfying iOS Safari's requirement.
+  // We only set muted=false once play() actually resolves; if it rejects
+  // (no-gesture restriction in other contexts) we stay muted.
   const toggleMute = () => {
     const a = audioARef.current;
     const b = audioBRef.current;
     if (!a || !b) return;
+
     if (muted) {
-      if (phase === 4) { a.volume = 0.5; a.play().catch(() => {}); }
-      else if (phase === 5) { b.volume = 0.5; b.play().catch(() => {}); }
-      setMuted(false);
+      const track = phase === 4 ? a : phase === 5 ? b : null;
+      if (track) {
+        track.volume = 0.5;
+        track.play()
+          .then(() => setMuted(false))
+          .catch((err) => {
+            console.warn('[DemoWidget] play() blocked by browser:', err);
+            // stay muted — button keeps correct label
+          });
+      } else {
+        // Phases without audio: allow toggle freely
+        setMuted(false);
+      }
     } else {
       a.pause();
       b.pause();
@@ -243,9 +255,9 @@ export function DemoWidget() {
   };
 
   // ── Derived state ─────────────────────────────────────────────────────────
-  const optASelected = phase === 4;
-  const optBSelected = phase >= 5;
-  const aVis = ANALYSIS.map((_, i) => i < analysisCount);
+  const optASelected  = phase === 4;
+  const optBSelected  = phase >= 5;
+  const aVis          = ANALYSIS.map((_, i) => i < analysisCount);
   const showExport    = phase >= 3 && phase <= 6;
   const selectedLabel = phase >= 5 ? "Export Option B" : "Export Option A";
 
@@ -256,7 +268,11 @@ export function DemoWidget() {
     0.22 + 0.65 * ((Math.sin(animTick * 0.25 + i * 0.65) + 1) / 2)
   );
 
-  const videoOpacity  = phase === 1 ? 0.1 : phase >= 6 ? 0 : 1;
+  // Video: only visible while actually playing (phases 4–5). During phases 1–3
+  // the dark container background shows instead of a blank/black video frame.
+  // During phase 6–7 it fades out. The poster attribute covers any brief
+  // moment between opacity-0→1 and the first decoded frame.
+  const videoOpacity  = (phase === 4 || phase === 5) ? 1 : 0;
   const widgetOpacity = phase === 7 ? 0 : 1;
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -266,13 +282,29 @@ export function DemoWidget() {
       className="block mt-10 sm:mt-16 max-w-3xl mx-auto px-3 sm:px-0"
       style={{ opacity: widgetOpacity, transition: "opacity 1.5s ease" }}
     >
-      {/* Audio elements */}
-      <audio ref={audioARef} src="/demo/demo-track.mp3"   loop preload="none" />
-      <audio ref={audioBRef} src="/demo/demo-track-b.mp3" loop preload="none" />
+      {/*
+        Audio elements — preload="none" so neither fetches until play() is called.
+        Both carry loop so they repeat during their phase regardless of track length.
+        onError logs to console so Vercel logs surface load failures.
+      */}
+      <audio
+        ref={audioARef}
+        src="/demo/demo-track.mp3"
+        loop
+        preload="none"
+        onError={() => console.error('[DemoWidget] demo-track.mp3 failed to load')}
+      />
+      <audio
+        ref={audioBRef}
+        src="/demo/demo-track-b.mp3"
+        loop
+        preload="none"
+        onError={() => console.error('[DemoWidget] demo-track-b.mp3 failed to load')}
+      />
 
       {/*
-        Fixed-height card — min-h keeps the card stable as phase content
-        transitions, preventing layout jumps on mobile (flex-col stack).
+        Fixed-height card — min-h keeps it stable on mobile (flex-col stack)
+        as phases transition so the page never jumps.
       */}
       <div className="bg-[#141414]/80 border border-[#2A2A2A] rounded-2xl p-3 sm:p-6 shadow-2xl shadow-black/60 min-h-[600px] sm:min-h-0">
 
@@ -301,16 +333,23 @@ export function DemoWidget() {
               }}
             >
               {/*
-                poster: shows the first frame immediately, eliminating the
-                black-screen flash on mobile before the video decodes.
-                preload="auto": browser loads enough to display the first frame.
-                muted + playsInline: required for autoplay on iOS.
+                poster="/demo/demo-poster.jpg" — first frame shown immediately,
+                preventing any black flash while the video decodes.
+                preload="auto" — browser buffers ahead so the first frame is
+                ready when phase 4 starts playing.
+                muted + playsInline — required for iOS autoplay.
+                Video is opacity:0 during non-playing phases so the dark
+                container background is shown instead of blank video.
               */}
               <video
                 ref={videoRef}
                 src="/demo-video.mp4"
                 poster="/demo/demo-poster.jpg"
-                muted loop playsInline preload="auto" controls={false}
+                muted
+                loop
+                playsInline
+                preload="auto"
+                controls={false}
                 style={{
                   position: "absolute", top: 0, left: 0,
                   width: "100%", height: "100%",
@@ -320,7 +359,7 @@ export function DemoWidget() {
                 }}
               />
 
-              {/* Phase 1: upload drop zone */}
+              {/* Phase 1: upload drop zone overlay */}
               {phase === 1 && (
                 <div
                   className="absolute inset-0 border-2 border-dashed border-[#2A2A2A] rounded-xl flex flex-col items-center justify-center gap-3"
@@ -332,10 +371,7 @@ export function DemoWidget() {
                         d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
                   </div>
-                  <div
-                    className="flex flex-col items-center gap-1"
-                    style={{ animation: "fileDrop 0.45s ease-out 0.55s both" }}
-                  >
+                  <div className="flex flex-col items-center gap-1" style={{ animation: "fileDrop 0.45s ease-out 0.55s both" }}>
                     <span className="text-[#a0a0b8] text-xs font-medium">demo-video.mp4</span>
                     <span className="text-[#9090aa] text-[10px]">58 MB</span>
                   </div>
@@ -359,16 +395,16 @@ export function DemoWidget() {
           </div>
 
           {/* ── RIGHT PANEL ──
-              All three content blocks are always mounted and layered via
-              position:absolute. Opacity + pointer-events toggle visibility.
-              This means the panel has a fixed height at all times — no
-              reflow, no layout jump on mobile as phases change.
+              All three content blocks are always mounted and stacked via
+              position:absolute + inset:0. Opacity + pointer-events toggle
+              visibility. The panel has a fixed minimum height so it never
+              reflows between phases → no mobile layout jumps.
           */}
           <div
             className="sm:flex-1 relative"
             style={{ minHeight: "clamp(240px, 50vw, 330px)" }}
           >
-            {/* Phase 1 — quiet placeholder while upload runs */}
+            {/* Phase 1 — quiet placeholder */}
             <div
               className="absolute inset-0 flex flex-col items-center justify-center gap-2"
               style={{
@@ -384,7 +420,7 @@ export function DemoWidget() {
               <span className="text-[#383848] text-[11px]">Your AI soundtrack will appear here</span>
             </div>
 
-            {/* Phase 2 — analyzing waveform + analysis tags staggering in */}
+            {/* Phase 2 — analyzing */}
             <div
               className="absolute inset-0 flex flex-col justify-start gap-1.5 pt-2 overflow-y-auto"
               style={{
@@ -396,16 +432,11 @@ export function DemoWidget() {
               <div className="flex flex-col items-center gap-2 mb-2">
                 <div className="flex items-end gap-0.5 h-6">
                   {analyzeH.map((h, i) => (
-                    <div
-                      key={i}
-                      className="w-1 rounded-full bg-[#C8A96E]/50"
-                      style={{ height: `${h * 100}%` }}
-                    />
+                    <div key={i} className="w-1 rounded-full bg-[#C8A96E]/50" style={{ height: `${h * 100}%` }} />
                   ))}
                 </div>
                 <span className="text-[#a0a0b8] text-[11px]">Analyzing your video...</span>
               </div>
-
               {ANALYSIS.map((item, i) => (
                 <div
                   key={i}
@@ -446,7 +477,7 @@ export function DemoWidget() {
               ))}
             </div>
 
-            {/* Phases 3–6 — option cards + export button */}
+            {/* Phases 3–6 — option cards + export */}
             <div
               className="absolute inset-0 flex flex-col gap-3"
               style={{
@@ -471,7 +502,6 @@ export function DemoWidget() {
                 bars={optBSelected ? waveH : STATIC_B}
                 visible={true}
               />
-
               {showExport && (
                 <button
                   className="flex-shrink-0 w-full rounded-xl text-[12px] font-bold h-[36px] flex items-center justify-center gap-2"
@@ -506,7 +536,7 @@ export function DemoWidget() {
         </div>
       </div>
 
-      {/* ── Audio toggle — centered below the mockup ── */}
+      {/* ── Audio toggle ── */}
       <div className="flex justify-center mt-5">
         <button
           onClick={toggleMute}

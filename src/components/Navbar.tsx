@@ -33,12 +33,15 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Always use a solid background — backdrop-blur alone is not enough on
+  // mobile Safari to fully occlude scrolling content beneath the navbar.
+  // bg-[#0a0a0f] ensures no bleed-through regardless of browser support.
   const navClass = scrolled
-    ? "border-b border-white/5 bg-[#0a0a0f]/80 backdrop-blur-md"
-    : "border-b border-transparent bg-transparent backdrop-blur-none";
+    ? "border-b border-white/5 bg-[#0a0a0f]/95 backdrop-blur-md"
+    : "border-b border-transparent bg-[#0a0a0f]";
 
   return (
-    <nav className={`${navClass} sticky top-0 z-50 transition-all duration-300`}>
+    <nav className={`${navClass} fixed top-0 left-0 right-0 w-full z-50 transition-all duration-300`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-[14px] flex-shrink-0" onClick={() => setMenuOpen(false)}>
