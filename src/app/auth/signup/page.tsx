@@ -26,15 +26,18 @@ export default function SignUpPage() {
     <div className="min-h-screen flex items-center justify-center py-12 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex mb-6">
+          <Link href="/" className="inline-flex items-center gap-3 mb-6">
             <Image
-              src="/brand/logo-horizontal.svg"
-              alt="Backbeat"
-              width={156}
-              height={44}
+              src="/brand/logo-icon.png"
+              alt="Backbeat icon"
+              width={36}
+              height={36}
               priority
-              className="h-11 w-auto"
+              className="h-9 w-auto"
             />
+            <span style={{ color: "#C8A96E", fontSize: "22px", fontWeight: 400, lineHeight: 1, letterSpacing: "0.03em", fontFamily: "'TAN Pearl', serif" }}>
+              Backbeat
+            </span>
           </Link>
           <h1 className="text-2xl font-bold text-white">Create your account</h1>
           <p className="text-[#a0a0b8] mt-2">Start free — no credit card required</p>

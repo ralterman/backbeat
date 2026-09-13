@@ -34,13 +34,13 @@ function shell(content: string): string {
                 <circle cx="18" cy="18" r="5.5" fill="#C8A96E"/>
                 <polygon points="16.5,15.5 16.5,20.5 21.5,18" fill="#0A0A0A"/>
               </svg>
-              <span style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.5px">Backbeat</span>
+              <span style="color:#C8A96E;font-size:22px;font-weight:400;letter-spacing:0.03em;font-family:Georgia,'Times New Roman',serif">Backbeat</span>
             </div>
           </td></tr></table>
         </td></tr>
 
         <!-- Card -->
-        <tr><td style="background:#141414;border:1px solid #2a2a2a;border-radius:16px;padding:40px 36px">
+        <tr><td style="background:#141414;border:1px solid #2a2a2a;border-top:3px solid #C8A96E;border-radius:16px;padding:40px 36px">
           ${content}
         </td></tr>
 

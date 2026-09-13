@@ -62,7 +62,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-[#0a0a0f] text-white">
         <SessionProvider>
           <Navbar />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 pt-16">{children}</main>
           <ConditionalAnalytics />
           <footer className="border-t border-white/5 py-12 text-center text-[#9090aa] text-sm bg-gradient-to-t from-[#C8A96E]/5 to-transparent">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
