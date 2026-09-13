@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { PricingCard } from "@/components/PricingCard";
 import { DemoWidget } from "@/components/DemoWidget";
+import { RevealSection } from "@/components/RevealSection";
 
 const features = [
   {
@@ -24,7 +25,7 @@ const features = [
     ),
     title: "Custom AI Soundtrack",
     description:
-      "Our AI generates two unique tracks specifically for your video — matched to its mood, energy, scene type, and pacing. No catalog. No guesswork.",
+      "Your AI generates two unique tracks specifically for your video — matched to its mood, energy, scene type, and pacing. No catalog. No guesswork.",
   },
   {
     icon: (
@@ -55,7 +56,7 @@ const features = [
           d="M5 3l1.5 1.5M12 3v2m4.5-1.5L15 5M3 12h2m14 0h2M5.5 18.5L7 17M17 7l1.5-1.5M12 19v2m-5-2.5L8.5 17M12 8a4 4 0 100 8 4 4 0 000-8z" />
       </svg>
     ),
-    title: "Instant results",
+    title: "Instant Results",
     description:
       "Upload your video and get two AI-generated soundtrack options in minutes. Pick the one that fits, or generate two more.",
   },
@@ -68,7 +69,7 @@ const features = [
     ),
     title: "Licensed for Commercial Use",
     description:
-      "Music generated through Backbeat is cleared for commercial use on YouTube, TikTok, and Instagram — no copyright strikes, no licensing fees beyond your subscription.",
+      "Music generated through Backbeat is cleared for commercial use on YouTube, TikTok, and Instagram — no copyright strikes, no fees beyond your subscription.",
   },
 ];
 
@@ -101,26 +102,38 @@ const TEAM_FEATURES = [
 
 export default function LandingPage() {
   return (
-    <div className="bg-[#0A0A0A]">
-      {/* Hero */}
+    <div className="bg-transparent">
+      {/* ── Hero ──────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#C8A96E]/5 via-transparent to-[#C8A96E]/3 pointer-events-none" />
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[#C8A96E]/4 rounded-full blur-3xl pointer-events-none" />
+        {/* Radial glow behind headline */}
+        <div
+          className="absolute top-[-80px] left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(200,169,110,0.12) 0%, transparent 70%)" }}
+        />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-28 text-center">
-          <div className="flex flex-col items-center gap-3 mb-8">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-32 text-center">
+          {/* Logo lockup */}
+          <div className="flex flex-col items-center gap-2 mb-10">
             <Image
               src="/brand/logo-icon.png"
               alt="Backbeat icon"
-              width={120}
-              height={120}
+              width={96}
+              height={96}
               priority
-              className="h-[120px] w-auto"
+              className="h-24 w-auto"
             />
-            <span style={{ color: "#C8A96E", fontSize: "36px", fontWeight: 700, lineHeight: 1, letterSpacing: "0.05em", fontFamily: "var(--font-cormorant)" }}>Backbeat</span>
+            <span style={{ color: "#C8A96E", fontSize: "32px", fontWeight: 700, lineHeight: 1, letterSpacing: "0.05em", fontFamily: "var(--font-cormorant)" }}>
+              Backbeat
+            </span>
           </div>
 
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-tight mb-6">
+          {/* Section label */}
+          <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">
+            AI Music Generation
+          </p>
+
+          {/* Headline */}
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight tracking-tight mb-6">
             Upload your video.
             <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C8A96E] to-[#E8C87A]">
@@ -128,71 +141,85 @@ export default function LandingPage() {
             </span>
           </h1>
 
-          <p className="text-xl text-[#a0a0b8] max-w-2xl mx-auto mb-10 leading-relaxed">
+          {/* Sub */}
+          <p className="text-lg text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
             Backbeat analyzes your video and generates a custom soundtrack in minutes — no music theory, no searching, no copyright strikes.
           </p>
 
+          {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/auth/signup"
-              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] text-[#0a0a0f] font-bold text-lg px-8 py-4 rounded-xl transition-all shadow-lg"
+              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] font-bold text-base px-8 py-4 rounded-xl transition-all duration-200 shadow-lg"
             >
               Try it free
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
               </svg>
             </Link>
             <Link
               href="/pricing"
-              className="inline-flex items-center justify-center gap-2 text-white border border-white/30 bg-transparent hover:bg-white/[0.08] font-semibold text-lg px-8 py-4 rounded-xl transition-all"
+              className="inline-flex items-center justify-center gap-2 text-white border border-white/20 bg-white/[0.04] hover:bg-white/[0.08] hover:-translate-y-0.5 font-semibold text-base px-8 py-4 rounded-xl transition-all duration-200"
             >
               See pricing
             </Link>
           </div>
 
-          <p className="text-[#9090aa] text-sm mt-6">No credit card required — analyze your first video free</p>
+          <p className="text-[#9090aa] text-sm mt-5">No credit card required — analyze your first video free</p>
 
           <DemoWidget />
         </div>
       </section>
 
-      {/* Features */}
-      <section className="py-24 bg-[#0D0D0D]">
+      {/* ── Features ──────────────────────────────────────────────────── */}
+      <section className="py-28" style={{ background: "rgba(255,255,255,0.01)" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+          <RevealSection className="text-center mb-16">
+            <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-4">Features</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
               Everything you need to score your videos
             </h2>
-            <p className="text-[#a0a0b8] text-lg max-w-2xl mx-auto">
+            <p className="text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
               From upload to export in minutes. No music theory knowledge required.
             </p>
-          </div>
+          </RevealSection>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <RevealSection stagger className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {features.map((feature, i) => (
               <div
                 key={i}
-                className="bg-[#141414] border border-[#2A2A2A] rounded-xl p-6 hover:border-[#C8A96E]/30 transition-colors"
+                className="rounded-2xl p-6 transition-all duration-300 hover:-translate-y-0.5 border border-white/[0.06] hover:border-[#C8A96E]/30 hover:shadow-[0_0_20px_rgba(200,169,110,0.08)]"
+                style={{
+                  background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 100%)",
+                }}
               >
-                <div className="w-12 h-12 bg-[#C8A96E]/8 rounded-xl flex items-center justify-center mb-4">
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+                  style={{
+                    background: "rgba(200,169,110,0.08)",
+                    boxShadow: "0 0 12px rgba(200,169,110,0.15)",
+                  }}
+                >
                   {feature.icon}
                 </div>
-                <h3 className="text-white font-semibold text-lg mb-2">{feature.title}</h3>
-                <p className="text-[#a0a0b8] text-sm leading-relaxed">{feature.description}</p>
+                <h3 className="text-white font-semibold text-lg mb-2 tracking-tight">{feature.title}</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">{feature.description}</p>
               </div>
             ))}
-          </div>
+          </RevealSection>
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="py-24">
+      {/* ── How It Works ──────────────────────────────────────────────── */}
+      <section className="py-28">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">How Backbeat works</h2>
-            <p className="text-[#a0a0b8] text-lg">Three steps to perfectly scored video</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <RevealSection className="text-center mb-16">
+            <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-4">Process</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">How Backbeat works</h2>
+            <p className="text-gray-400 text-lg">Three steps to a perfectly scored video</p>
+          </RevealSection>
+
+          <RevealSection stagger className="grid grid-cols-1 md:grid-cols-3 gap-10">
             {[
               {
                 step: "01",
@@ -210,48 +237,57 @@ export default function LandingPage() {
                 desc: "Choose your favorite option, preview it synced to your video, then export with music mixed in.",
               },
             ].map((item) => (
-              <div key={item.step} className="text-center">
-                <div className="w-12 h-12 bg-[#C8A96E] rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-[#0a0a0f] font-bold text-sm">{item.step}</span>
+              <div key={item.step} className="text-center relative">
+                {/* Decorative step number */}
+                <div className="text-[80px] font-bold leading-none mb-2 select-none" style={{ color: "rgba(200,169,110,0.12)" }}>
+                  {item.step}
                 </div>
-                <h3 className="text-white font-semibold text-lg mb-2">{item.title}</h3>
-                <p className="text-[#a0a0b8] text-sm">{item.desc}</p>
+                <div className="w-10 h-10 bg-[#C8A96E] rounded-full flex items-center justify-center mx-auto mb-4 -mt-2">
+                  <span className="text-[#0a0a0f] font-bold text-xs">{item.step}</span>
+                </div>
+                <h3 className="text-white font-semibold text-lg mb-2 tracking-tight">{item.title}</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
               </div>
             ))}
-          </div>
+          </RevealSection>
         </div>
       </section>
 
-      {/* Pre-launch CTA — replaces testimonials */}
-      <section className="py-24 bg-[#0D0D0D]">
+      {/* ── Early Access CTA ──────────────────────────────────────────── */}
+      <section className="py-28" style={{ background: "rgba(255,255,255,0.01)" }}>
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-white text-sm font-medium uppercase tracking-widest mb-4">Early access</p>
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-            Be one of our first creators.
-          </h2>
-          <p className="text-[#a0a0b8] text-lg mb-8">
-            Try Backbeat free — no credit card required.
-          </p>
-          <Link
-            href="/auth/signup"
-            className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] text-[#0a0a0f] font-bold text-lg px-8 py-4 rounded-xl transition-all shadow-lg"
-          >
-            Try it free
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
+          <RevealSection>
+            <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">Early access</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
+              Be one of our first creators.
+            </h2>
+            <p className="text-gray-400 text-lg mb-8 leading-relaxed">
+              Try Backbeat free — no credit card required.
+            </p>
+            <Link
+              href="/auth/signup"
+              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] font-bold text-base px-8 py-4 rounded-xl transition-all duration-200 shadow-lg"
+              style={{ animation: "pulse-gold 3s ease-in-out infinite" }}
+            >
+              Try it free
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </RevealSection>
         </div>
       </section>
 
-      {/* Pricing preview */}
-      <section className="py-24">
+      {/* ── Pricing Preview ───────────────────────────────────────────── */}
+      <section className="py-28">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Simple, transparent pricing</h2>
-            <p className="text-[#a0a0b8] text-lg">Start free. Upgrade when you need more.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+          <RevealSection className="text-center mb-16">
+            <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-4">Pricing</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">Simple, transparent pricing</h2>
+            <p className="text-gray-400 text-lg">Start free. Upgrade when you need more.</p>
+          </RevealSection>
+
+          <RevealSection stagger delay={100} className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
             <PricingCard
               name="Try it free"
               price={0}
@@ -270,7 +306,7 @@ export default function LandingPage() {
               cta="Start Creator plan"
               ctaHref="/api/stripe/checkout?plan=creator"
               highlighted
-              badge="Recommended"
+              badge="Most Popular"
               priceNote="Introductory price — lock it in now."
             />
             <PricingCard
@@ -282,28 +318,39 @@ export default function LandingPage() {
               cta="Start Team plan"
               ctaHref="/api/stripe/checkout?plan=team"
             />
-          </div>
+          </RevealSection>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-24 bg-gradient-to-br from-[#C8A96E]/8 to-[#1E1608]/30">
+      {/* ── Final CTA ─────────────────────────────────────────────────── */}
+      <section className="py-28">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-bold text-white mb-4">
-            Ready to score your video?
-          </h2>
-          <p className="text-[#a0a0b8] text-lg mb-8">
-            Analyze your first video free. No credit card required.
-          </p>
-          <Link
-            href="/auth/signup"
-            className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] text-[#0a0a0f] font-bold text-lg px-8 py-4 rounded-xl transition-all shadow-lg"
-          >
-            Upload your first video — free
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
+          <RevealSection>
+            <div
+              className="rounded-2xl py-16 px-8"
+              style={{
+                background: "linear-gradient(135deg, rgba(200,169,110,0.07) 0%, rgba(30,22,8,0.15) 100%)",
+                border: "1px solid rgba(200,169,110,0.15)",
+              }}
+            >
+              <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">Get started</p>
+              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
+                Ready to score your video?
+              </h2>
+              <p className="text-gray-400 text-lg mb-8 leading-relaxed">
+                Analyze your first video free. No credit card required.
+              </p>
+              <Link
+                href="/auth/signup"
+                className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] font-bold text-base px-8 py-4 rounded-xl transition-all duration-200 shadow-lg"
+              >
+                Upload your first video — free
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+          </RevealSection>
         </div>
       </section>
     </div>

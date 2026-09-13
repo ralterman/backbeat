@@ -64,14 +64,19 @@ export default function RootLayout({
           <Navbar />
           <main className="flex-1">{children}</main>
           <ConditionalAnalytics />
-          <footer className="border-t border-[#1E1E1E] py-8 text-center text-[#9090aa] text-sm">
-            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-3">
-              <a href="/privacy" className="hover:text-[#C8A96E] transition-colors">Privacy Policy</a>
-              <a href="/terms" className="hover:text-[#C8A96E] transition-colors">Terms of Service</a>
-              <a href="/cookies" className="hover:text-[#C8A96E] transition-colors">Cookie Policy</a>
-              <CookiePreferencesButton />
+          <footer className="border-t border-white/5 py-12 text-center text-[#9090aa] text-sm">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <p className="mb-5" style={{ color: "#C8A96E", fontSize: "20px", fontWeight: 700, letterSpacing: "0.04em", fontFamily: "var(--font-cormorant)" }}>
+                Backbeat
+              </p>
+              <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-5">
+                <a href="/privacy" className="hover:text-[#C8A96E] transition-colors">Privacy Policy</a>
+                <a href="/terms" className="hover:text-[#C8A96E] transition-colors">Terms of Service</a>
+                <a href="/cookies" className="hover:text-[#C8A96E] transition-colors">Cookie Policy</a>
+                <CookiePreferencesButton />
+              </div>
+              <p>© 2026 Backbeat. All rights reserved.</p>
             </div>
-            <p>© 2026 Backbeat. All rights reserved.</p>
           </footer>
         </SessionProvider>
       </body>
