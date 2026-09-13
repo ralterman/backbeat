@@ -2,8 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const LOOP = 28000;
-
 const OPTIONS = [
   {
     label: "Option A",
@@ -109,17 +107,11 @@ function OptionCard({ label, description, tags, selected, bars, visible }: CardP
 
 // ── DemoWidget ────────────────────────────────────────────────────────────────
 export function DemoWidget() {
-  const [t, setT]         = useState(0);
+  const [phase, setPhase] = useState(1);
   const [muted, setMuted] = useState(true);
-  const rafRef            = useRef<number>(0);
-  const startRef          = useRef<number | null>(null);
   const videoRef          = useRef<HTMLVideoElement>(null);
   const audioRef          = useRef<HTMLAudioElement>(null);
   const containerRef      = useRef<HTMLDivElement>(null);
-  // Refs readable inside the rAF tick without triggering re-renders
-  const mutedRef          = useRef(true);   // mirrors muted state
-  const audioActiveRef    = useRef(false);  // true while audio.play() is in effect
-  const prevTRef          = useRef(0);      // last frame's t — used to detect loop wrap
 
   // ── Video setup ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -139,53 +131,18 @@ export function DemoWidget() {
     vid.addEventListener("error", (e) => console.error("Demo video error:", e));
   }, []);
 
-  // ── Animation loop + audio sync ───────────────────────────────────────────
+  // ── Phase timer ───────────────────────────────────────────────────────────
   //
-  // All audio logic lives here so it runs at frame rate without touching React
-  // state.  The audio "zone" starts when Option A appears (t ≥ 12 200 ms) and
-  // ends on loop wrap / explicit reset.  muted state is mirrored into mutedRef
-  // so the closure can read it without a stale capture.
+  // A single `phase` state (1–7) drives everything — audio, video, labels,
+  // selected card.  Each phase advances after its allotted duration.
   //
   useEffect(() => {
-    const tick = (now: number) => {
-      const isReset = startRef.current === null;
-      if (isReset) startRef.current = now;
-
-      const newT = (now - startRef.current!) % LOOP;
-      const prevT = prevTRef.current;
-      prevTRef.current = newT;
-
-      // Detect loop wrap: t jumped back near 0 from near LOOP end
-      const loopWrapped = !isReset && prevT > LOOP - 500 && newT < 500;
-
-      // On explicit reset (scroll-out) or loop wrap: reset audio to start
-      if (isReset || loopWrapped) {
-        const audio = audioRef.current;
-        if (audio) { audio.pause(); audio.currentTime = 0; }
-        audioActiveRef.current = false;
-      }
-
-      // Start audio when options become visible (t ≥ 12 200), if not muted
-      const inAudioZone = newT >= 12200;
-      const audio = audioRef.current;
-      if (audio) {
-        if (inAudioZone && !mutedRef.current && !audioActiveRef.current) {
-          audio.volume = 0.5;
-          audio.play().catch(() => {});
-          audioActiveRef.current = true;
-        } else if (audioActiveRef.current && (!inAudioZone || mutedRef.current)) {
-          audio.pause();
-          if (!inAudioZone) audio.currentTime = 0;
-          audioActiveRef.current = false;
-        }
-      }
-
-      setT(newT);
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, []);
+    const timings = [3000, 4000, 3000, 6000, 6000, 4000, 2000]; // ms per phase
+    const timer = setTimeout(() => {
+      setPhase(p => p === 7 ? 1 : p + 1);
+    }, timings[phase - 1]);
+    return () => clearTimeout(timer);
+  }, [phase]);
 
   // ── Reset + mute when scrolled out ───────────────────────────────────────
   useEffect(() => {
@@ -194,9 +151,7 @@ export function DemoWidget() {
     const obs = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting) {
-          startRef.current = null;
-          mutedRef.current = true;
-          audioActiveRef.current = false;
+          setPhase(1);
           const audio = audioRef.current;
           if (audio) { audio.pause(); audio.currentTime = 0; }
           setMuted(true);
@@ -213,12 +168,10 @@ export function DemoWidget() {
     const audio = audioRef.current;
     if (!audio) return;
     if (muted) {
-      mutedRef.current = false;
       audio.volume = 0.5;
       audio.play().catch(() => {});
       setMuted(false);
     } else {
-      mutedRef.current = true;
       audio.pause();
       setMuted(true);
     }
@@ -226,13 +179,17 @@ export function DemoWidget() {
 
   // ── Derived state ─────────────────────────────────────────────────────────
   //
-  // Phase 1  0–2 s   file drop
-  // Phase 2  2–5 s   upload + analyzing
-  // Phase 3  5–10 s  analysis results
-  // Phase 4  10–25 s generating → both option cards → A selected → B selected → export
-  // Phase 7  25 s+   fade to loop
+  // Phase 1  3 s    upload
+  // Phase 2  4 s    analysis
+  // Phase 3  3 s    options appear
+  // Phase 4  6 s    Option A selected
+  // Phase 5  6 s    Option B selected
+  // Phase 6  4 s    export
+  // Phase 7  2 s    fade out / reset
   //
-  const phase = t < 2000 ? 1 : t < 5000 ? 2 : t < 10000 ? 3 : t < 25000 ? 4 : 7;
+  // t=0 placeholder keeps existing sub-phase micro-animations compiling
+  // until they are rebuilt in the next pass.
+  const t = 0;
 
   // Phase 1
   const fileDrop    = norm(t, 400, 750);
