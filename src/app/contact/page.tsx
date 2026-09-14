@@ -39,7 +39,7 @@ export default function ContactPage() {
       <div className="max-w-[800px] mx-auto">
         <h1 className="text-3xl font-bold mb-1" style={{ color: "#C8A96E" }}>Contact Us</h1>
         <p className="text-sm text-[#9090aa] mb-10">
-          Questions, feedback, bug reports, feature ideas — we&rsquo;d love to hear from you.
+          Questions, feedback, issues, feature ideas — we&rsquo;d love to hear from you.
         </p>
 
         {success ? (
