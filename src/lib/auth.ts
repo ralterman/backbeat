@@ -16,12 +16,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
     ResendProvider({
       apiKey: process.env.RESEND_API_KEY!,
-      from: process.env.EMAIL_FROM ?? "hello@backbeat.me",
+      from: process.env.EMAIL_FROM ?? "hello@backbeat.video",
       async sendVerificationRequest({ identifier: email, url }) {
         console.log("[auth] Sending magic link to:", email, "| url:", url);
         try {
           const { data, error } = await resendClient.emails.send({
-            from: process.env.EMAIL_FROM ?? "hello@backbeat.me",
+            from: process.env.EMAIL_FROM ?? "hello@backbeat.video",
             to: email,
             subject: "Sign in to Backbeat",
             html: `<!DOCTYPE html>
@@ -82,7 +82,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         <!-- Footer -->
         <tr><td align="center" style="padding-top:24px">
           <p style="margin:0;color:#3a3a5a;font-size:12px">
-            Sent by <a href="https://backbeat.me" style="color:#3a3a5a;text-decoration:underline">backbeat.me</a> · AI-powered music for your videos
+            Sent by <a href="https://backbeat.video" style="color:#3a3a5a;text-decoration:underline">backbeat.video</a> · AI-powered music for your videos
           </p>
         </td></tr>
 

@@ -10,7 +10,7 @@ export default function PrivacyPage() {
         <p className="text-sm text-[#9090aa] mb-10">Effective Date: March 25, 2026</p>
 
         <Section title="1. Introduction">
-          <p>Backbeat (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) operates the website backbeat.me and provides an AI-powered video music generation service (&ldquo;Service&rdquo;). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Service. Please read this carefully. If you disagree with its terms, please discontinue use of the Service.</p>
+          <p>Backbeat (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) operates the website backbeat.video and provides an AI-powered video music generation service (&ldquo;Service&rdquo;). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Service. Please read this carefully. If you disagree with its terms, please discontinue use of the Service.</p>
         </Section>
 
         <Section title="2. Information We Collect">
@@ -77,11 +77,11 @@ export default function PrivacyPage() {
             <li><strong>Portability</strong> — request your data in a machine-readable format</li>
             <li><strong>Objection</strong> — object to our processing of your data</li>
           </ul>
-          <p>To exercise any of these rights, please contact us at <a href="mailto:privacy@backbeat.me" className="underline" style={{ color: "#C8A96E" }}>privacy@backbeat.me</a>. We will respond within 30 days.</p>
+          <p>To exercise any of these rights, please contact us at <a href="mailto:privacy@backbeat.video" className="underline" style={{ color: "#C8A96E" }}>privacy@backbeat.video</a>. We will respond within 30 days.</p>
         </Section>
 
         <Section title="7. California Privacy Rights (CCPA)">
-          <p>If you are a California resident, you have additional rights under the California Consumer Privacy Act (CCPA), including the right to know what personal information we collect, the right to delete your personal information, and the right to opt out of the sale of your personal information. We do not sell personal information. To exercise your rights, contact us at <a href="mailto:privacy@backbeat.me" className="underline" style={{ color: "#C8A96E" }}>privacy@backbeat.me</a>.</p>
+          <p>If you are a California resident, you have additional rights under the California Consumer Privacy Act (CCPA), including the right to know what personal information we collect, the right to delete your personal information, and the right to opt out of the sale of your personal information. We do not sell personal information. To exercise your rights, contact us at <a href="mailto:privacy@backbeat.video" className="underline" style={{ color: "#C8A96E" }}>privacy@backbeat.video</a>.</p>
         </Section>
 
         <Section title="8. International Users (GDPR)">
@@ -93,7 +93,7 @@ export default function PrivacyPage() {
         </Section>
 
         <Section title="10. Children's Privacy">
-          <p>The Service is not directed to children under the age of 13. We do not knowingly collect personal information from children under 13. If you believe we have inadvertently collected such information, please contact us immediately at <a href="mailto:privacy@backbeat.me" className="underline" style={{ color: "#C8A96E" }}>privacy@backbeat.me</a>.</p>
+          <p>The Service is not directed to children under the age of 13. We do not knowingly collect personal information from children under 13. If you believe we have inadvertently collected such information, please contact us immediately at <a href="mailto:privacy@backbeat.video" className="underline" style={{ color: "#C8A96E" }}>privacy@backbeat.video</a>.</p>
         </Section>
 
         <Section title="11. Changes to This Policy">
@@ -102,7 +102,7 @@ export default function PrivacyPage() {
 
         <Section title="12. Contact Us">
           <p>If you have questions about this Privacy Policy, please contact us at:</p>
-          <p><a href="mailto:hello@backbeat.me" className="underline" style={{ color: "#C8A96E" }}>hello@backbeat.me</a></p>
+          <p><a href="mailto:hello@backbeat.video" className="underline" style={{ color: "#C8A96E" }}>hello@backbeat.video</a></p>
         </Section>
       </div>
     </div>

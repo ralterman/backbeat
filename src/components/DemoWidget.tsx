@@ -363,7 +363,7 @@ export function DemoWidget() {
           <div className="w-3 h-3 rounded-full bg-yellow-400/50" />
           <div className="w-3 h-3 rounded-full bg-green-400/50" />
           <div className="flex-1 bg-[#1E1E1E] rounded-lg h-5 ml-2 flex items-center px-3">
-            <span className="text-[#9090aa] text-[10px]">backbeat.me/analyze</span>
+            <span className="text-[#9090aa] text-[10px]">backbeat.video/analyze</span>
           </div>
         </div>
 

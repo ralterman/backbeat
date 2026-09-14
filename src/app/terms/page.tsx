@@ -10,7 +10,7 @@ export default function TermsPage() {
         <p className="text-sm text-[#9090aa] mb-10">Effective Date: March 25, 2026</p>
 
         <Section title="1. Acceptance of Terms">
-          <p>By accessing or using Backbeat (&ldquo;Service&rdquo;) at backbeat.me, you agree to be bound by these Terms of Service (&ldquo;Terms&rdquo;). If you do not agree to these Terms, do not use the Service. These Terms apply to all visitors, users, and others who access the Service.</p>
+          <p>By accessing or using Backbeat (&ldquo;Service&rdquo;) at backbeat.video, you agree to be bound by these Terms of Service (&ldquo;Terms&rdquo;). If you do not agree to these Terms, do not use the Service. These Terms apply to all visitors, users, and others who access the Service.</p>
         </Section>
 
         <Section title="2. Description of Service">
@@ -32,9 +32,9 @@ export default function TermsPage() {
           <Subheading>4.1 Free Tier</Subheading>
           <p>The free tier allows one (1) lifetime video analysis, includes 1 AI video analysis per month, generating 2 custom soundtrack options with full-length preview. Free tier exports include a &lsquo;Made with Backbeat&rsquo; watermark.</p>
           <Subheading>4.2 Paid Subscriptions</Subheading>
-          <p>Paid subscription plans are billed monthly. By subscribing, you authorize us to charge your payment method on a recurring basis. Prices are as displayed at backbeat.me/pricing at the time of purchase.</p>
+          <p>Paid subscription plans are billed monthly. By subscribing, you authorize us to charge your payment method on a recurring basis. Prices are as displayed at backbeat.video/pricing at the time of purchase.</p>
           <Subheading>4.3 Cancellation and Refunds</Subheading>
-          <p>You may cancel your subscription at any time. Cancellation takes effect at the end of the current billing period. We do not provide refunds for partial months. If you believe you have been charged in error, contact us at <a href="mailto:hello@backbeat.me" className="underline" style={{ color: "#C8A96E" }}>hello@backbeat.me</a> within 30 days of the charge.</p>
+          <p>You may cancel your subscription at any time. Cancellation takes effect at the end of the current billing period. We do not provide refunds for partial months. If you believe you have been charged in error, contact us at <a href="mailto:hello@backbeat.video" className="underline" style={{ color: "#C8A96E" }}>hello@backbeat.video</a> within 30 days of the charge.</p>
           <Subheading>4.4 Price Changes</Subheading>
           <p>We reserve the right to modify subscription prices with 30 days&apos; notice. Continued use of the Service after a price change constitutes acceptance of the new pricing.</p>
         </Section>
@@ -103,7 +103,7 @@ export default function TermsPage() {
         </Section>
 
         <Section title="15. Contact">
-          <p>Questions about these Terms should be sent to: <a href="mailto:hello@backbeat.me" className="underline" style={{ color: "#C8A96E" }}>hello@backbeat.me</a></p>
+          <p>Questions about these Terms should be sent to: <a href="mailto:hello@backbeat.video" className="underline" style={{ color: "#C8A96E" }}>hello@backbeat.video</a></p>
         </Section>
       </div>
     </div>

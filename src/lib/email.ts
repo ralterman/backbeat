@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.EMAIL_FROM ?? "hello@backbeat.me";
+const FROM = process.env.EMAIL_FROM ?? "hello@backbeat.video";
 
 const PLAN_LABELS: Record<string, string> = {
   CREATOR: "Creator",
@@ -47,7 +47,7 @@ function shell(content: string): string {
         <!-- Footer -->
         <tr><td align="center" style="padding-top:24px">
           <p style="margin:0;color:#3a3a5a;font-size:12px">
-            Sent by <a href="https://backbeat.me" style="color:#3a3a5a;text-decoration:underline">backbeat.me</a> · AI-powered music for your videos
+            Sent by <a href="https://backbeat.video" style="color:#3a3a5a;text-decoration:underline">backbeat.video</a> · AI-powered music for your videos
           </p>
         </td></tr>
 
@@ -76,7 +76,7 @@ function divider(): string {
 export async function sendUpgradeEmail(to: string, plan: string): Promise<void> {
   const label = PLAN_LABELS[plan] ?? plan;
   const limit = PLAN_LIMITS[plan] ?? "";
-  const dashboardUrl = `${process.env.NEXTAUTH_URL ?? "https://backbeat.me"}/dashboard`;
+  const dashboardUrl = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/dashboard`;
 
   const html = shell(`
     <p style="margin:0 0 8px;color:#C8A96E;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Plan upgraded</p>
@@ -103,7 +103,7 @@ export async function sendUpgradeEmail(to: string, plan: string): Promise<void> 
 }
 
 export async function sendCancellationEmail(to: string, periodEnd: Date | null): Promise<void> {
-  const portalUrl = `${process.env.NEXTAUTH_URL ?? "https://backbeat.me"}/api/stripe/portal`;
+  const portalUrl = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/api/stripe/portal`;
 
   const accessLine = periodEnd
     ? `Your paid features remain active until <strong style="color:#ffffff">${periodEnd.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</strong>, then your account moves to the Free plan.`
@@ -141,7 +141,7 @@ export async function sendPlanChangeEmail(
   const fromLabel = PLAN_LABELS[fromPlan] ?? fromPlan;
   const toLabel = PLAN_LABELS[toPlan] ?? toPlan;
   const limit = PLAN_LIMITS[toPlan] ?? "";
-  const dashboardUrl = `${process.env.NEXTAUTH_URL ?? "https://backbeat.me"}/dashboard`;
+  const dashboardUrl = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/dashboard`;
 
   const html = shell(`
     <p style="margin:0 0 8px;color:#C8A96E;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Plan changed</p>

@@ -18,8 +18,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://backbeat.me"),
-  alternates: { canonical: "https://backbeat.me" },
+  metadataBase: new URL("https://backbeat.video"),
+  alternates: { canonical: "https://backbeat.video" },
   title: "Backbeat — Find the Perfect Music for Your Videos",
   description:
     "Upload your video and get AI-powered background music recommendations. Find the perfect track in seconds.",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     title: "Backbeat — Find the Perfect Music for Your Videos",
     description:
       "Upload your video and get AI-powered background music recommendations. Find the perfect track in seconds.",
-    url: "https://backbeat.me",
+    url: "https://backbeat.video",
     images: [
       {
         url: "/brand/og-image.png",

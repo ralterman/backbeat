@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.EMAIL_FROM ?? "hello@backbeat.me";
+const FROM = process.env.EMAIL_FROM ?? "hello@backbeat.video";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     from: FROM,
     to: newEmail,
     subject: "Your Backbeat email has been updated",
-    html: `<p>Hi,</p><p>Your Backbeat account email has been updated to <strong>${newEmail}</strong>.</p><p>Your next sign-in magic link will be sent to this address.</p><p>If you did not make this change, contact us at <a href="mailto:hello@backbeat.me">hello@backbeat.me</a> immediately.</p>`,
+    html: `<p>Hi,</p><p>Your Backbeat account email has been updated to <strong>${newEmail}</strong>.</p><p>Your next sign-in magic link will be sent to this address.</p><p>If you did not make this change, contact us at <a href="mailto:hello@backbeat.video">hello@backbeat.video</a> immediately.</p>`,
   }).catch((e) => console.error("[account/email] notification email failed:", e));
 
   return NextResponse.json({ success: true });

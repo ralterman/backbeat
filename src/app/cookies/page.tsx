@@ -10,7 +10,7 @@ export default function CookiesPage() {
         <p className="text-sm text-[#9090aa] mb-10">Effective Date: March 25, 2026</p>
 
         <Section title="1. What Are Cookies">
-          <p>Cookies are small text files that are placed on your device when you visit a website. They are widely used to make websites work efficiently and to provide information to website operators. This Cookie Policy explains how Backbeat uses cookies and similar technologies on backbeat.me.</p>
+          <p>Cookies are small text files that are placed on your device when you visit a website. They are widely used to make websites work efficiently and to provide information to website operators. This Cookie Policy explains how Backbeat uses cookies and similar technologies on backbeat.video.</p>
         </Section>
 
         <Section title="2. Cookies We Use">
@@ -63,7 +63,7 @@ export default function CookiesPage() {
         </Section>
 
         <Section title="6. Contact">
-          <p>If you have questions about our use of cookies, please contact us at: <a href="mailto:hello@backbeat.me" className="underline" style={{ color: "#C8A96E" }}>hello@backbeat.me</a></p>
+          <p>If you have questions about our use of cookies, please contact us at: <a href="mailto:hello@backbeat.video" className="underline" style={{ color: "#C8A96E" }}>hello@backbeat.video</a></p>
         </Section>
       </div>
     </div>
