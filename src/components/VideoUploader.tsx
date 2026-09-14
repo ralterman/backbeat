@@ -27,7 +27,7 @@ export function VideoUploader() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [includeVocals, setIncludeVocals] = useState(false);
+  const [includeVocals, setIncludeVocals] = useState<boolean | null>(null);
 
   React.useEffect(() => {
     const id = requestAnimationFrame(() => setIsInitializing(false));
@@ -39,6 +39,7 @@ export function VideoUploader() {
       setError(null);
 
       if (status === "uploading" || status === "analyzing") return;
+      if (includeVocals === null) return; // guard: file input is disabled, but belt-and-suspenders
 
       if (file.size === 0) {
         setStatus("error");
@@ -89,7 +90,7 @@ export function VideoUploader() {
         const analyzeRes = await fetch("/api/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ videoId, includeVocals }),
+          body: JSON.stringify({ videoId, includeVocals: includeVocals ?? false }),
         });
 
         if (!analyzeRes.ok) {
@@ -151,41 +152,46 @@ export function VideoUploader() {
   return (
     <div className="w-full">
       {(status === "idle" || status === "error") && (
-        <div className="mb-4 flex items-center gap-3">
-          <span className="text-[#a0a0b8] text-sm">🎵 Music style</span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setIncludeVocals(false)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                !includeVocals
-                  ? "bg-[#C8A96E] text-[#0a0a0f]"
-                  : "bg-[#1E1E1E] text-[#a0a0b8] hover:text-white border border-[#2A2A2A]"
-              }`}
-            >
-              Instrumental
-            </button>
-            <button
-              type="button"
-              onClick={() => setIncludeVocals(true)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                includeVocals
-                  ? "bg-[#C8A96E] text-[#0a0a0f]"
-                  : "bg-[#1E1E1E] text-[#a0a0b8] hover:text-white border border-[#2A2A2A]"
-              }`}
-            >
-              With Vocals
-            </button>
+        <div className="mb-4">
+          <div className="flex items-center gap-3">
+            <span className="text-[#a0a0b8] text-sm">🎵 Music style:</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setIncludeVocals(false)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                  includeVocals === false
+                    ? "bg-[#C8A96E] text-[#0a0a0f] border-[#C8A96E]"
+                    : "bg-transparent text-[#a0a0b8] hover:text-white border-[#3a3a5a] hover:border-[#9090aa]"
+                }`}
+              >
+                Instrumental
+              </button>
+              <button
+                type="button"
+                onClick={() => setIncludeVocals(true)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                  includeVocals === true
+                    ? "bg-[#C8A96E] text-[#0a0a0f] border-[#C8A96E]"
+                    : "bg-transparent text-[#a0a0b8] hover:text-white border-[#3a3a5a] hover:border-[#9090aa]"
+                }`}
+              >
+                With Vocals
+              </button>
+            </div>
           </div>
+          {includeVocals === null && (
+            <p className="text-[#6a6a8a] text-xs mt-2 ml-1">Select a music style to continue.</p>
+          )}
         </div>
       )}
       <div
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragOver={(e) => { e.preventDefault(); if (includeVocals !== null) setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={onDrop}
         className={`relative border-2 border-dashed rounded-2xl p-12 text-center transition-all
           ${isDragging ? "border-[#C8A96E] bg-[#C8A96E]/5" : "border-[#2A2A2A] hover:border-[#3a3a5a] bg-[#141414]/60"}
-          ${isLoading ? "pointer-events-none opacity-80" : "cursor-pointer"}
+          ${isLoading ? "pointer-events-none opacity-80" : includeVocals === null ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
         `}
       >
         <input
@@ -193,7 +199,7 @@ export function VideoUploader() {
           accept=".mp4,.mov,.avi,.mkv,video/mp4,video/quicktime,video/x-msvideo,video/x-matroska"
           onChange={onFileChange}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          disabled={isLoading}
+          disabled={isLoading || includeVocals === null}
           aria-label="Upload video file"
         />
 

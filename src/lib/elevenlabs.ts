@@ -206,6 +206,7 @@ export async function generateMusicOptionsFromVideo(
   analysis: VideoAnalysis,
   includeVocals = false
 ): Promise<GeneratedMusicOptions> {
+  console.log(`[elevenlabs] generateMusicOptionsFromVideo: includeVocals=${includeVocals}`);
   const desc1 = buildMusicDescription(analysis, includeVocals);
   const tags1 = buildMusicTags(analysis, includeVocals);
   const desc2 = buildAlternativeMusicDescription(analysis, includeVocals);

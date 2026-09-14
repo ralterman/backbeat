@@ -50,7 +50,10 @@ export default function AnalysisResultsPage() {
       }
       const json = (await res.json()) as AnalysisResponse;
       setData(json);
-      if (json.status === "completed") setLoading(false);
+      if (json.status === "completed") {
+        // Brief delay so user sees the final "complete" state before results appear
+        setTimeout(() => setLoading(false), 1500);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load results");
       setLoading(false);
