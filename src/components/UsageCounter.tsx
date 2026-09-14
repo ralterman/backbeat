@@ -23,8 +23,11 @@ export function UsageCounter() {
 
   if (!usage) return null;
 
-  // Admin accounts have unlimited analyses — show a simple badge instead of a counter.
-  if (usage.isAdmin) {
+  // Admin accounts and the TEAM plan have unlimited analyses. usage.ts models
+  // TEAM as a 999999 cap, which previously rendered here as "0/999999" — show
+  // the same badge admins get instead of the raw number.
+  const unlimited = usage.isAdmin || usage.plan === "TEAM" || usage.limit >= 999999;
+  if (unlimited) {
     return (
       <div className="flex items-center gap-1.5">
         <div className="w-2 h-2 rounded-full bg-[#C8A96E]" />

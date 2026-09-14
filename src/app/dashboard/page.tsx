@@ -63,6 +63,9 @@ export default async function DashboardPage({
 
   const remaining = Math.max(0, limit - used);
   const usagePct = limit > 0 ? (used / limit) * 100 : 0;
+  // TEAM is modelled as a 999999 cap in usage.ts; it previously rendered here
+  // as a literal "…/999999". Treat it like admin: an unlimited badge.
+  const unlimited = admin || plan === "TEAM" || limit >= 999999;
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -85,10 +88,10 @@ export default async function DashboardPage({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {admin ? (
-            /* Admin: show unlimited badge, no upgrade button */
+          {unlimited ? (
+            /* Admin / Team: unlimited badge instead of a counter, no upgrade button */
             <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl px-4 py-2.5 flex-1 sm:flex-none">
-              <p className="text-xs text-[#a0a0b8] mb-1">Admin</p>
+              <p className="text-xs text-[#a0a0b8] mb-1">{admin ? "Admin" : "Team plan"}</p>
               <div className="flex items-center gap-2">
                 <div className="flex-1 sm:w-24 bg-[#1E1E1E] rounded-full h-1.5">
                   <div className="h-1.5 rounded-full bg-[#C8A96E] w-full" />

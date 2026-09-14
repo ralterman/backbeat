@@ -88,7 +88,6 @@ const CREATOR_FEATURES = [
   { text: "Full preview synced to your video", included: true },
   { text: "No-watermark exports", included: true },
   { text: "Priority processing", included: true },
-  { text: "Team seats", included: false },
 ];
 
 const TEAM_FEATURES = [
@@ -97,7 +96,6 @@ const TEAM_FEATURES = [
   { text: "Full preview synced to your video", included: true },
   { text: "No-watermark exports", included: true },
   { text: "Priority processing", included: true },
-  { text: "Up to 5 team seats", included: true },
 ];
 
 export default function LandingPage() {

@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { PricingCard } from "@/components/PricingCard";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Pricing — Backbeat",
+  description: "Start free and upgrade when you need more. All plans include AI video analysis and custom music generation.",
+};
 
 const FREE_FEATURES = [
   { text: "1 free video analysis, lifetime", included: true },
@@ -8,7 +14,6 @@ const FREE_FEATURES = [
   { text: "Export with watermark", included: true },
   { text: "No-watermark exports", included: false },
   { text: "Priority processing", included: false },
-  { text: "Team seats", included: false },
 ];
 
 const CREATOR_FEATURES = [
@@ -18,7 +23,6 @@ const CREATOR_FEATURES = [
   { text: "No-watermark exports", included: true },
   { text: "Priority processing", included: true },
   { text: "Email support", included: true },
-  { text: "Team seats", included: false },
 ];
 
 const TEAM_FEATURES = [
@@ -28,7 +32,6 @@ const TEAM_FEATURES = [
   { text: "No-watermark exports", included: true },
   { text: "Priority processing", included: true },
   { text: "Priority email support", included: true },
-  { text: "Up to 5 team seats", included: true },
 ];
 
 const faqs = [
@@ -124,10 +127,9 @@ export default function PricingPage() {
                   ["Analyses", "1 lifetime", "30/mo", "Unlimited"],
                   ["Generated soundtrack options", "2 per analysis", "2 per analysis", "2 per analysis"],
                   ["AI video analysis", "✓", "✓", "✓"],
-                  ["Audio preview", "15s cap", "Full", "Full"],
+                  ["Audio preview", "Full", "Full", "Full"],
                   ["Exports", "Watermarked", "No watermark", "No watermark"],
                   ["Priority processing", "—", "✓", "✓"],
-                  ["Team seats", "—", "—", "Up to 5"],
                   ["Support", "Community", "Email", "Priority email"],
                 ].map(([feature, free, creator, team]) => (
                   <tr key={feature} className="border-b border-[#1E1E1E] hover:bg-[#141414]/60 transition-colors">
