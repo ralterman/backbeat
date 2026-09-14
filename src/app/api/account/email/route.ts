@@ -82,8 +82,9 @@ export async function POST(req: NextRequest) {
   // Verification → new address. If this send fails the request is useless,
   // so surface it (and clean up) rather than telling the user to check an inbox
   // that will never receive anything.
+  let verificationId: string;
   try {
-    await sendEmailChangeVerification(newEmail, confirmUrl, currentEmail ?? "your account");
+    verificationId = await sendEmailChangeVerification(newEmail, confirmUrl, currentEmail ?? "your account");
   } catch (err) {
     console.error("[account/email] verification email failed:", err);
     await prisma.emailChangeRequest.deleteMany({ where: { userId } }).catch(() => {});
@@ -93,14 +94,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Security notice → old address. Best-effort; never block on it.
+  // Security notice → old address. Awaited so it actually completes before the
+  // function returns (a fire-and-forget promise can be frozen by the serverless
+  // runtime once the response is sent, and its .catch never runs). A failure is
+  // logged but must not block the user — the verification already went out.
+  let noticeId: string | null = null;
   if (currentEmail) {
-    sendEmailChangeNotice(currentEmail, newEmail).catch((err) =>
-      console.error("[account/email] notice to old address failed:", err)
-    );
+    try {
+      noticeId = await sendEmailChangeNotice(currentEmail, newEmail);
+    } catch (err) {
+      console.error(`[account/email] notice to old address (${currentEmail}) failed:`, err);
+    }
   }
 
-  console.log(`[account/email] change requested for user ${userId} → ${newEmail} (expires ${expiresAt.toISOString()})`);
+  console.log(
+    `[account/email] change requested for user ${userId} → ${newEmail} (expires ${expiresAt.toISOString()}); ` +
+    `verification sent id=${verificationId} ; notice ${noticeId ? `sent id=${noticeId}` : currentEmail ? "FAILED" : "skipped (no current email)"}`
+  );
   return NextResponse.json({ success: true, pending: { newEmail, expiresAt } });
 }
 

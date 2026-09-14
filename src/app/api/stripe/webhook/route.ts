@@ -25,6 +25,23 @@ const toDate = (sec: unknown): Date | undefined =>
   typeof sec === "number" && sec > 0 ? new Date(sec * 1000) : undefined;
 
 /**
+ * Await a transactional email, log the Resend message id on success, log and
+ * swallow on failure. Email is never allowed to fail the webhook (a 500 here
+ * would make Stripe retry and re-run the DB writes), but it must be awaited so
+ * the send actually completes before the invocation ends, and the id is logged
+ * so delivery is auditable. (Previously `.catch()`-only — and since the Resend
+ * SDK resolves `{ error }` instead of throwing, those catches never fired.)
+ */
+async function notify(label: string, to: string, fn: () => Promise<string>): Promise<void> {
+  try {
+    const id = await fn();
+    console.log(`[webhook] ${label} email sent to ${to} id=${id}`);
+  } catch (err) {
+    console.error(`[webhook] ${label} email to ${to} FAILED:`, err);
+  }
+}
+
+/**
  * Stripe API 2025-03-31 (Basil) and later moved current_period_start/end
  * from the Subscription root to each SubscriptionItem. Read the item first
  * and fall back to the root for older API versions.
@@ -119,9 +136,7 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
 
       const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
       if (user?.email) {
-        await sendUpgradeEmail(user.email, stripePlan).catch((err) =>
-          console.error("[webhook] upgrade email failed:", err)
-        );
+        await notify("upgrade", user.email, () => sendUpgradeEmail(user.email!, stripePlan));
       }
       break;
     }
@@ -178,21 +193,15 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
       if (!email) break;
 
       if (dbStatus === "CANCELED") {
-        await sendCancellationEmail(email, periodEnd ?? null).catch((err) =>
-          console.error("[webhook] cancellation email failed:", err)
-        );
+        await notify("cancellation", email, () => sendCancellationEmail(email, periodEnd ?? null));
       } else if (cancelAtPeriodEnd && !existing.cancelAtPeriodEnd) {
         // User just scheduled a cancellation in the portal. Stripe keeps the
         // subscription "active" until period end, so without this branch the
         // cancellation email would only go out weeks later on .deleted.
         console.log(`[webhook] ${subscription.id} scheduled to cancel at ${periodEnd?.toISOString() ?? "period end"}`);
-        await sendCancellationEmail(email, periodEnd ?? null).catch((err) =>
-          console.error("[webhook] scheduled-cancellation email failed:", err)
-        );
+        await notify("scheduled-cancellation", email, () => sendCancellationEmail(email, periodEnd ?? null));
       } else if (newPlan !== oldPlan) {
-        await sendPlanChangeEmail(email, oldPlan, newPlan).catch((err) =>
-          console.error("[webhook] plan change email failed:", err)
-        );
+        await notify("plan-change", email, () => sendPlanChangeEmail(email, oldPlan, newPlan));
       }
       break;
     }
@@ -215,9 +224,7 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
       // don't send a second one now that the date has arrived.
       const email = existing?.user?.email;
       if (email && !existing?.cancelAtPeriodEnd) {
-        await sendCancellationEmail(email, null).catch((err) =>
-          console.error("[webhook] cancellation email failed:", err)
-        );
+        await notify("cancellation", email, () => sendCancellationEmail(email, null));
       }
       break;
     }
@@ -256,9 +263,8 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
       );
 
       if (existing.user?.email) {
-        await sendPaymentFailedEmail(existing.user.email, existing.plan).catch((err) =>
-          console.error("[webhook] payment-failed email failed:", err)
-        );
+        const to = existing.user.email;
+        await notify("payment-failed", to, () => sendPaymentFailedEmail(to, existing.plan));
       }
       break;
     }

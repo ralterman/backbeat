@@ -15,6 +15,25 @@ const PLAN_LIMITS: Record<string, string> = {
   FREE: "1 lifetime analysis",
 };
 
+/**
+ * Send via Resend and return the message id.
+ *
+ * The Resend SDK does NOT throw on API errors — it resolves with
+ * `{ data: null, error }`. Every caller previously did `.catch(...)` on these
+ * helpers, which could never fire. Normalise here: throw on `error`, return
+ * the id on success so callers can log it.
+ */
+async function send(opts: { to: string; subject: string; html: string }): Promise<string> {
+  const { data, error } = await resend.emails.send({ from: FROM, ...opts });
+  if (error) {
+    throw new Error(`Resend ${error.name ?? "error"}: ${error.message}`);
+  }
+  if (!data?.id) {
+    throw new Error("Resend returned no message id");
+  }
+  return data.id;
+}
+
 function shell(content: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -73,7 +92,7 @@ function divider(): string {
   </table>`;
 }
 
-export async function sendUpgradeEmail(to: string, plan: string): Promise<void> {
+export async function sendUpgradeEmail(to: string, plan: string): Promise<string> {
   const label = PLAN_LABELS[plan] ?? plan;
   const limit = PLAN_LIMITS[plan] ?? "";
   const dashboardUrl = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/dashboard`;
@@ -94,15 +113,10 @@ export async function sendUpgradeEmail(to: string, plan: string): Promise<void> 
     </p>
   `);
 
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: `You're on the ${label} plan`,
-    html,
-  });
+  return send({ to, subject: `You're on the ${label} plan`, html });
 }
 
-export async function sendCancellationEmail(to: string, periodEnd: Date | null): Promise<void> {
+export async function sendCancellationEmail(to: string, periodEnd: Date | null): Promise<string> {
   const portalUrl = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/api/stripe/portal`;
 
   const accessLine = periodEnd
@@ -125,12 +139,7 @@ export async function sendCancellationEmail(to: string, periodEnd: Date | null):
     </p>
   `);
 
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: "Your Backbeat subscription has been canceled",
-    html,
-  });
+  return send({ to, subject: "Your Backbeat subscription has been canceled", html });
 }
 
 /**
@@ -141,7 +150,7 @@ export async function sendEmailChangeVerification(
   to: string,
   confirmUrl: string,
   currentEmail: string
-): Promise<void> {
+): Promise<string> {
   const html = shell(`
     <p style="margin:0 0 8px;color:#C8A96E;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Confirm your new email</p>
     <h1 style="margin:0 0 16px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2">Verify this address</h1>
@@ -158,19 +167,14 @@ export async function sendEmailChangeVerification(
     <p style="margin:8px 0 0;word-break:break-all"><a href="${confirmUrl}" style="color:#C8A96E;font-size:12px;text-decoration:none">${confirmUrl}</a></p>
   `);
 
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: "Confirm your new Backbeat email",
-    html,
-  });
+  return send({ to, subject: "Confirm your new Backbeat email", html });
 }
 
 /**
  * Sent to the OLD (current) address when an email change is requested,
  * so the real owner is warned if their session was hijacked.
  */
-export async function sendEmailChangeNotice(to: string, newEmail: string): Promise<void> {
+export async function sendEmailChangeNotice(to: string, newEmail: string): Promise<string> {
   const html = shell(`
     <p style="margin:0 0 8px;color:#a0a0b8;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Security notice</p>
     <h1 style="margin:0 0 16px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2">Email change requested</h1>
@@ -185,18 +189,13 @@ export async function sendEmailChangeNotice(to: string, newEmail: string): Promi
     </p>
   `);
 
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: "Someone requested to change your Backbeat email",
-    html,
-  });
+  return send({ to, subject: "Someone requested to change your Backbeat email", html });
 }
 
 /**
  * Dunning email for a failed recurring payment.
  */
-export async function sendPaymentFailedEmail(to: string, plan: string): Promise<void> {
+export async function sendPaymentFailedEmail(to: string, plan: string): Promise<string> {
   const label = PLAN_LABELS[plan] ?? plan;
   const portalUrl = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/api/stripe/portal`;
 
@@ -216,19 +215,14 @@ export async function sendPaymentFailedEmail(to: string, plan: string): Promise<
     </p>
   `);
 
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: "Action needed: your Backbeat payment failed",
-    html,
-  });
+  return send({ to, subject: "Action needed: your Backbeat payment failed", html });
 }
 
 export async function sendPlanChangeEmail(
   to: string,
   fromPlan: string,
   toPlan: string
-): Promise<void> {
+): Promise<string> {
   const fromLabel = PLAN_LABELS[fromPlan] ?? fromPlan;
   const toLabel = PLAN_LABELS[toPlan] ?? toPlan;
   const limit = PLAN_LIMITS[toPlan] ?? "";
@@ -250,10 +244,5 @@ export async function sendPlanChangeEmail(
     </p>
   `);
 
-  await resend.emails.send({
-    from: FROM,
-    to,
-    subject: `Your Backbeat plan changed to ${toLabel}`,
-    html,
-  });
+  return send({ to, subject: `Your Backbeat plan changed to ${toLabel}`, html });
 }
