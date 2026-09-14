@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { VideoUploader } from "@/components/VideoUploader";
 import { getUsageCount, getUsageLimit, getUserPlan } from "@/lib/usage";
 import { isAdminEmail } from "@/lib/admin";
+import { PLAN_LABELS } from "@/lib/plans";
 import Link from "next/link";
 
 function formatDate(date: Date) {
@@ -91,7 +92,7 @@ export default async function DashboardPage({
           {unlimited ? (
             /* Admin / Team: unlimited badge instead of a counter, no upgrade button */
             <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl px-4 py-2.5 flex-1 sm:flex-none">
-              <p className="text-xs text-[#a0a0b8] mb-1">{admin ? "Admin" : "Team plan"}</p>
+              <p className="text-xs text-[#a0a0b8] mb-1">{admin ? "Admin" : `${PLAN_LABELS[plan] ?? plan} plan`}</p>
               <div className="flex items-center gap-2">
                 <div className="flex-1 sm:w-24 bg-[#1E1E1E] rounded-full h-1.5">
                   <div className="h-1.5 rounded-full bg-[#C8A96E] w-full" />
@@ -103,7 +104,7 @@ export default async function DashboardPage({
           ) : (
             <>
               <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl px-4 py-2.5 flex-1 sm:flex-none">
-                <p className="text-xs text-[#a0a0b8] mb-1 capitalize">{plan.toLowerCase()} plan</p>
+                <p className="text-xs text-[#a0a0b8] mb-1">{PLAN_LABELS[plan] ?? plan} plan</p>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 sm:w-24 bg-[#1E1E1E] rounded-full h-1.5">
                     <div

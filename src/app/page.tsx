@@ -90,7 +90,8 @@ const CREATOR_FEATURES = [
   { text: "Priority processing", included: true },
 ];
 
-const TEAM_FEATURES = [
+// Marketed as "Pro"; the internal plan id is still TEAM (see src/lib/plans.ts).
+const PRO_FEATURES = [
   { text: "Unlimited video analyses", included: true },
   { text: "2 AI-generated soundtrack options per analysis", included: true },
   { text: "Full preview synced to your video", included: true },
@@ -297,12 +298,12 @@ export default function LandingPage() {
               priceNote="Introductory price — lock it in now."
             />
             <PricingCard
-              name="Team"
+              name="Pro"
               price={39}
               priceSuffix="/mo"
-              description="For agencies and teams"
-              features={TEAM_FEATURES}
-              cta="Start Team plan"
+              description="For high-volume creators"
+              features={PRO_FEATURES}
+              cta="Start Pro plan"
               ctaHref="/api/stripe/checkout?plan=team"
             />
           </div>

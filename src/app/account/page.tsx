@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react";
 import { redirect, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect, useRef, Suspense } from "react";
+import { planLabel as formatPlanLabel } from "@/lib/plans";
 
 // Result flags set by GET /api/account/email/confirm's redirect.
 const CONFIRM_MESSAGES: Record<string, { ok: boolean; text: string }> = {
@@ -204,9 +205,7 @@ function AccountPageInner() {
   if (!session) return null;
 
   const currentEmail = session.user?.email ?? "";
-  const planLabel = plan
-    ? plan.charAt(0) + plan.slice(1).toLowerCase()
-    : "…";
+  const planLabel = formatPlanLabel(plan); // TEAM → "Pro", see src/lib/plans.ts
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">

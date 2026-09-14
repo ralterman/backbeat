@@ -1,13 +1,8 @@
 import { Resend } from "resend";
+import { PLAN_LABELS } from "@/lib/plans";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.EMAIL_FROM ?? "hello@backbeat.video";
-
-const PLAN_LABELS: Record<string, string> = {
-  CREATOR: "Creator",
-  TEAM: "Team",
-  FREE: "Free",
-};
 
 const PLAN_LIMITS: Record<string, string> = {
   CREATOR: "30 video analyses per month",

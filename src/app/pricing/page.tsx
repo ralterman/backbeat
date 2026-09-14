@@ -25,7 +25,8 @@ const CREATOR_FEATURES = [
   { text: "Email support", included: true },
 ];
 
-const TEAM_FEATURES = [
+// Marketed as "Pro"; the internal plan id is still TEAM (see src/lib/plans.ts).
+const PRO_FEATURES = [
   { text: "Unlimited video analyses", included: true },
   { text: "2 AI-generated soundtrack options", included: true },
   { text: "Full preview synced to your video", included: true },
@@ -53,7 +54,7 @@ const faqs = [
   },
   {
     q: "What is the watermark on free exports?",
-    a: "Free tier exports include a subtle Backbeat text overlay. Upgrade to Creator or Team to export without any watermark.",
+    a: "Free tier exports include a subtle Backbeat text overlay. Upgrade to Creator or Pro to export without any watermark.",
   },
   {
     q: "How good is the AI-generated music?",
@@ -99,12 +100,12 @@ export default function PricingPage() {
             priceNote="Introductory price — lock it in now."
           />
           <PricingCard
-            name="Team"
+            name="Pro"
             price={39}
             priceSuffix="/mo"
-            description="For agencies & production teams"
-            features={TEAM_FEATURES}
-            cta="Start Team plan"
+            description="For high-volume creators"
+            features={PRO_FEATURES}
+            cta="Start Pro plan"
             ctaHref="/api/stripe/checkout?plan=team"
           />
         </div>
@@ -119,7 +120,7 @@ export default function PricingPage() {
                   <th className="text-left py-4 pr-8 text-[#a0a0b8] font-normal text-sm w-1/2">Feature</th>
                   <th className="text-center py-4 px-4 text-[#a0a0b8] font-normal text-sm">Free</th>
                   <th className="text-center py-4 px-4 text-white font-semibold text-sm">Creator</th>
-                  <th className="text-center py-4 px-4 text-[#a0a0b8] font-normal text-sm">Team</th>
+                  <th className="text-center py-4 px-4 text-[#a0a0b8] font-normal text-sm">Pro</th>
                 </tr>
               </thead>
               <tbody>
