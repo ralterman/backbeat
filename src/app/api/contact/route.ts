@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Resend } from "resend";
+import { sendEmail } from "@/lib/email";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.EMAIL_FROM ?? "hello@backbeat.video";
 const TO = "hello@backbeat.video";
 
 // In-memory rate limiter: email → timestamp of last submission
@@ -43,8 +41,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await resend.emails.send({
-      from: FROM,
+    // sendEmail() throws on a Resend { error } response (the SDK itself does
+    // not), so a rejected send lands in the catch below instead of returning
+    // { ok: true } while nothing was delivered.
+    const id = await sendEmail({
       to: TO,
       replyTo: email,
       subject: `Backbeat contact form: ${name}`,
@@ -62,9 +62,10 @@ export async function POST(req: NextRequest) {
       `,
     });
 
+    console.log(`[contact] message from ${email} sent to ${TO} id=${id}`);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[contact] email send failed:", err);
+    console.error(`[contact] email send from ${email} FAILED:`, err);
     return NextResponse.json({ error: "Failed to send message. Please try again or email us directly." }, { status: 500 });
   }
 }

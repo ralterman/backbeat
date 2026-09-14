@@ -23,7 +23,12 @@ const PLAN_LIMITS: Record<string, string> = {
  * helpers, which could never fire. Normalise here: throw on `error`, return
  * the id on success so callers can log it.
  */
-async function send(opts: { to: string; subject: string; html: string }): Promise<string> {
+export async function sendEmail(opts: {
+  to: string;
+  subject: string;
+  html: string;
+  replyTo?: string;
+}): Promise<string> {
   const { data, error } = await resend.emails.send({ from: FROM, ...opts });
   if (error) {
     throw new Error(`Resend ${error.name ?? "error"}: ${error.message}`);
@@ -113,7 +118,7 @@ export async function sendUpgradeEmail(to: string, plan: string): Promise<string
     </p>
   `);
 
-  return send({ to, subject: `You're on the ${label} plan`, html });
+  return sendEmail({ to, subject: `You're on the ${label} plan`, html });
 }
 
 export async function sendCancellationEmail(to: string, periodEnd: Date | null): Promise<string> {
@@ -139,7 +144,7 @@ export async function sendCancellationEmail(to: string, periodEnd: Date | null):
     </p>
   `);
 
-  return send({ to, subject: "Your Backbeat subscription has been canceled", html });
+  return sendEmail({ to, subject: "Your Backbeat subscription has been canceled", html });
 }
 
 /**
@@ -167,7 +172,7 @@ export async function sendEmailChangeVerification(
     <p style="margin:8px 0 0;word-break:break-all"><a href="${confirmUrl}" style="color:#C8A96E;font-size:12px;text-decoration:none">${confirmUrl}</a></p>
   `);
 
-  return send({ to, subject: "Confirm your new Backbeat email", html });
+  return sendEmail({ to, subject: "Confirm your new Backbeat email", html });
 }
 
 /**
@@ -189,7 +194,7 @@ export async function sendEmailChangeNotice(to: string, newEmail: string): Promi
     </p>
   `);
 
-  return send({ to, subject: "Someone requested to change your Backbeat email", html });
+  return sendEmail({ to, subject: "Someone requested to change your Backbeat email", html });
 }
 
 /**
@@ -215,7 +220,7 @@ export async function sendPaymentFailedEmail(to: string, plan: string): Promise<
     </p>
   `);
 
-  return send({ to, subject: "Action needed: your Backbeat payment failed", html });
+  return sendEmail({ to, subject: "Action needed: your Backbeat payment failed", html });
 }
 
 export async function sendPlanChangeEmail(
@@ -244,5 +249,5 @@ export async function sendPlanChangeEmail(
     </p>
   `);
 
-  return send({ to, subject: `Your Backbeat plan changed to ${toLabel}`, html });
+  return sendEmail({ to, subject: `Your Backbeat plan changed to ${toLabel}`, html });
 }

@@ -18,7 +18,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       apiKey: process.env.RESEND_API_KEY!,
       from: process.env.EMAIL_FROM ?? "hello@backbeat.video",
       async sendVerificationRequest({ identifier: email, url }) {
-        console.log("[auth] Sending magic link to:", email, "| url:", url);
+        // Do not log `url` — it is a single-use bearer credential. Delivery is
+        // auditable via the Resend message id logged below.
+        console.log("[auth] Sending magic link to:", email);
         try {
           const { data, error } = await resendClient.emails.send({
             from: process.env.EMAIL_FROM ?? "hello@backbeat.video",
