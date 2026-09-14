@@ -1,12 +1,17 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 type UploadStatus = "idle" | "uploading" | "analyzing" | "done" | "error";
 
 const ACCEPTED_TYPES = ["video/mp4", "video/quicktime", "video/x-msvideo", "video/x-matroska"];
 const MAX_SIZE = 500 * 1024 * 1024;
+
+const ANALYSIS_STATUS_MESSAGES: Record<string, string> = {
+  ANALYZING:  "Analyzing with AI — reading mood, energy, and scene...",
+  GENERATING: "Generating your soundtracks — usually 30–40 seconds...",
+};
 
 async function getApiErrorMessage(res: Response, fallback: string): Promise<string> {
   try {
@@ -28,11 +33,47 @@ export function VideoUploader() {
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [includeVocals, setIncludeVocals] = useState<boolean | null>(null);
+  const [videoId, setVideoId] = useState<string | null>(null);
+  const [analysisStatus, setAnalysisStatus] = useState<string | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   React.useEffect(() => {
     const id = requestAnimationFrame(() => setIsInitializing(false));
     return () => cancelAnimationFrame(id);
   }, []);
+
+  // Poll for analysis status while in "analyzing" state
+  useEffect(() => {
+    if (status !== "analyzing" || !videoId) return;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/analyze/${videoId}`);
+        if (!res.ok) return;
+        const json = await res.json() as { status: string };
+
+        if (json.status === "completed") {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          setStatus("done");
+          setTimeout(() => router.push(`/analyze/${videoId}`), 1000);
+        } else if (json.status === "FAILED") {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          setError("Analysis failed. Please try again.");
+          setStatus("error");
+        } else {
+          setAnalysisStatus(json.status);
+        }
+      } catch {
+        // Transient network error — keep polling
+      }
+    };
+
+    poll(); // fire immediately, then repeat
+    pollingRef.current = setInterval(poll, 3000);
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [status, videoId, router]);
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -46,7 +87,6 @@ export function VideoUploader() {
         setError("This file appears to be empty. Please upload a valid video.");
         return;
       }
-
       if (!ACCEPTED_TYPES.includes(file.type)) {
         setStatus("error");
         setError("Unsupported file type. Please upload MP4, MOV, AVI, or MKV.");
@@ -74,31 +114,38 @@ export function VideoUploader() {
         });
 
         if (!presignRes.ok) {
-          throw new Error(
-            await getApiErrorMessage(presignRes, "Failed to get upload URL")
-          );
+          throw new Error(await getApiErrorMessage(presignRes, "Failed to get upload URL"));
         }
 
-        const { presignedUrl, videoId } = await presignRes.json();
+        const { presignedUrl, videoId: vid } = await presignRes.json();
 
         // Step 2: Upload to S3 with progress
         await uploadToS3(file, presignedUrl, (pct) => setProgress(pct));
         setProgress(100);
 
-        // Step 3: Trigger analysis
+        // Step 3: Fire analysis without awaiting — polling tracks progress
+        setVideoId(vid);
+        setAnalysisStatus(null);
         setStatus("analyzing");
-        const analyzeRes = await fetch("/api/analyze", {
+
+        fetch("/api/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ videoId, includeVocals: includeVocals ?? false }),
+          body: JSON.stringify({ videoId: vid, includeVocals: includeVocals ?? false }),
+        }).then(async (res) => {
+          if (!res.ok) {
+            const msg = await getApiErrorMessage(res, "Analysis failed");
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            setError(msg);
+            setStatus("error");
+          }
+          // Success is handled by polling reaching "completed"
+        }).catch((err: unknown) => {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          setError(err instanceof Error ? err.message : "Analysis failed");
+          setStatus("error");
         });
 
-        if (!analyzeRes.ok) {
-          throw new Error(await getApiErrorMessage(analyzeRes, "Analysis failed"));
-        }
-
-        setStatus("done");
-        router.push(`/analyze/${videoId}`);
       } catch (err) {
         setError(
           err instanceof Error
@@ -108,7 +155,7 @@ export function VideoUploader() {
         setStatus("error");
       }
     },
-    [router, status, includeVocals]
+    [status, includeVocals]
   );
 
   const onDrop = useCallback(
@@ -124,11 +171,19 @@ export function VideoUploader() {
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) handleFile(file);
-    // Allow selecting the same file again after an error.
     e.target.value = "";
   };
 
   const isLoading = status === "uploading" || status === "analyzing";
+
+  const currentMessage =
+    status === "uploading"
+      ? "Uploading your video..."
+      : status === "analyzing"
+      ? (ANALYSIS_STATUS_MESSAGES[analysisStatus ?? ""] ?? "Analyzing with AI...")
+      : status === "done"
+      ? "Done! Taking you to your results..."
+      : null;
 
   if (isInitializing) {
     return (
@@ -151,6 +206,7 @@ export function VideoUploader() {
 
   return (
     <div className="w-full">
+      {/* Music style toggle — only shown when idle/error */}
       {(status === "idle" || status === "error") && (
         <div className="mb-4">
           <div className="flex items-center gap-3">
@@ -185,13 +241,15 @@ export function VideoUploader() {
           )}
         </div>
       )}
+
+      {/* Upload / status box */}
       <div
         onDragOver={(e) => { e.preventDefault(); if (includeVocals !== null) setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={onDrop}
         className={`relative border-2 border-dashed rounded-2xl p-12 text-center transition-all
-          ${isDragging ? "border-[#C8A96E] bg-[#C8A96E]/5" : "border-[#2A2A2A] hover:border-[#3a3a5a] bg-[#141414]/60"}
-          ${isLoading ? "pointer-events-none opacity-80" : includeVocals === null ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+          ${isDragging ? "border-[#C8A96E] bg-[#C8A96E]/5" : "border-[#2A2A2A] bg-[#141414]/60"}
+          ${isLoading || status === "done" ? "pointer-events-none" : includeVocals === null ? "opacity-50 cursor-not-allowed" : "hover:border-[#3a3a5a] cursor-pointer"}
         `}
       >
         <input
@@ -199,12 +257,13 @@ export function VideoUploader() {
           accept=".mp4,.mov,.avi,.mkv,video/mp4,video/quicktime,video/x-msvideo,video/x-matroska"
           onChange={onFileChange}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          disabled={isLoading || includeVocals === null}
+          disabled={isLoading || status === "done" || includeVocals === null}
           aria-label="Upload video file"
         />
 
         <div className="flex flex-col items-center gap-4">
-          {status === "idle" || status === "error" ? (
+          {/* Idle / error */}
+          {(status === "idle" || status === "error") && (
             <>
               <div className="w-16 h-16 rounded-full bg-[#1E1E1E] flex items-center justify-center">
                 <svg className="w-8 h-8 text-[#C8A96E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -217,11 +276,14 @@ export function VideoUploader() {
                   {isDragging ? "Drop your video here" : "Upload your video"}
                 </p>
                 <p className="text-[#a0a0b8] text-sm mt-1">
-                  Drag & drop or click to browse — MP4, MOV, AVI, MKV up to 500MB
+                  Drag &amp; drop or click to browse — MP4, MOV, AVI, MKV up to 500MB
                 </p>
               </div>
             </>
-          ) : status === "uploading" ? (
+          )}
+
+          {/* Uploading */}
+          {status === "uploading" && (
             <>
               <div className="w-16 h-16 rounded-full bg-[#C8A96E]/10 flex items-center justify-center">
                 <svg className="w-8 h-8 text-[#C8A96E] animate-pulse" fill="currentColor" viewBox="0 0 24 24">
@@ -229,7 +291,7 @@ export function VideoUploader() {
                 </svg>
               </div>
               <div className="w-full max-w-xs">
-                <p className="text-white font-semibold mb-2">Uploading... {progress}%</p>
+                <p className="text-white font-semibold mb-2">{currentMessage} {progress}%</p>
                 <div className="w-full bg-[#1E1E1E] rounded-full h-2">
                   <div
                     className="bg-[#C8A96E] rounded-full h-2 transition-all duration-300"
@@ -238,26 +300,35 @@ export function VideoUploader() {
                 </div>
               </div>
             </>
-          ) : status === "analyzing" ? (
+          )}
+
+          {/* Analyzing (AI + ElevenLabs) */}
+          {status === "analyzing" && (
             <>
               <div className="w-16 h-16 rounded-full bg-[#C8A96E]/10 flex items-center justify-center">
                 <svg className="w-8 h-8 text-[#C8A96E] animate-spin" fill="none" viewBox="0 0 24 24">
-                  <path
-                    className="opacity-25" stroke="currentColor" strokeWidth="4" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    fill="currentColor"
-                  />
-                  <path
-                    className="opacity-75" fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
               </div>
               <div>
-                <p className="text-white font-semibold">AI is analyzing your video...</p>
-                <p className="text-[#a0a0b8] text-sm mt-1">Extracting frames and detecting mood & energy</p>
+                <p className="text-white font-semibold">{currentMessage}</p>
               </div>
             </>
-          ) : null}
+          )}
+
+          {/* Done */}
+          {status === "done" && (
+            <>
+              <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
+                <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <p className="text-white font-semibold">{currentMessage}</p>
+            </>
+          )}
         </div>
       </div>
 

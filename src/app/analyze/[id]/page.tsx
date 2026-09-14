@@ -136,85 +136,23 @@ export default function AnalysisResultsPage() {
 
   if (loading || !data?.analysis) {
     const videoStatus = data?.status;
-    const isGenerating = videoStatus === "GENERATING";
-    const isAnalyzing = videoStatus === "ANALYZING" || (!videoStatus && !regenerating);
+    const statusMessage =
+      videoStatus === "GENERATING" || regenerating
+        ? "Generating your soundtracks — usually 30–40 seconds..."
+        : videoStatus === "ANALYZING"
+        ? "Analyzing with AI — reading mood, energy, and scene..."
+        : "Creating your music...";
 
     return (
-      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <h2 className="text-white text-2xl font-bold mb-2">
-          {regenerating ? "Generating new options..." : "Creating your music..."}
-        </h2>
-        <p className="text-[#a0a0b8] text-sm mb-10 max-w-xs mx-auto">
-          This usually takes 30–120 seconds
-        </p>
-
-        <div className="max-w-xs mx-auto flex flex-col gap-5">
-          {/* Step 1: Video uploaded */}
-          <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <span className="text-white text-sm font-medium text-left">Video uploaded</span>
-          </div>
-
-          {/* Connector */}
-          <div className="ml-4 w-px h-3 bg-[#2A2A2A]" />
-
-          {/* Step 2: AI analysis */}
-          <div className="flex items-center gap-4">
-            {isGenerating || regenerating ? (
-              <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-            ) : isAnalyzing ? (
-              <div className="w-8 h-8 rounded-full bg-[#C8A96E]/10 flex items-center justify-center flex-shrink-0">
-                <svg className="w-4 h-4 text-[#C8A96E] animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                </svg>
-              </div>
-            ) : (
-              <div className="w-8 h-8 rounded-full border border-[#2A2A2A] flex items-center justify-center flex-shrink-0">
-                <div className="w-2 h-2 rounded-full bg-[#3a3a5a]" />
-              </div>
-            )}
-            <span className={`text-sm font-medium text-left ${isAnalyzing && !isGenerating ? "text-white" : isGenerating || regenerating ? "text-white" : "text-[#6a6a8a]"}`}>
-              {regenerating ? "Using previous AI analysis" : "Analyzing your video with AI..."}
-              {isAnalyzing && !isGenerating && !regenerating && (
-                <span className="block text-[#a0a0b8] text-xs font-normal mt-0.5">Detecting mood, energy &amp; scene</span>
-              )}
-            </span>
-          </div>
-
-          {/* Connector */}
-          <div className="ml-4 w-px h-3 bg-[#2A2A2A]" />
-
-          {/* Step 3: Generating soundtracks */}
-          <div className="flex items-center gap-4">
-            {isGenerating || regenerating ? (
-              <div className="w-8 h-8 rounded-full bg-[#C8A96E]/10 flex items-center justify-center flex-shrink-0">
-                <svg className="w-4 h-4 text-[#C8A96E] animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                </svg>
-              </div>
-            ) : (
-              <div className="w-8 h-8 rounded-full border border-[#2A2A2A] flex items-center justify-center flex-shrink-0">
-                <div className="w-2 h-2 rounded-full bg-[#3a3a5a]" />
-              </div>
-            )}
-            <span className={`text-sm font-medium text-left ${isGenerating || regenerating ? "text-white" : "text-[#6a6a8a]"}`}>
-              Generating your soundtracks
-              {(isGenerating || regenerating) && (
-                <span className="block text-[#a0a0b8] text-xs font-normal mt-0.5">This takes ~30 seconds...</span>
-              )}
-            </span>
-          </div>
+      <div className="max-w-4xl mx-auto px-4 py-24 text-center">
+        <div className="w-16 h-16 rounded-full bg-[#C8A96E]/10 flex items-center justify-center mx-auto mb-6">
+          <svg className="w-8 h-8 text-[#C8A96E] animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+            <path className="opacity-75" fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+          </svg>
         </div>
+        <p className="text-white font-semibold text-lg">{statusMessage}</p>
       </div>
     );
   }

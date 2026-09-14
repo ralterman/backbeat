@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
   const admin = isAdminEmail(session.user.email);
   const body = await req.json() as { videoId: string; regenerate?: boolean; includeVocals?: boolean };
   const { videoId, regenerate = false, includeVocals = false } = body;
+  console.log('includeVocals received:', includeVocals);
 
   if (!videoId) {
     return NextResponse.json({ error: "videoId is required" }, { status: 400 });
