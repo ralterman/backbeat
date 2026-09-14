@@ -52,7 +52,7 @@ export function Navbar() {
             width={36}
             height={36}
             priority
-            className="h-9 w-auto self-center"
+            className="h-9 w-auto self-center -translate-y-0.5"
           />
           <span style={{ color: "#C8A96E", fontSize: "22px", fontWeight: 400, lineHeight: 1, letterSpacing: "0.03em", fontFamily: "'TAN Pearl', serif" }} className="self-center leading-none">
             Backbeat
