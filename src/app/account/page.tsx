@@ -3,7 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { redirect, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 
 // Result flags set by GET /api/account/email/confirm's redirect.
 const CONFIRM_MESSAGES: Record<string, { ok: boolean; text: string }> = {
@@ -74,9 +74,15 @@ function AccountPageInner() {
     if (status === "unauthenticated") redirect("/auth/signin?callbackUrl=/account");
   }, [status]);
 
+  // Data effects are keyed on the user id, NOT on `status`: useSession().update()
+  // flips status authenticated → loading → authenticated, which re-fired every
+  // [status] effect on each refresh and (with the flag effect below) formed a
+  // request loop. The id only changes on sign-in/out.
+  const userId = session?.user?.id ?? null;
+
   // Fetch plan + billing state
   useEffect(() => {
-    if (status !== "authenticated") return;
+    if (!userId) return;
     fetch("/api/user/usage")
       .then((r) => r.ok ? r.json() : null)
       .then((d) => {
@@ -88,7 +94,7 @@ function AccountPageInner() {
         });
       })
       .catch(() => {});
-  }, [status]);
+  }, [userId]);
 
   // --- Email update (two-step: request → confirm via link sent to the new address) ---
   const [emailValue, setEmailValue] = useState("");
@@ -99,24 +105,34 @@ function AccountPageInner() {
 
   // Load any in-flight request so the page survives a reload.
   useEffect(() => {
-    if (status !== "authenticated") return;
+    if (!userId) return;
     fetch("/api/account/email")
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { if (d?.pending) setPendingEmail(d.pending); })
       .catch(() => {});
-  }, [status]);
+  }, [userId]);
 
-  // Handle the ?email=<flag> the confirm route redirects back with.
+  // Handle the ?email=<flag> the confirm route redirects back with — exactly
+  // once per flag value. Previously this depended on `status` and
+  // `updateSession`; update() changes both (status → loading → authenticated,
+  // and a new update() identity), so the effect re-ran before router.replace
+  // had cleared the query string, called update() again, and looped at
+  // network speed. The confirm route already required a session, so there's
+  // no need to gate on `status` here.
+  const handledFlag = useRef<string | null>(null);
   useEffect(() => {
     const flag = searchParams.get("email");
-    if (!flag || status !== "authenticated") return;
+    if (!flag || handledFlag.current === flag) return;
+    handledFlag.current = flag;
     setConfirmFlag(flag);
     if (flag === "confirmed") {
       setPendingEmail(null);
       updateSession(); // pull the new email into the JWT (see auth.ts jwt callback)
     }
     router.replace("/account"); // strip the flag so a refresh doesn't replay it
-  }, [searchParams, status, router, updateSession]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- router is stable; updateSession
+    // intentionally excluded: its identity changes on every session refresh.
+  }, [searchParams]);
 
   const handleEmailUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,7 +190,10 @@ function AccountPageInner() {
     }
   };
 
-  if (status === "loading") {
+  // Full-page spinner only on the initial session load. useSession().update()
+  // also sets status to "loading" for the duration of the refresh; if we still
+  // have a session, keep rendering the page instead of unmounting it.
+  if (status === "loading" && !session) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <div className="w-8 h-8 border-2 border-[#C8A96E] border-t-transparent rounded-full animate-spin mx-auto" />
