@@ -107,14 +107,6 @@ export default function LandingPage() {
 
       {/* ── Hero ──────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
-        {/* Single hero glow — body gradient handles the top-of-page warmth */}
-        <div
-          className="absolute top-[-60px] left-1/2 -translate-x-1/2 w-[150vw] h-[100vh] rounded-full pointer-events-none"
-          style={{
-            background: 'radial-gradient(ellipse 70% 60% at 50% 30%, rgba(200, 169, 110, 0.22) 0%, rgba(200, 169, 110, 0.06) 50%, transparent 70%)',
-          }}
-        />
-
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16 text-center">
           {/* Logo lockup */}
           <div className="flex flex-col items-center gap-6 mb-10">
