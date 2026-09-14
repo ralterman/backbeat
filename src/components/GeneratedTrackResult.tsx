@@ -17,6 +17,8 @@ interface GeneratedTrackResultProps {
   videoId: string;
   optionLabel?: string;
   isFreeUser?: boolean;
+  isSelected?: boolean;
+  onSelect?: () => void;
   /** Called on export click; must resolve with { exportId, downloadUrl } on success. */
   onExport?: () => Promise<ExportResult>;
 }
@@ -28,6 +30,8 @@ export function GeneratedTrackResult({
   tags,
   optionLabel,
   isFreeUser = false,
+  isSelected = false,
+  onSelect,
   onExport,
 }: GeneratedTrackResultProps) {
   const router = useRouter();
@@ -130,7 +134,14 @@ export function GeneratedTrackResult({
   };
 
   return (
-    <div className="bg-[#141414] border border-[#C8A96E]/40 rounded-2xl overflow-hidden shadow-[#C8A96E]/10 shadow-lg flex flex-col">
+    <div
+      onClick={onSelect}
+      className={`bg-[#141414] rounded-2xl overflow-hidden shadow-lg flex flex-col transition-all cursor-pointer
+        ${isSelected
+          ? "border-2 border-[#C8A96E] shadow-[#C8A96E]/20"
+          : "border border-[#2A2A2A] hover:border-[#C8A96E]/40"
+        }`}
+    >
 
       {/* Portrait video preview */}
       {videoUrl && (
@@ -152,9 +163,16 @@ export function GeneratedTrackResult({
       <div className="p-5 flex flex-col flex-1">
 
         {optionLabel && (
-          <p className="text-[#6a6a8a] text-xs font-semibold uppercase tracking-widest mb-3">
-            {optionLabel}
-          </p>
+          <div className="flex items-center gap-2 mb-3">
+            <p className="text-[#6a6a8a] text-xs font-semibold uppercase tracking-widest">
+              {optionLabel}
+            </p>
+            {isSelected && (
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#0a0a0f] bg-[#C8A96E] px-1.5 py-0.5 rounded-full">
+                Selected
+              </span>
+            )}
+          </div>
         )}
 
         <p className="text-[#d0d0d8] text-sm leading-relaxed mb-4 italic">
@@ -183,7 +201,7 @@ export function GeneratedTrackResult({
         />
 
         {/* Player controls */}
-        <div className="bg-[#1A1A1A] rounded-xl p-4 mb-4">
+        <div className="bg-[#1A1A1A] rounded-xl p-4 mb-4" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-4">
             <button
               onClick={togglePlay}
@@ -217,7 +235,7 @@ export function GeneratedTrackResult({
         </div>
 
         {/* Export button ↔ inline success state */}
-        <div className="mt-auto">
+        <div className="mt-auto" onClick={(e) => e.stopPropagation()}>
           {exportResult ? (
             /* Success state — replaces Export button in place */
             <div className="rounded-xl overflow-hidden border border-green-700/40">

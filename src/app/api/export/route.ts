@@ -14,6 +14,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { randomUUID } from "crypto";
+import type { GeneratedOption } from "@/app/api/analyze/route";
 
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -117,7 +118,11 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = session.user.id;
-  const { videoId, audioOption = 1 } = await req.json() as { videoId: string; audioOption?: 1 | 2 };
+  const { videoId, optionId, audioOption } = await req.json() as {
+    videoId: string;
+    optionId?: string;
+    audioOption?: 1 | 2; // legacy fallback
+  };
 
   if (!videoId) {
     return NextResponse.json({ error: "videoId is required" }, { status: 400 });
@@ -128,9 +133,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Video not found" }, { status: 404 });
   }
 
-  // Look up the generated audio for this video — pick option 1 or 2
   const analysis = await prisma.analysis.findUnique({ where: { videoId } });
-  const audioKey = audioOption === 2 ? analysis?.generatedAudioKey2 : analysis?.generatedAudioKey;
+  if (!analysis) {
+    return NextResponse.json({ error: "No generated audio found — please run analysis first." }, { status: 404 });
+  }
+
+  // Resolve which audioKey to use: new optionId takes precedence over legacy audioOption
+  let audioKey: string | null | undefined;
+  if (optionId) {
+    const opts = (analysis.generatedOptions as unknown as GeneratedOption[]) ?? [];
+    const match = opts.find((o) => o.id === optionId);
+    audioKey = match?.audioKey;
+  } else {
+    // Legacy: audioOption 1 or 2
+    audioKey = audioOption === 2 ? analysis.generatedAudioKey2 : analysis.generatedAudioKey;
+  }
+
   if (!audioKey) {
     return NextResponse.json(
       { error: "No generated audio found — please run analysis first." },

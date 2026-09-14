@@ -108,6 +108,8 @@ model Analysis {
   musicTags2         String[] @default([])
   generatedAudioKey2 String?
   generatedAudioUrl2 String?  @db.Text
+  // Accumulated options across all rounds (source of truth going forward)
+  generatedOptions   Json     @default("[]")
   createdAt          DateTime @default(now())
 
   video        Video        @relation(fields: [videoId], references: [id], onDelete: Cascade)
