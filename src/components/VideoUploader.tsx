@@ -27,6 +27,7 @@ export function VideoUploader() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [includeVocals, setIncludeVocals] = useState(false);
 
   React.useEffect(() => {
     const id = requestAnimationFrame(() => setIsInitializing(false));
@@ -88,7 +89,7 @@ export function VideoUploader() {
         const analyzeRes = await fetch("/api/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ videoId }),
+          body: JSON.stringify({ videoId, includeVocals }),
         });
 
         if (!analyzeRes.ok) {
@@ -106,7 +107,7 @@ export function VideoUploader() {
         setStatus("error");
       }
     },
-    [router, status]
+    [router, status, includeVocals]
   );
 
   const onDrop = useCallback(
@@ -149,6 +150,35 @@ export function VideoUploader() {
 
   return (
     <div className="w-full">
+      {(status === "idle" || status === "error") && (
+        <div className="mb-4 flex items-center gap-3">
+          <span className="text-[#a0a0b8] text-sm">🎵 Music style</span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setIncludeVocals(false)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                !includeVocals
+                  ? "bg-[#C8A96E] text-[#0a0a0f]"
+                  : "bg-[#1E1E1E] text-[#a0a0b8] hover:text-white border border-[#2A2A2A]"
+              }`}
+            >
+              Instrumental
+            </button>
+            <button
+              type="button"
+              onClick={() => setIncludeVocals(true)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                includeVocals
+                  ? "bg-[#C8A96E] text-[#0a0a0f]"
+                  : "bg-[#1E1E1E] text-[#a0a0b8] hover:text-white border border-[#2A2A2A]"
+              }`}
+            >
+              With Vocals
+            </button>
+          </div>
+        </div>
+      )}
       <div
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}

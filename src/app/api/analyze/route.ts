@@ -84,8 +84,8 @@ export async function POST(req: NextRequest) {
 
   const userId = session.user.id;
   const admin = isAdminEmail(session.user.email);
-  const body = await req.json() as { videoId: string; regenerate?: boolean };
-  const { videoId, regenerate = false } = body;
+  const body = await req.json() as { videoId: string; regenerate?: boolean; includeVocals?: boolean };
+  const { videoId, regenerate = false, includeVocals = false } = body;
 
   if (!videoId) {
     return NextResponse.json({ error: "videoId is required" }, { status: 400 });
@@ -181,16 +181,24 @@ export async function POST(req: NextRequest) {
           console.log(`[analyze][${videoId}] Claude analysis complete: energy=${videoAnalysis.energy_score}`);
         }
 
-        // 3. ElevenLabs generates two custom tracks in parallel
+        // 3. Mark as GENERATING so the polling UI can show the correct step
+        await prisma.video.update({
+          where: { id: videoId },
+          data: { status: "GENERATING" },
+        });
+        console.log(`[analyze][${videoId}] status → GENERATING`);
+
+        // 4. ElevenLabs generates two custom tracks in parallel
         console.log(`[analyze][${videoId}] calling ElevenLabs (two options in parallel)...`);
         const { option1, option2 } = await generateMusicOptionsFromVideo(
           videoBuffer,
           video.mimeType,
-          videoAnalysis
+          videoAnalysis,
+          includeVocals
         );
         console.log(`[analyze][${videoId}] ElevenLabs opt1: ${option1.audioBuffer.byteLength}b, opt2: ${option2.audioBuffer.byteLength}b`);
 
-        // 4. Upload both audio tracks to S3
+        // 5. Upload both audio tracks to S3
         const timestamp = Date.now();
         const audioKey1 = `generated-music/${videoId}/${timestamp}-opt1.mp3`;
         const audioKey2 = `generated-music/${videoId}/${timestamp}-opt2.mp3`;
@@ -211,7 +219,7 @@ export async function POST(req: NextRequest) {
         ]);
         console.log(`[analyze][${videoId}] audio uploaded: ${audioKey1}, ${audioKey2}`);
 
-        // 5. Generate 24-hour presigned playback URLs for both
+        // 6. Generate 24-hour presigned playback URLs for both
         const [audioUrl1, audioUrl2] = await Promise.all([
           generateDownloadPresignedUrl(OUTPUT_BUCKET, audioKey1, 86400),
           generateDownloadPresignedUrl(OUTPUT_BUCKET, audioKey2, 86400),
@@ -223,7 +231,7 @@ export async function POST(req: NextRequest) {
       "Music generation timed out — try uploading a shorter clip."
     );
 
-    // 6. Persist analysis to DB (both options)
+    // 7. Persist analysis to DB (both options)
     const analysis = await prisma.analysis.create({
       data: {
         videoId,

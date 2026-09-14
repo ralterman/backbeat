@@ -25,6 +25,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   UPLOADING: { label: "Uploading", color: "text-[#C8A96E] bg-[#C8A96E]/10" },
   UPLOADED: { label: "Uploaded", color: "text-[#C8A96E] bg-[#C8A96E]/10" },
   ANALYZING: { label: "Analyzing...", color: "text-yellow-400 bg-yellow-900/20" },
+  GENERATING: { label: "Generating...", color: "text-[#C8A96E] bg-[#C8A96E]/10" },
   ANALYZED: { label: "Analyzed", color: "text-green-400 bg-green-900/20" },
   FAILED: { label: "Failed", color: "text-red-400 bg-red-900/20" },
 };
