@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import { UsageCounter } from "./UsageCounter";
 
 function NavLink({ href, children, onClick }: { href: string; children: React.ReactNode; onClick?: () => void }) {
@@ -25,14 +26,26 @@ function NavLink({ href, children, onClick }: { href: string; children: React.Re
 export function Navbar() {
   const { data: session, status } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const isHome = pathname === '/';
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    if (!isHome) return;
+    const handleScroll = () => setScrolled(window.scrollY > 60);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isHome]);
+
+  const isTransparent = isHome && !scrolled;
 
   return (
     <nav
-      className="fixed top-0 left-0 right-0 z-[9999]"
+      className="fixed top-0 left-0 right-0 z-[9999] transition-all duration-500"
       style={{
-        background: 'rgba(10, 10, 15, 0.50)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
+        background: isTransparent ? 'transparent' : 'rgba(10, 10, 15, 0.50)',
+        backdropFilter: isTransparent ? 'none' : 'blur(12px)',
+        WebkitBackdropFilter: isTransparent ? 'none' : 'blur(12px)',
         paddingTop: 'env(safe-area-inset-top)',
       }}
     >
