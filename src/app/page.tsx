@@ -107,14 +107,6 @@ export default function LandingPage() {
 
       {/* ── Hero ──────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
-        {/* Dark gradient at top to blend navbar */}
-        <div
-          className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-0"
-          style={{
-            background: 'linear-gradient(to bottom, rgba(10,10,15,1) 0%, rgba(10,10,15,0.4) 40%, transparent 100%)'
-          }}
-        />
-
         {/* Single hero glow — body gradient handles the top-of-page warmth */}
         <div
           className="absolute top-[-60px] left-1/2 -translate-x-1/2 w-[150vw] h-[100vh] rounded-full pointer-events-none"
