@@ -111,7 +111,7 @@ export default function LandingPage() {
         <div
           className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-0"
           style={{
-            background: 'linear-gradient(to bottom, rgba(10,10,15,0.85) 0%, transparent 100%)'
+            background: 'linear-gradient(to bottom, rgba(10,10,15,1) 0%, rgba(10,10,15,0.4) 40%, transparent 100%)'
           }}
         />
 
