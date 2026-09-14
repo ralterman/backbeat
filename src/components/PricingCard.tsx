@@ -89,8 +89,12 @@ export function PricingCard({
         ))}
       </ul>
 
+      {/* prefetch={false}: the paid-plan CTAs point at /api/stripe/checkout, a
+          side-effecting GET. With prefetch on, Next fetched it on hover/viewport
+          and created a real Stripe Checkout Session (and Customer) per visit. */}
       <Link
         href={ctaHref}
+        prefetch={false}
         className={`w-full text-center py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${
           highlighted
             ? "bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] font-bold shadow-md"

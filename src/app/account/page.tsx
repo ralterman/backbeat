@@ -1,9 +1,19 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { redirect } from "next/navigation";
+import { redirect, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+
+// Result flags set by GET /api/account/email/confirm's redirect.
+const CONFIRM_MESSAGES: Record<string, { ok: boolean; text: string }> = {
+  confirmed:       { ok: true,  text: "Your email address has been updated." },
+  expired:         { ok: false, text: "That confirmation link has expired. Request the change again to get a new one." },
+  invalid:         { ok: false, text: "That confirmation link is invalid or has already been used." },
+  taken:           { ok: false, text: "That email address is now associated with another account." },
+  "wrong-account": { ok: false, text: "That link belongs to a different account. Sign in with the account that requested the change." },
+  error:           { ok: false, text: "Something went wrong applying the change. Please try again." },
+};
 
 function Section({
   title,
@@ -32,33 +42,87 @@ function Section({
   );
 }
 
+// useSearchParams() must sit under a Suspense boundary or `next build` fails
+// when it tries to prerender this route.
 export default function AccountPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+          <div className="w-8 h-8 border-2 border-[#C8A96E] border-t-transparent rounded-full animate-spin mx-auto" />
+        </div>
+      }
+    >
+      <AccountPageInner />
+    </Suspense>
+  );
+}
+
+function AccountPageInner() {
   const { data: session, status, update: updateSession } = useSession();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [plan, setPlan] = useState<string | null>(null);
+  const [billing, setBilling] = useState<{
+    subscriptionStatus: string | null;
+    cancelAtPeriodEnd: boolean;
+    currentPeriodEnd: string | null;
+  } | null>(null);
 
   // Redirect unauthenticated users
   useEffect(() => {
     if (status === "unauthenticated") redirect("/auth/signin?callbackUrl=/account");
   }, [status]);
 
-  // Fetch plan
+  // Fetch plan + billing state
   useEffect(() => {
     if (status !== "authenticated") return;
     fetch("/api/user/usage")
       .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d?.plan) setPlan(d.plan); })
+      .then((d) => {
+        if (d?.plan) setPlan(d.plan);
+        if (d) setBilling({
+          subscriptionStatus: d.subscriptionStatus ?? null,
+          cancelAtPeriodEnd: !!d.cancelAtPeriodEnd,
+          currentPeriodEnd: d.currentPeriodEnd ?? null,
+        });
+      })
       .catch(() => {});
   }, [status]);
 
-  // --- Email update ---
+  // --- Email update (two-step: request → confirm via link sent to the new address) ---
   const [emailValue, setEmailValue] = useState("");
   const [emailStatus, setEmailStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [pendingEmail, setPendingEmail] = useState<{ newEmail: string; expiresAt: string } | null>(null);
+  const [confirmFlag, setConfirmFlag] = useState<string | null>(null);
+
+  // Load any in-flight request so the page survives a reload.
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    fetch("/api/account/email")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.pending) setPendingEmail(d.pending); })
+      .catch(() => {});
+  }, [status]);
+
+  // Handle the ?email=<flag> the confirm route redirects back with.
+  useEffect(() => {
+    const flag = searchParams.get("email");
+    if (!flag || status !== "authenticated") return;
+    setConfirmFlag(flag);
+    if (flag === "confirmed") {
+      setPendingEmail(null);
+      updateSession(); // pull the new email into the JWT (see auth.ts jwt callback)
+    }
+    router.replace("/account"); // strip the flag so a refresh doesn't replay it
+  }, [searchParams, status, router, updateSession]);
 
   const handleEmailUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setEmailStatus("loading");
     setEmailError(null);
+    setConfirmFlag(null);
     try {
       const res = await fetch("/api/account/email", {
         method: "POST",
@@ -71,13 +135,19 @@ export default function AccountPage() {
         setEmailStatus("error");
       } else {
         setEmailStatus("success");
+        setPendingEmail(data.pending ?? null);
         setEmailValue("");
-        await updateSession(); // refresh client-side session with new email
       }
     } catch {
       setEmailError("Network error. Please try again.");
       setEmailStatus("error");
     }
+  };
+
+  const handleCancelPending = async () => {
+    await fetch("/api/account/email", { method: "DELETE" }).catch(() => {});
+    setPendingEmail(null);
+    setEmailStatus("idle");
   };
 
   // --- Delete account ---
@@ -140,6 +210,20 @@ export default function AccountPage() {
           <div>
             <p className="text-[#a0a0b8] text-sm mb-0.5">Current plan</p>
             <p className="text-white font-semibold">{planLabel}</p>
+            {billing?.cancelAtPeriodEnd && billing.currentPeriodEnd && (
+              <p className="text-amber-300/90 text-xs mt-1">
+                Cancels on{" "}
+                {new Date(billing.currentPeriodEnd).toLocaleDateString("en-US", {
+                  month: "long", day: "numeric", year: "numeric",
+                })}{" "}
+                — you keep paid features until then.
+              </p>
+            )}
+            {billing?.subscriptionStatus === "PAST_DUE" && (
+              <p className="text-red-400 text-xs mt-1">
+                Your last payment failed — update your card in billing to keep your plan.
+              </p>
+            )}
           </div>
           {plan === "FREE" ? (
             <Link
@@ -165,9 +249,38 @@ export default function AccountPage() {
           Current:{" "}
           <span className="text-white font-medium">{currentEmail}</span>
         </p>
-        {emailStatus === "success" ? (
-          <div className="bg-green-900/20 border border-green-700/30 rounded-xl px-4 py-3 text-green-300 text-sm">
-            ✓ Email updated. Your next magic link will be sent to the new address.
+
+        {confirmFlag && CONFIRM_MESSAGES[confirmFlag] && (
+          <div
+            className={`mb-4 rounded-xl px-4 py-3 text-sm border ${
+              CONFIRM_MESSAGES[confirmFlag].ok
+                ? "bg-green-900/20 border-green-700/30 text-green-300"
+                : "bg-red-900/20 border-red-800/30 text-red-400"
+            }`}
+          >
+            {CONFIRM_MESSAGES[confirmFlag].ok ? "✓ " : ""}{CONFIRM_MESSAGES[confirmFlag].text}
+          </div>
+        )}
+
+        {pendingEmail ? (
+          <div className="bg-[#C8A96E]/10 border border-[#C8A96E]/30 rounded-xl px-4 py-3 text-sm">
+            <p className="text-white font-medium mb-1">
+              Confirmation sent to <span className="text-[#C8A96E]">{pendingEmail.newEmail}</span>
+            </p>
+            <p className="text-[#a0a0b8] mb-3">
+              Click the link in that email to finish the change. Your address stays{" "}
+              <span className="text-white">{currentEmail}</span> until you do. The link expires{" "}
+              {new Date(pendingEmail.expiresAt).toLocaleString("en-US", {
+                month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+              })}.
+            </p>
+            <button
+              type="button"
+              onClick={handleCancelPending}
+              className="text-[#a0a0b8] hover:text-white text-xs underline transition-colors"
+            >
+              Cancel this request
+            </button>
           </div>
         ) : (
           <form onSubmit={handleEmailUpdate} className="flex gap-3">
@@ -187,7 +300,7 @@ export default function AccountPage() {
               disabled={emailStatus === "loading" || !emailValue.trim()}
               className="bg-[#C8A96E] hover:bg-[#d4b87a] disabled:opacity-50 disabled:cursor-not-allowed text-[#0a0a0a] font-bold text-sm px-5 py-2.5 rounded-xl transition-colors whitespace-nowrap"
             >
-              {emailStatus === "loading" ? "Saving…" : "Update email"}
+              {emailStatus === "loading" ? "Sending…" : "Send confirmation"}
             </button>
           </form>
         )}
@@ -195,6 +308,7 @@ export default function AccountPage() {
           <p className="mt-2 text-red-400 text-sm">{emailError}</p>
         )}
         <p className="mt-3 text-[#6a6a8a] text-xs">
+          We&rsquo;ll email a confirmation link to the new address and a notice to your current one.
           If you signed in with Google, your email may revert to your Google email on next sign-in.
         </p>
       </Section>

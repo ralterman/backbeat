@@ -1,57 +1,117 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Resend } from "resend";
+import { sendEmailChangeVerification, sendEmailChangeNotice } from "@/lib/email";
+import { hashToken, normalizeEmail } from "@/lib/email-change";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.EMAIL_FROM ?? "hello@backbeat.video";
+const TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 h
 
+/**
+ * GET — the caller's pending email-change request, if any (for the account page).
+ */
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const pending = await prisma.emailChangeRequest.findFirst({
+    where: { userId: session.user.id, expiresAt: { gt: new Date() } },
+    orderBy: { createdAt: "desc" },
+    select: { newEmail: true, expiresAt: true },
+  });
+  return NextResponse.json({ pending });
+}
+
+/**
+ * POST — request an email change. Does NOT change User.email. Stores a
+ * hashed token, emails a confirmation link to the NEW address and a
+ * security notice to the OLD address. The change is applied by
+ * GET /api/account/email/confirm?token=…
+ */
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const userId = session.user.id;
 
-  const { email: newEmail } = (await req.json()) as { email: string };
+  const body = (await req.json().catch(() => ({}))) as { email?: string };
+  const newEmail = normalizeEmail(body.email ?? "");
 
-  // Basic validation
   if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
     return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 });
   }
 
   const currentUser = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: { id: userId },
     select: { email: true },
   });
+  const currentEmail = currentUser?.email ? normalizeEmail(currentUser.email) : null;
 
-  if (newEmail.toLowerCase() === currentUser?.email?.toLowerCase()) {
-    return NextResponse.json(
-      { error: "That is already your current email address." },
-      { status: 400 }
-    );
+  if (newEmail === currentEmail) {
+    return NextResponse.json({ error: "That is already your current email address." }, { status: 400 });
   }
 
-  // Check if another user already has this email
-  const existing = await prisma.user.findUnique({ where: { email: newEmail } });
-  if (existing) {
+  // Case-insensitive uniqueness check (Postgres text equality is case-sensitive,
+  // so a plain findUnique let "Victim@x.com" slip past a stored "victim@x.com").
+  const taken = await prisma.user.findFirst({
+    where: { email: { equals: newEmail, mode: "insensitive" }, NOT: { id: userId } },
+    select: { id: true },
+  });
+  if (taken) {
     return NextResponse.json(
       { error: "That email address is already associated with another account." },
       { status: 409 }
     );
   }
 
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: { email: newEmail },
-  });
+  // One live request per user: replace any previous pending request.
+  const rawToken = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + TOKEN_TTL_MS);
+  await prisma.$transaction([
+    prisma.emailChangeRequest.deleteMany({ where: { userId } }),
+    prisma.emailChangeRequest.create({
+      data: { userId, newEmail, tokenHash: hashToken(rawToken), expiresAt },
+    }),
+  ]);
 
-  // Notify old and new addresses
-  await resend.emails.send({
-    from: FROM,
-    to: newEmail,
-    subject: "Your Backbeat email has been updated",
-    html: `<p>Hi,</p><p>Your Backbeat account email has been updated to <strong>${newEmail}</strong>.</p><p>Your next sign-in magic link will be sent to this address.</p><p>If you did not make this change, contact us at <a href="mailto:hello@backbeat.video">hello@backbeat.video</a> immediately.</p>`,
-  }).catch((e) => console.error("[account/email] notification email failed:", e));
+  const base = process.env.NEXTAUTH_URL ?? "https://backbeat.video";
+  const confirmUrl = `${base}/api/account/email/confirm?token=${rawToken}`;
 
+  // Verification → new address. If this send fails the request is useless,
+  // so surface it (and clean up) rather than telling the user to check an inbox
+  // that will never receive anything.
+  try {
+    await sendEmailChangeVerification(newEmail, confirmUrl, currentEmail ?? "your account");
+  } catch (err) {
+    console.error("[account/email] verification email failed:", err);
+    await prisma.emailChangeRequest.deleteMany({ where: { userId } }).catch(() => {});
+    return NextResponse.json(
+      { error: "We couldn't send the confirmation email. Please try again." },
+      { status: 502 }
+    );
+  }
+
+  // Security notice → old address. Best-effort; never block on it.
+  if (currentEmail) {
+    sendEmailChangeNotice(currentEmail, newEmail).catch((err) =>
+      console.error("[account/email] notice to old address failed:", err)
+    );
+  }
+
+  console.log(`[account/email] change requested for user ${userId} → ${newEmail} (expires ${expiresAt.toISOString()})`);
+  return NextResponse.json({ success: true, pending: { newEmail, expiresAt } });
+}
+
+/**
+ * DELETE — cancel the caller's pending email-change request.
+ */
+export async function DELETE() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  await prisma.emailChangeRequest.deleteMany({ where: { userId: session.user.id } });
   return NextResponse.json({ success: true });
 }

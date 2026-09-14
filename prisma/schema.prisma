@@ -54,11 +54,34 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts     Account[]
-  sessions     Session[]
-  videos       Video[]
-  subscription Subscription?
-  usageRecords UsageRecord[]
+  accounts            Account[]
+  sessions            Session[]
+  videos              Video[]
+  subscription        Subscription?
+  usageRecords        UsageRecord[]
+  emailChangeRequests EmailChangeRequest[]
+}
+
+/// A pending request to change a user's email. The new address is only
+/// written to User.email once the token (sent to the new address) is used.
+model EmailChangeRequest {
+  id        String   @id @default(cuid())
+  userId    String
+  newEmail  String
+  tokenHash String   @unique // sha256 of the raw token; raw token only ever lives in the email link
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Processed Stripe webhook event IDs, for idempotency (Stripe delivers at-least-once).
+model StripeEvent {
+  id          String   @id // Stripe event id (evt_…)
+  type        String
+  processedAt DateTime @default(now())
 }
 
 model Video {
@@ -160,6 +183,9 @@ model Subscription {
   status               SubscriptionStatus @default(ACTIVE)
   currentPeriodStart   DateTime?
   currentPeriodEnd     DateTime?
+  // True when the user has canceled in the portal but keeps access until
+  // currentPeriodEnd. Lets the UI show "cancels on <date>".
+  cancelAtPeriodEnd    Boolean            @default(false)
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 

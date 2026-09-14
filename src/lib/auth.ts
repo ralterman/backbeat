@@ -108,9 +108,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
+      }
+      // Sessions are JWTs, so a changed email would otherwise stay stale until
+      // re-login. The account page calls useSession().update() after a
+      // confirmed email change; refresh the email claim from the DB then.
+      if (trigger === "update" && token.id) {
+        const fresh = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { email: true },
+        });
+        if (fresh?.email) token.email = fresh.email;
       }
       return token;
     },

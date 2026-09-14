@@ -133,6 +133,97 @@ export async function sendCancellationEmail(to: string, periodEnd: Date | null):
   });
 }
 
+/**
+ * Sent to the NEW address when a user requests an email change.
+ * The address is only written to the account once this link is used.
+ */
+export async function sendEmailChangeVerification(
+  to: string,
+  confirmUrl: string,
+  currentEmail: string
+): Promise<void> {
+  const html = shell(`
+    <p style="margin:0 0 8px;color:#C8A96E;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Confirm your new email</p>
+    <h1 style="margin:0 0 16px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2">Verify this address</h1>
+    <p style="margin:0 0 8px;color:#a0a0b8;font-size:15px;line-height:1.6">
+      Someone signed in as <strong style="color:#ffffff">${currentEmail}</strong> asked to move their Backbeat account to this address.
+    </p>
+    <p style="margin:0 0 32px;color:#a0a0b8;font-size:15px;line-height:1.6">
+      Click below to confirm. This link expires in <strong style="color:#ffffff">24 hours</strong>. Nothing changes until you do.
+    </p>
+    ${ctaButton("Confirm new email →", confirmUrl)}
+    ${divider()}
+    <p style="margin:0 0 8px;color:#6a6a8a;font-size:12px">Didn't request this? Ignore this email and the request will expire on its own.</p>
+    <p style="margin:0;color:#6a6a8a;font-size:12px">If the button doesn't work, copy and paste this link:</p>
+    <p style="margin:8px 0 0;word-break:break-all"><a href="${confirmUrl}" style="color:#C8A96E;font-size:12px;text-decoration:none">${confirmUrl}</a></p>
+  `);
+
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: "Confirm your new Backbeat email",
+    html,
+  });
+}
+
+/**
+ * Sent to the OLD (current) address when an email change is requested,
+ * so the real owner is warned if their session was hijacked.
+ */
+export async function sendEmailChangeNotice(to: string, newEmail: string): Promise<void> {
+  const html = shell(`
+    <p style="margin:0 0 8px;color:#a0a0b8;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Security notice</p>
+    <h1 style="margin:0 0 16px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2">Email change requested</h1>
+    <p style="margin:0 0 8px;color:#a0a0b8;font-size:15px;line-height:1.6">
+      Someone requested to change this account's email address to <strong style="color:#ffffff">${newEmail}</strong>.
+    </p>
+    <p style="margin:0 0 8px;color:#a0a0b8;font-size:15px;line-height:1.6">
+      The change only takes effect once a confirmation link sent to the new address is clicked. If this was you, no action is needed.
+    </p>
+    <p style="margin:0 0 0;color:#a0a0b8;font-size:15px;line-height:1.6">
+      <strong style="color:#ffffff">If this wasn't you</strong>, contact us right away at <a href="mailto:hello@backbeat.video" style="color:#C8A96E">hello@backbeat.video</a>.
+    </p>
+  `);
+
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: "Someone requested to change your Backbeat email",
+    html,
+  });
+}
+
+/**
+ * Dunning email for a failed recurring payment.
+ */
+export async function sendPaymentFailedEmail(to: string, plan: string): Promise<void> {
+  const label = PLAN_LABELS[plan] ?? plan;
+  const portalUrl = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/api/stripe/portal`;
+
+  const html = shell(`
+    <p style="margin:0 0 8px;color:#e5484d;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Payment failed</p>
+    <h1 style="margin:0 0 16px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2">We couldn't process your payment</h1>
+    <p style="margin:0 0 8px;color:#a0a0b8;font-size:15px;line-height:1.6">
+      Your latest payment for the <strong style="color:#ffffff">${label} plan</strong> didn't go through. This is usually an expired card or a bank decline.
+    </p>
+    <p style="margin:0 0 32px;color:#a0a0b8;font-size:15px;line-height:1.6">
+      Please update your payment method to keep your plan active. Stripe will retry automatically over the next few days.
+    </p>
+    ${ctaButton("Update payment method →", portalUrl)}
+    ${divider()}
+    <p style="margin:0;color:#6a6a8a;font-size:12px">
+      Already fixed it? You can ignore this. Questions? Reply to this email.
+    </p>
+  `);
+
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: "Action needed: your Backbeat payment failed",
+    html,
+  });
+}
+
 export async function sendPlanChangeEmail(
   to: string,
   fromPlan: string,
