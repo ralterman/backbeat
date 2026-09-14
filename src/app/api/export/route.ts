@@ -112,7 +112,7 @@ async function mergeVideoAudio(
   // `w`/`h` in the overlay expression are the watermark's own dimensions.
   // Full frame: x = W-w-20, y = H-h-20. Detected rect: the same, but measured
   // from the rect's bottom-right corner (x+w_rect, y+h_rect).
-  const WM_PAD = 20;
+  const WM_PAD = 24; // inset from the content edges; bumped with the 1.18× mark
   let overlayXY = `W-w-${WM_PAD}:H-h-${WM_PAD}`;
   if (wmPath) {
     const rect = await detectContentRect(videoPath, exportId);
@@ -131,14 +131,16 @@ async function mergeVideoAudio(
     let outputOpts: string[];
 
     if (hasWatermark && wmPath) {
-      // [wm]: force RGBA and scale the alpha channel to 65% so the mark is
-      //       semi-transparent regardless of how opaque the PNG was exported.
-      // overlay: bottom-right of the visible content with 20px padding
-      //       (see overlayXY); format=auto picks a compatible blend format.
+      // [wm]: upscale the PNG 1.18× (native 268×40 → ~316×47), force RGBA,
+      //       then scale the alpha channel to 82% so the mark is clearly
+      //       visible but still lets the video read through.
+      // overlay: bottom-right of the visible content with WM_PAD inset
+      //       (see overlayXY — `w`/`h` are the *scaled* mark's dimensions);
+      //       format=auto picks a compatible blend format.
       // format=yuv420p: libx264 output must be 4:2:0 for broad playback.
       filterComplex =
         `${audioChain};` +
-        `[2:v]format=rgba,colorchannelmixer=aa=0.65[wm];` +
+        `[2:v]scale=iw*1.18:ih*1.18,format=rgba,colorchannelmixer=aa=0.82[wm];` +
         `[0:v][wm]overlay=${overlayXY}:format=auto,format=yuv420p[vout]`;
       outputOpts = [
         "-map", "[vout]", "-map", "[aout]",
