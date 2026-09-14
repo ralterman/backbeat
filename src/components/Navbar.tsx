@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
@@ -25,15 +25,22 @@ function NavLink({ href, children, onClick }: { href: string; children: React.Re
 export function Navbar() {
   const { data: session, status } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 60);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
     <nav
-      className="fixed top-0 left-0 right-0 z-[9999] transition-all duration-500"
+      className="fixed top-0 left-0 right-0 w-full z-[9999] transition-all duration-500"
       style={{
-        background: 'rgba(10, 10, 15, 0.50)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        paddingTop: 'env(safe-area-inset-top)',
+        background: scrolled ? "rgba(10, 10, 15, 0.50)" : "transparent",
+        backdropFilter: scrolled ? "blur(12px)" : "none",
+        WebkitBackdropFilter: scrolled ? "blur(12px)" : "none",
+        paddingTop: "env(safe-area-inset-top)",
       }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
