@@ -27,6 +27,51 @@ async function streamToBuffer(stream: Readable): Promise<Buffer> {
   });
 }
 
+interface ContentRect { w: number; h: number; x: number; y: number }
+
+/**
+ * Find the visible-content rectangle of the video, ignoring letterbox /
+ * pillarbox bars that are baked into the source encode (phones and editors
+ * often pad a 4:5 or 16:9 clip into a 9:16 frame with black). Our pipeline
+ * adds no padding of its own, so without this the watermark is positioned
+ * relative to the encoded frame and can land on a black bar — which is
+ * trivially cropped off.
+ *
+ * Samples the first ~6 s with cropdetect and takes the last (most settled)
+ * suggestion. Returns null on timeout or if nothing is detected, in which
+ * case the caller anchors to the full frame.
+ */
+function detectContentRect(videoPath: string, exportId: string): Promise<ContentRect | null> {
+  return new Promise((resolve) => {
+    let last: ContentRect | null = null;
+    let settled = false;
+    const done = (v: ContentRect | null) => { if (!settled) { settled = true; resolve(v); } };
+    const timer = setTimeout(() => {
+      console.log(`[export][${exportId}] cropdetect timed out; using full frame`);
+      try { proc.kill("SIGKILL"); } catch {}
+      done(last);
+    }, 8000);
+
+    const proc = ffmpeg(videoPath)
+      .inputOptions(["-t", "6"])
+      // limit=24: treat near-black (≤24/255) as bar; round=2: even dims; reset=0: accumulate
+      .videoFilters("cropdetect=24:2:0")
+      .outputOptions(["-an", "-f", "null"])
+      .output("-")
+      .on("stderr", (line: string) => {
+        const m = line.match(/crop=(\d+):(\d+):(\d+):(\d+)/);
+        if (m) last = { w: +m[1], h: +m[2], x: +m[3], y: +m[4] };
+      })
+      .on("end", () => { clearTimeout(timer); done(last); })
+      .on("error", (err) => {
+        clearTimeout(timer);
+        if (!settled) console.log(`[export][${exportId}] cropdetect failed (${err.message}); using full frame`);
+        done(last);
+      });
+    proc.run();
+  });
+}
+
 async function mergeVideoAudio(
   videoBuffer: Buffer,
   audioBuffer: Buffer,
@@ -63,6 +108,22 @@ async function mergeVideoAudio(
     throw new Error(`Watermark asset missing at ${wmPath}`);
   }
 
+  // Anchor the watermark to the visible content, not the encoded frame.
+  // `w`/`h` in the overlay expression are the watermark's own dimensions.
+  // Full frame: x = W-w-20, y = H-h-20. Detected rect: the same, but measured
+  // from the rect's bottom-right corner (x+w_rect, y+h_rect).
+  const WM_PAD = 20;
+  let overlayXY = `W-w-${WM_PAD}:H-h-${WM_PAD}`;
+  if (wmPath) {
+    const rect = await detectContentRect(videoPath, exportId);
+    if (rect) {
+      overlayXY = `${rect.x + rect.w}-w-${WM_PAD}:${rect.y + rect.h}-h-${WM_PAD}`;
+      console.log(`[export][${exportId}] content rect ${rect.w}x${rect.h}+${rect.x}+${rect.y} → overlay ${overlayXY}`);
+    } else {
+      console.log(`[export][${exportId}] no content rect; overlay on full frame ${overlayXY}`);
+    }
+  }
+
   return new Promise((resolve, reject) => {
     const audioChain = `[1:a]afade=t=in:st=0:d=2,afade=t=out:st=${fadeOutStart.toFixed(2)}:d=2,volume=0.85[aout]`;
 
@@ -70,7 +131,15 @@ async function mergeVideoAudio(
     let outputOpts: string[];
 
     if (hasWatermark && wmPath) {
-      filterComplex = `${audioChain};[0:v][2:v]overlay=W-w-10:H-h-10[vout]`;
+      // [wm]: force RGBA and scale the alpha channel to 65% so the mark is
+      //       semi-transparent regardless of how opaque the PNG was exported.
+      // overlay: bottom-right of the visible content with 20px padding
+      //       (see overlayXY); format=auto picks a compatible blend format.
+      // format=yuv420p: libx264 output must be 4:2:0 for broad playback.
+      filterComplex =
+        `${audioChain};` +
+        `[2:v]format=rgba,colorchannelmixer=aa=0.65[wm];` +
+        `[0:v][wm]overlay=${overlayXY}:format=auto,format=yuv420p[vout]`;
       outputOpts = [
         "-map", "[vout]", "-map", "[aout]",
         "-c:v", "libx264", "-preset", "ultrafast", "-crf", "26",
