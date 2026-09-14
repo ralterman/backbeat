@@ -74,6 +74,7 @@ export default function RootLayout({
                 <a href="/terms" className="hover:text-[#C8A96E] transition-colors">Terms of Service</a>
                 <a href="/cookies" className="hover:text-[#C8A96E] transition-colors">Cookie Policy</a>
                 <CookiePreferencesButton />
+                <a href="/contact" className="hover:text-[#C8A96E] transition-colors">Contact</a>
               </div>
               <p>© 2026 Backbeat. All rights reserved.</p>
             </div>

@@ -5,4 +5,5 @@
   <url><loc>https://backbeat.video/privacy</loc><priority>0.3</priority></url>
   <url><loc>https://backbeat.video/terms</loc><priority>0.3</priority></url>
   <url><loc>https://backbeat.video/cookies</loc><priority>0.3</priority></url>
+  <url><loc>https://backbeat.video/contact</loc><priority>0.5</priority></url>
 </urlset>
