@@ -25,7 +25,7 @@ export interface GeneratedMusicOptions {
  * Build a rich, contextual music brief from Claude's structured analysis.
  * The more specific this description, the better ElevenLabs matches the video.
  */
-export function buildMusicDescription(analysis: VideoAnalysis, includeVocals = false): string {
+export function buildMusicDescription(analysis: VideoAnalysis): string {
   const { mood_tags, bpm_range, energy_score, scene_tags, recommended_genres } = analysis;
 
   const energyPhrase =
@@ -37,15 +37,11 @@ export function buildMusicDescription(analysis: VideoAnalysis, includeVocals = f
   const genrePhrase =
     recommended_genres.length > 0 ? recommended_genres.join(" / ") : "instrumental";
 
-  const vocalInstruction = includeVocals
-    ? "Include sung vocals with lyrics that match the mood and scene. Natural voice, not robotic."
-    : "Instrumental only — no lyrics. Suitable for video background use.";
-
   const desc =
     `${genrePhrase} background music with a ${mood_tags.join(", ")} mood. ` +
     `${energyPhrase} feel, ideal for ${scene_tags.join(", ")} video content. ` +
     `Tempo ${bpm_range.min}–${bpm_range.max} BPM, energy ${energy_score}/10. ` +
-    `${vocalInstruction}`;
+    `Instrumental only — no lyrics. Suitable for video background use.`;
 
   return desc.slice(0, 1000);
 }
@@ -53,7 +49,7 @@ export function buildMusicDescription(analysis: VideoAnalysis, includeVocals = f
 /**
  * Build an alternative, more cinematic/orchestral description for option 2.
  */
-export function buildAlternativeMusicDescription(analysis: VideoAnalysis, includeVocals = false): string {
+export function buildAlternativeMusicDescription(analysis: VideoAnalysis): string {
   const { mood_tags, bpm_range, energy_score, scene_tags, recommended_genres } = analysis;
 
   const energyPhrase =
@@ -65,15 +61,11 @@ export function buildAlternativeMusicDescription(analysis: VideoAnalysis, includ
   const altGenres = ["cinematic", "orchestral", ...recommended_genres].slice(0, 3);
   const genrePhrase = altGenres.join(" / ");
 
-  const vocalInstruction = includeVocals
-    ? "Rich orchestration with sung vocals — lyrics that match the mood and scene. Natural voice, not robotic."
-    : "Full orchestration, no lyrics. Perfect for cinematic video overlay.";
-
   const desc =
     `${genrePhrase} score with a ${mood_tags.join(", ")} emotional tone. ` +
     `${energyPhrase} composition for ${scene_tags.join(", ")} visuals. ` +
     `Tempo ${bpm_range.min}–${bpm_range.max} BPM, energy ${energy_score}/10. ` +
-    `${vocalInstruction}`;
+    `Full orchestration, no lyrics. Perfect for cinematic video overlay.`;
 
   return desc.slice(0, 1000);
 }
@@ -83,7 +75,7 @@ export function buildAlternativeMusicDescription(analysis: VideoAnalysis, includ
 /**
  * Build up to 10 ElevenLabs music tags from Claude's analysis (option 1).
  */
-export function buildMusicTags(analysis: VideoAnalysis, includeVocals = false): string[] {
+export function buildMusicTags(analysis: VideoAnalysis): string[] {
   const candidates = [
     ...analysis.mood_tags,
     ...analysis.recommended_genres,
@@ -91,7 +83,7 @@ export function buildMusicTags(analysis: VideoAnalysis, includeVocals = false): 
     analysis.energy_score >= 7 ? "energetic" :
     analysis.energy_score <= 3 ? "ambient" : "moderate",
     "background-music",
-    includeVocals ? "vocals" : "no-vocals",
+    "no-vocals",
   ].map((t) => t.toLowerCase().replace(/\s+/g, "-"));
 
   return [...new Set(candidates)].slice(0, 10);
@@ -100,13 +92,13 @@ export function buildMusicTags(analysis: VideoAnalysis, includeVocals = false): 
 /**
  * Build alternative tags tilted toward cinematic/orchestral for option 2.
  */
-export function buildAlternativeMusicTags(analysis: VideoAnalysis, includeVocals = false): string[] {
+export function buildAlternativeMusicTags(analysis: VideoAnalysis): string[] {
   const candidates = [
     "cinematic",
     "orchestral",
     ...analysis.mood_tags,
     ...analysis.scene_tags.slice(0, 2),
-    includeVocals ? "vocals" : "no-vocals",
+    "no-vocals",
     "score",
     analysis.energy_score >= 7 ? "epic" : "ambient",
   ].map((t) => t.toLowerCase().replace(/\s+/g, "-"));
@@ -203,16 +195,12 @@ export async function generateMusicFromVideo(
 export async function generateMusicOptionsFromVideo(
   videoBuffer: Buffer,
   mimeType: string,
-  analysis: VideoAnalysis,
-  includeVocals = false
+  analysis: VideoAnalysis
 ): Promise<GeneratedMusicOptions> {
-  console.log('generateMusicOptionsFromVideo called with includeVocals:', includeVocals);
-  const desc1 = buildMusicDescription(analysis, includeVocals);
-  const tags1 = buildMusicTags(analysis, includeVocals);
-  const desc2 = buildAlternativeMusicDescription(analysis, includeVocals);
-  const tags2 = buildAlternativeMusicTags(analysis, includeVocals);
-  console.log('Option A description:', desc1);
-  console.log('Option B description:', desc2);
+  const desc1 = buildMusicDescription(analysis);
+  const tags1 = buildMusicTags(analysis);
+  const desc2 = buildAlternativeMusicDescription(analysis);
+  const tags2 = buildAlternativeMusicTags(analysis);
 
   const [buf1, buf2] = await Promise.all([
     callElevenLabsMusicAPI(videoBuffer, mimeType, desc1, tags1, ":opt1"),

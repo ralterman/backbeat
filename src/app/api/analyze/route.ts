@@ -84,9 +84,8 @@ export async function POST(req: NextRequest) {
 
   const userId = session.user.id;
   const admin = isAdminEmail(session.user.email);
-  const body = await req.json() as { videoId: string; regenerate?: boolean; includeVocals?: boolean };
-  const { videoId, regenerate = false, includeVocals = false } = body;
-  console.log('includeVocals received:', includeVocals);
+  const body = await req.json() as { videoId: string; regenerate?: boolean };
+  const { videoId, regenerate = false } = body;
 
   if (!videoId) {
     return NextResponse.json({ error: "videoId is required" }, { status: 400 });
@@ -194,8 +193,7 @@ export async function POST(req: NextRequest) {
         const { option1, option2 } = await generateMusicOptionsFromVideo(
           videoBuffer,
           video.mimeType,
-          videoAnalysis,
-          includeVocals
+          videoAnalysis
         );
         console.log(`[analyze][${videoId}] ElevenLabs opt1: ${option1.audioBuffer.byteLength}b, opt2: ${option2.audioBuffer.byteLength}b`);
 

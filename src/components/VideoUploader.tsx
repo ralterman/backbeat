@@ -32,7 +32,6 @@ export function VideoUploader() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [includeVocals, setIncludeVocals] = useState<boolean | null>(null);
   const [videoId, setVideoId] = useState<string | null>(null);
   const [analysisStatus, setAnalysisStatus] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -80,7 +79,6 @@ export function VideoUploader() {
       setError(null);
 
       if (status === "uploading" || status === "analyzing") return;
-      if (includeVocals === null) return; // guard: file input is disabled, but belt-and-suspenders
 
       if (file.size === 0) {
         setStatus("error");
@@ -131,7 +129,7 @@ export function VideoUploader() {
         fetch("/api/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ videoId: vid, includeVocals: includeVocals ?? false }),
+          body: JSON.stringify({ videoId: vid }),
         }).then(async (res) => {
           if (!res.ok) {
             const msg = await getApiErrorMessage(res, "Analysis failed");
@@ -155,7 +153,7 @@ export function VideoUploader() {
         setStatus("error");
       }
     },
-    [status, includeVocals]
+    [status]
   );
 
   const onDrop = useCallback(
@@ -174,7 +172,7 @@ export function VideoUploader() {
     e.target.value = "";
   };
 
-  const isLoading = status === "uploading" || status === "analyzing";
+  const isActive = status === "uploading" || status === "analyzing";
 
   const currentMessage =
     status === "uploading"
@@ -206,50 +204,14 @@ export function VideoUploader() {
 
   return (
     <div className="w-full">
-      {/* Music style toggle — only shown when idle/error */}
-      {(status === "idle" || status === "error") && (
-        <div className="mb-4">
-          <div className="flex items-center gap-3">
-            <span className="text-[#a0a0b8] text-sm">🎵 Music style:</span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setIncludeVocals(false)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                  includeVocals === false
-                    ? "bg-[#C8A96E] text-[#0a0a0f] border-[#C8A96E]"
-                    : "bg-transparent text-[#a0a0b8] hover:text-white border-[#3a3a5a] hover:border-[#9090aa]"
-                }`}
-              >
-                Instrumental
-              </button>
-              <button
-                type="button"
-                onClick={() => setIncludeVocals(true)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                  includeVocals === true
-                    ? "bg-[#C8A96E] text-[#0a0a0f] border-[#C8A96E]"
-                    : "bg-transparent text-[#a0a0b8] hover:text-white border-[#3a3a5a] hover:border-[#9090aa]"
-                }`}
-              >
-                With Vocals
-              </button>
-            </div>
-          </div>
-          {includeVocals === null && (
-            <p className="text-[#6a6a8a] text-xs mt-2 ml-1">Select a music style to continue.</p>
-          )}
-        </div>
-      )}
-
       {/* Upload / status box */}
       <div
-        onDragOver={(e) => { e.preventDefault(); if (includeVocals !== null) setIsDragging(true); }}
+        onDragOver={(e) => { e.preventDefault(); if (!isActive && status !== "done") setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={onDrop}
         className={`relative border-2 border-dashed rounded-2xl p-12 text-center transition-all
           ${isDragging ? "border-[#C8A96E] bg-[#C8A96E]/5" : "border-[#2A2A2A] bg-[#141414]/60"}
-          ${isLoading || status === "done" ? "pointer-events-none" : includeVocals === null ? "opacity-50 cursor-not-allowed" : "hover:border-[#3a3a5a] cursor-pointer"}
+          ${isActive || status === "done" ? "pointer-events-none" : "hover:border-[#3a3a5a] cursor-pointer"}
         `}
       >
         <input
@@ -257,7 +219,7 @@ export function VideoUploader() {
           accept=".mp4,.mov,.avi,.mkv,video/mp4,video/quicktime,video/x-msvideo,video/x-matroska"
           onChange={onFileChange}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          disabled={isLoading || status === "done" || includeVocals === null}
+          disabled={isActive || status === "done"}
           aria-label="Upload video file"
         />
 

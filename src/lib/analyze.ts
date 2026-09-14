@@ -74,7 +74,12 @@ export async function analyzeVideoFrames(
   }
 
   try {
-    const parsed = JSON.parse(textBlock.text) as VideoAnalysis;
+    const cleaned = textBlock.text
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/```\s*$/i, "")
+      .trim();
+    const parsed = JSON.parse(cleaned) as VideoAnalysis;
     if (
       !Array.isArray(parsed.mood_tags) ||
       !parsed.bpm_range ||
