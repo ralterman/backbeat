@@ -58,7 +58,7 @@ const features = [
     ),
     title: "Instant Results",
     description:
-      "Upload your video and get two AI-generated soundtrack options in minutes. Pick the one that fits, or generate two more.",
+      "Upload your video and get two AI-generated soundtrack options in minutes. Pick the one that fits, or regenerate for more on paid plans.",
   },
   {
     icon: (
@@ -83,8 +83,8 @@ const FREE_FEATURES = [
 ];
 
 const CREATOR_FEATURES = [
-  { text: "30 video analyses per month", included: true },
-  { text: "2 AI-generated soundtrack options per analysis", included: true },
+  { text: "15 video analyses per month", included: true },
+  { text: "Up to 4 AI-generated soundtrack options per analysis", included: true },
   { text: "Full preview synced to your video", included: true },
   { text: "No-watermark exports", included: true },
   { text: "Priority processing", included: true },
@@ -92,8 +92,8 @@ const CREATOR_FEATURES = [
 
 // Marketed as "Pro"; the internal plan id is still TEAM (see src/lib/plans.ts).
 const PRO_FEATURES = [
-  { text: "Unlimited video analyses", included: true },
-  { text: "2 AI-generated soundtrack options per analysis", included: true },
+  { text: "40 video analyses per month", included: true },
+  { text: "Up to 6 AI-generated soundtrack options per analysis", included: true },
   { text: "Full preview synced to your video", included: true },
   { text: "No-watermark exports", included: true },
   { text: "Priority processing", included: true },

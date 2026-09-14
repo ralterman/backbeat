@@ -5,8 +5,8 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.EMAIL_FROM ?? "hello@backbeat.video";
 
 const PLAN_LIMITS: Record<string, string> = {
-  CREATOR: "30 video analyses per month",
-  TEAM: "Unlimited video analyses",
+  CREATOR: "15 video analyses per month and up to 4 soundtrack options per video",
+  TEAM: "40 video analyses per month and up to 6 soundtrack options per video",
   FREE: "1 lifetime analysis",
 };
 

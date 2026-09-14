@@ -33,7 +33,9 @@ interface AnalysisResponse {
   analysis?: AnalysisData;
 }
 
-const MAX_OPTIONS = 6;
+// Fallback until /api/user/usage answers; the real cap is plan-specific
+// (FREE 2 / CREATOR 4 / TEAM 6) and comes from the server.
+const DEFAULT_OPTION_CAP = 6;
 
 export default function AnalysisResultsPage() {
   const params = useParams<{ id: string }>();
@@ -45,6 +47,8 @@ export default function AnalysisResultsPage() {
   const [regenerating, setRegenerating] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
   const [isFreeUser, setIsFreeUser] = useState(true);
+  const [optionCap, setOptionCap] = useState(DEFAULT_OPTION_CAP);
+  const [planName, setPlanName] = useState<string>("");
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
 
   const fetchResults = useCallback(async () => {
@@ -82,7 +86,10 @@ export default function AnalysisResultsPage() {
     fetch("/api/user/usage")
       .then((r) => r.ok ? r.json() : null)
       .then((json) => {
-        if (json) setIsFreeUser(json.plan === "FREE" && !json.isAdmin);
+        if (!json) return;
+        setIsFreeUser(json.plan === "FREE" && !json.isAdmin);
+        if (typeof json.optionCap === "number") setOptionCap(json.optionCap);
+        if (typeof json.planLabel === "string") setPlanName(json.planLabel);
       })
       .catch(() => {});
   }, []);
@@ -197,16 +204,29 @@ export default function AnalysisResultsPage() {
   }
 
   const optionCount = allOptions.length;
-  const atMax = optionCount >= MAX_OPTIONS;
+  const atMax = optionCount >= optionCap;
+  const canUpgradeForMore = !isFreeUser && optionCap < DEFAULT_OPTION_CAP; // Creator (4) → Pro (6)
 
   const RegenButton = () => {
-    if (atMax) {
+    if (atMax && !isFreeUser) {
       return (
         <p className="text-[#9090aa] text-sm">
-          You&rsquo;ve generated 6 options — pick your favorite or{" "}
+          You&rsquo;ve generated {optionCount} option{optionCount === 1 ? "" : "s"}
+          {planName ? ` — the ${planName} plan maximum` : ""}.{" "}
+          {canUpgradeForMore ? (
+            <>
+              <Link href="/pricing" className="text-[#C8A96E] hover:text-white underline transition-colors">
+                Upgrade to Pro
+              </Link>{" "}
+              for up to {DEFAULT_OPTION_CAP} per video, or{" "}
+            </>
+          ) : (
+            <>Pick your favorite or{" "}</>
+          )}
           <Link href="/dashboard" className="text-[#C8A96E] hover:text-white underline transition-colors">
             upload a new video
           </Link>
+          .
         </p>
       );
     }
@@ -238,7 +258,7 @@ export default function AnalysisResultsPage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Generate New Options ({optionCount}/{MAX_OPTIONS})
+            Generate New Options ({optionCount}/{optionCap})
           </>
         )}
       </button>

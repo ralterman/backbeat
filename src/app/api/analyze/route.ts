@@ -5,7 +5,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { analyzeVideoFrames, VideoAnalysis } from "@/lib/analyze";
 import { generateMusicOptionsFromVideo } from "@/lib/elevenlabs";
-import { incrementUsage, getUserPlan, canAnalyze } from "@/lib/usage";
+import { incrementUsage, getUserPlan, canAnalyze, OPTION_CAPS, HARD_MAX_OPTIONS } from "@/lib/usage";
+import { PLAN_LABELS } from "@/lib/plans";
 import { isAdminEmail } from "@/lib/admin";
 import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -22,8 +23,7 @@ if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 // a clean 504 rather than being killed mid-flight by Vercel.
 const ANALYSIS_TIMEOUT_MS = 280_000;
 
-const OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
-const MAX_OPTIONS = 6;
+const OPTION_LABELS = ["A", "B", "C", "D", "E", "F"]; // length === HARD_MAX_OPTIONS
 
 export interface GeneratedOption {
   id: string;
@@ -148,12 +148,25 @@ export async function POST(req: NextRequest) {
       ? ((existingAnalysis.generatedOptions as unknown as GeneratedOption[]) ?? [])
       : [];
 
-    if (opts.length >= MAX_OPTIONS) {
-      return NextResponse.json({ error: "Maximum options reached." }, { status: 400 });
+    // Per-plan option cap: FREE 2 (no regen), CREATOR 4, TEAM/Pro 6. Admins
+    // get the hard ceiling. Regeneration does not consume an analysis credit;
+    // this cap is its only limiter.
+    const plan = admin ? "TEAM" : await getUserPlan(userId);
+    const cap = admin ? HARD_MAX_OPTIONS : OPTION_CAPS[plan];
+
+    if (!admin && plan === "FREE") {
+      return NextResponse.json({ error: "Upgrade to generate more options." }, { status: 403 });
     }
 
-    if (!admin && (await getUserPlan(userId)) === "FREE") {
-      return NextResponse.json({ error: "Upgrade to generate more options." }, { status: 403 });
+    if (opts.length >= cap) {
+      const label = PLAN_LABELS[plan] ?? plan;
+      const hint = cap < HARD_MAX_OPTIONS
+        ? ` Upgrade to ${PLAN_LABELS.TEAM} for up to ${HARD_MAX_OPTIONS} per video.`
+        : "";
+      return NextResponse.json(
+        { error: `Maximum options reached — the ${label} plan allows up to ${cap} per video.${hint}`, cap },
+        { status: 400 }
+      );
     }
 
     if (existingAnalysis) {
@@ -170,9 +183,10 @@ export async function POST(req: NextRequest) {
 
   // ── Quota: enforce here, not just at upload time ────────────────────────
   // The presign-time check alone is bypassable (mint several presigned URLs
-  // while remaining > 0, then analyze each). Every run below increments usage,
-  // so every non-admin run must pass this gate first.
-  if (!admin && !(await canAnalyze(userId))) {
+  // while remaining > 0, then analyze each). Applies to first-run analyses
+  // only: regeneration is part of the analysis already paid for and is
+  // bounded by the per-plan option cap above, not by the monthly quota.
+  if (!admin && !regenerate && !(await canAnalyze(userId))) {
     return NextResponse.json(
       { error: "Analysis limit reached — upgrade your plan to continue." },
       { status: 403 }
@@ -279,7 +293,8 @@ export async function POST(req: NextRequest) {
       });
 
       await prisma.video.update({ where: { id: videoId }, data: { status: "ANALYZED" } });
-      if (!admin) await incrementUsage(userId, "analysis");
+      // No incrementUsage here: regeneration is included in the original
+      // analysis credit (pricing: "2 base + N more via regeneration").
 
       return NextResponse.json({ status: "completed", analysis: updated });
 

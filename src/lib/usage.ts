@@ -1,14 +1,36 @@
 import { prisma } from "@/lib/prisma";
 import { SubscriptionPlan } from "@prisma/client";
 
-// FREE = 1 lifetime analysis (not monthly)
-// CREATOR = 30/month
-// TEAM = unlimited (effectively no cap)
+// FREE    = 1 lifetime analysis (not monthly)
+// CREATOR = 15/month
+// TEAM    = 40/month  (marketed as "Pro" — see src/lib/plans.ts)
 const MONTHLY_LIMITS: Record<SubscriptionPlan, number> = {
   FREE: 1,
-  CREATOR: 30,
-  TEAM: 999999,
+  CREATOR: 15,
+  TEAM: 40,
 };
+
+/**
+ * Maximum generated soundtrack options per analysis, by plan.
+ * Every analysis produces 2; each regeneration adds 2 more up to this cap.
+ *   FREE    = 2 (no regeneration)
+ *   CREATOR = 4 (one regeneration)
+ *   TEAM    = 6 (two regenerations)
+ * Regeneration does not consume an analysis credit — the cap is its limit.
+ */
+export const OPTION_CAPS: Record<SubscriptionPlan, number> = {
+  FREE: 2,
+  CREATOR: 4,
+  TEAM: 6,
+};
+
+/** Absolute ceiling regardless of plan (admins, and the size of the A–F label set). */
+export const HARD_MAX_OPTIONS = 6;
+
+export async function getOptionCap(userId: string): Promise<number> {
+  const plan = await getUserPlan(userId);
+  return OPTION_CAPS[plan];
+}
 
 function currentMonth(): string {
   const now = new Date();

@@ -17,8 +17,8 @@ const FREE_FEATURES = [
 ];
 
 const CREATOR_FEATURES = [
-  { text: "30 video analyses per month", included: true },
-  { text: "2 AI-generated soundtrack options", included: true },
+  { text: "15 video analyses per month", included: true },
+  { text: "Up to 4 AI-generated soundtrack options per analysis", included: true },
   { text: "Full preview synced to your video", included: true },
   { text: "No-watermark exports", included: true },
   { text: "Priority processing", included: true },
@@ -27,8 +27,8 @@ const CREATOR_FEATURES = [
 
 // Marketed as "Pro"; the internal plan id is still TEAM (see src/lib/plans.ts).
 const PRO_FEATURES = [
-  { text: "Unlimited video analyses", included: true },
-  { text: "2 AI-generated soundtrack options", included: true },
+  { text: "40 video analyses per month", included: true },
+  { text: "Up to 6 AI-generated soundtrack options per analysis", included: true },
   { text: "Full preview synced to your video", included: true },
   { text: "No-watermark exports", included: true },
   { text: "Priority processing", included: true },
@@ -58,7 +58,7 @@ const faqs = [
   },
   {
     q: "How good is the AI-generated music?",
-    a: "Backbeat uses Claude to deeply analyze your video's mood, energy, pacing, and scene context, then generates two distinct soundtrack options via ElevenLabs. Each generation is unique to your video. If neither option fits, you can generate two more at no extra cost.",
+    a: "Backbeat uses Claude to deeply analyze your video's mood, energy, pacing, and scene context, then generates two distinct soundtrack options via ElevenLabs. Each generation is unique to your video. If neither option fits, paid plans can regenerate two more without using another analysis — Creator up to 4 options per video, Pro up to 6.",
   },
 ];
 
@@ -125,8 +125,9 @@ export default function PricingPage() {
               </thead>
               <tbody>
                 {[
-                  ["Analyses", "1 lifetime", "30/mo", "Unlimited"],
-                  ["Generated soundtrack options", "2 per analysis", "2 per analysis", "2 per analysis"],
+                  ["Analyses", "1 lifetime", "15/mo", "40/mo"],
+                  ["Generated soundtrack options", "2 per analysis", "Up to 4 per analysis", "Up to 6 per analysis"],
+                  ["Regenerate options", "—", "1× per video", "2× per video"],
                   ["AI video analysis", "✓", "✓", "✓"],
                   ["Audio preview", "Full", "Full", "Full"],
                   ["Exports", "Watermarked", "No watermark", "No watermark"],
