@@ -78,7 +78,18 @@ export async function POST(req: NextRequest) {
     case "customer.subscription.updated": {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const subscription = event.data.object as any;
-      const priceId = subscription.items?.data?.[0]?.price?.id;
+      const firstItem = subscription.items?.data?.[0];
+      const priceId = firstItem?.price?.id;
+
+      // Stripe API 2025-03-31 (Basil) and later moved current_period_start/end
+      // from the Subscription root to each SubscriptionItem. Read the item
+      // first and fall back to the root for older API versions.
+      const periodStartSec: number | undefined =
+        firstItem?.current_period_start ?? subscription.current_period_start;
+      const periodEndSec: number | undefined =
+        firstItem?.current_period_end ?? subscription.current_period_end;
+      const periodStart = periodStartSec ? new Date(periodStartSec * 1000) : undefined;
+      const periodEnd   = periodEndSec   ? new Date(periodEndSec   * 1000) : undefined;
 
       const stripeStatus = subscription.status as string;
       let dbStatus: SubscriptionStatus = "ACTIVE";
@@ -102,22 +113,15 @@ export async function POST(req: NextRequest) {
         data: {
           plan: newPlan,
           status: dbStatus,
-          currentPeriodStart: subscription.current_period_start
-            ? new Date(subscription.current_period_start * 1000)
-            : undefined,
-          currentPeriodEnd: subscription.current_period_end
-            ? new Date(subscription.current_period_end * 1000)
-            : undefined,
+          currentPeriodStart: periodStart,
+          currentPeriodEnd: periodEnd,
         },
       });
 
       const email = existing?.user?.email;
       if (email) {
         if (dbStatus === "CANCELED") {
-          const periodEnd = subscription.current_period_end
-            ? new Date(subscription.current_period_end * 1000)
-            : null;
-          await sendCancellationEmail(email, periodEnd).catch((err) =>
+          await sendCancellationEmail(email, periodEnd ?? null).catch((err) =>
             console.error("[webhook] cancellation email failed:", err)
           );
         } else if (newPlan !== oldPlan) {

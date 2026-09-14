@@ -53,7 +53,10 @@ export async function GET(
     } catch { /* leave stored URL */ }
   }
 
-  // Refresh presigned URLs inside generatedOptions
+  // Refresh presigned URLs inside generatedOptions — in memory only.
+  // Presigning a GET is a local HMAC (no network call), so there is nothing
+  // worth caching, and writing the whole array back on every poll raced with
+  // concurrent regenerations (read-modify-write could clobber new options).
   const rawOptions = (analysis.generatedOptions as unknown as GeneratedOption[]) ?? [];
   const refreshedOptions = await Promise.all(
     rawOptions.map(async (opt) => {
@@ -66,16 +69,6 @@ export async function GET(
       }
     })
   );
-
-  // Persist refreshed URLs so they're warm for subsequent polls
-  if (refreshedOptions.length > 0) {
-    try {
-      await prisma.analysis.update({
-        where: { id: analysis.id },
-        data: { generatedOptions: JSON.parse(JSON.stringify(refreshedOptions)) },
-      });
-    } catch { /* non-fatal */ }
-  }
 
   return NextResponse.json({
     status: "completed",

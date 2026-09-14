@@ -54,9 +54,14 @@ async function mergeVideoAudio(
   const fadeOutStart = Math.max(0, videoDuration - 2);
   console.log(`[export][${exportId}] duration=${videoDuration.toFixed(1)}s fadeOutStart=${fadeOutStart.toFixed(1)}s hasWatermark=${hasWatermark}`);
 
+  // Lives in public/ (and is force-included in the function bundle via
+  // outputFileTracingIncludes in next.config.ts) so it exists at runtime on Vercel.
   const wmPath = hasWatermark
-    ? path.join(process.cwd(), "src/assets/watermark.png")
+    ? path.join(process.cwd(), "public/watermark.png")
     : null;
+  if (wmPath && !fs.existsSync(wmPath)) {
+    throw new Error(`Watermark asset missing at ${wmPath}`);
+  }
 
   return new Promise((resolve, reject) => {
     const audioChain = `[1:a]afade=t=in:st=0:d=2,afade=t=out:st=${fadeOutStart.toFixed(2)}:d=2,volume=0.85[aout]`;

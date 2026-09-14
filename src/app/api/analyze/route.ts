@@ -5,8 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { analyzeVideoFrames, VideoAnalysis } from "@/lib/analyze";
 import { generateMusicOptionsFromVideo } from "@/lib/elevenlabs";
-import { incrementUsage } from "@/lib/usage";
-import { getUserPlan } from "@/lib/usage";
+import { incrementUsage, getUserPlan, canAnalyze } from "@/lib/usage";
 import { isAdminEmail } from "@/lib/admin";
 import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -137,33 +136,27 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Regenerate: plan-gate and option-cap checks ─────────────────────────
+  // ── Regenerate: option-cap and plan gate ────────────────────────────────
+  // These apply whether or not an Analysis row exists — otherwise a video
+  // with no row (e.g. the empty-state "Generate Music" button) bypasses both.
   let cachedVideoAnalysis: VideoAnalysis | null = null;
   let existingAnalysis: Awaited<ReturnType<typeof prisma.analysis.findUnique>> | null = null;
 
   if (regenerate) {
     existingAnalysis = await prisma.analysis.findUnique({ where: { videoId } });
+    const opts = existingAnalysis
+      ? ((existingAnalysis.generatedOptions as unknown as GeneratedOption[]) ?? [])
+      : [];
+
+    if (opts.length >= MAX_OPTIONS) {
+      return NextResponse.json({ error: "Maximum options reached." }, { status: 400 });
+    }
+
+    if (!admin && (await getUserPlan(userId)) === "FREE") {
+      return NextResponse.json({ error: "Upgrade to generate more options." }, { status: 403 });
+    }
 
     if (existingAnalysis) {
-      const opts = (existingAnalysis.generatedOptions as unknown as GeneratedOption[]) ?? [];
-
-      if (opts.length >= MAX_OPTIONS) {
-        return NextResponse.json(
-          { error: "Maximum options reached." },
-          { status: 400 }
-        );
-      }
-
-      if (!admin) {
-        const plan = await getUserPlan(userId);
-        if (plan === "FREE") {
-          return NextResponse.json(
-            { error: "Upgrade to generate more options." },
-            { status: 403 }
-          );
-        }
-      }
-
       // Reuse cached Claude analysis — skips re-analyzing
       cachedVideoAnalysis = {
         mood_tags:          existingAnalysis.moodTags,
@@ -173,6 +166,17 @@ export async function POST(req: NextRequest) {
         recommended_genres: existingAnalysis.recommendedGenres,
       };
     }
+  }
+
+  // ── Quota: enforce here, not just at upload time ────────────────────────
+  // The presign-time check alone is bypassable (mint several presigned URLs
+  // while remaining > 0, then analyze each). Every run below increments usage,
+  // so every non-admin run must pass this gate first.
+  if (!admin && !(await canAnalyze(userId))) {
+    return NextResponse.json(
+      { error: "Analysis limit reached — upgrade your plan to continue." },
+      { status: 403 }
+    );
   }
 
   await prisma.video.update({
