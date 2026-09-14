@@ -53,7 +53,7 @@ interface OptionCardProps {
 function OptionCard({ label, description, tags, active, bars, animateIn, animDelay }: OptionCardProps) {
   return (
     <div
-      className="flex-1 rounded-xl px-3 py-2.5 flex flex-col gap-1.5"
+      className="flex-1 rounded-xl px-4 py-3 flex flex-col gap-2"
       style={{
         opacity: animateIn ? 1 : 0,
         transform: animateIn ? "translateX(0)" : "translateX(14px)",
@@ -70,11 +70,11 @@ function OptionCard({ label, description, tags, active, bars, animateIn, animDel
       {/* Header row */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-[#9090aa] text-[9px] uppercase tracking-widest font-semibold shrink-0">
+          <span className="text-[#9090aa] text-sm uppercase tracking-widest font-semibold shrink-0">
             {label}
           </span>
           {active && (
-            <span className="text-[8px] bg-[#C8A96E]/15 text-[#C8A96E] border border-[#C8A96E]/25 rounded px-1.5 py-px font-semibold shrink-0">
+            <span className="text-sm bg-[#C8A96E]/15 text-[#C8A96E] border border-[#C8A96E]/25 rounded px-1.5 py-px font-semibold shrink-0 leading-tight">
               Playing
             </span>
           )}
@@ -94,13 +94,13 @@ function OptionCard({ label, description, tags, active, bars, animateIn, animDel
         </div>
       </div>
       {/* Description */}
-      <p className="text-[#c0c0d0] text-[9px] leading-snug">{description}</p>
+      <p className="text-[#c0c0d0] text-base leading-snug">{description}</p>
       {/* Tags */}
       <div className="flex flex-wrap gap-1">
         {tags.map(tag => (
           <span
             key={tag}
-            className="text-[8px] px-1.5 py-0.5 rounded-full capitalize"
+            className="text-sm px-2 py-0.5 rounded-full capitalize leading-tight"
             style={{
               background: active ? "rgba(200,169,110,0.10)" : "rgba(30,30,30,0.9)",
               color: active ? "#C8A96E" : "#9090aa",
@@ -438,12 +438,13 @@ export function DemoWidget() {
           {/*
             ── RIGHT: phase content panels ──
             All three panels always mounted. opacity + pointerEvents toggle
-            between them. Fixed min-height prevents layout jumps.
+            between them. Fixed min-height prevents layout jumps. The panels are
+            absolutely positioned, so this floor must fit the tallest one: with
+            text-sm/text-base option cards the results panel needs ~345px on a
+            375px-wide phone, so mobile gets a 380px floor; from `sm` up the
+            video column's 9:16 aspect already makes the row tall enough.
           */}
-          <div
-            className="flex-1 relative"
-            style={{ minHeight: "clamp(260px, 52vw, 350px)" }}
-          >
+          <div className="flex-1 relative min-h-[380px] sm:min-h-[clamp(260px,52vw,350px)]">
 
             {/* Panel A: placeholder (phase 1) */}
             <div
