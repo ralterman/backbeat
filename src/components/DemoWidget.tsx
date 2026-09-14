@@ -70,11 +70,11 @@ function OptionCard({ label, description, tags, active, bars, animateIn, animDel
       {/* Header row */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-[#9090aa] text-sm uppercase tracking-widest font-semibold shrink-0">
+          <span className="text-[#9090aa] text-xs uppercase tracking-wide font-semibold shrink-0">
             {label}
           </span>
           {active && (
-            <span className="text-sm bg-[#C8A96E]/15 text-[#C8A96E] border border-[#C8A96E]/25 rounded px-1.5 py-px font-semibold shrink-0 leading-tight">
+            <span className="text-xs bg-[#C8A96E]/15 text-[#C8A96E] border border-[#C8A96E]/25 rounded px-1.5 py-px font-semibold shrink-0 leading-tight">
               Playing
             </span>
           )}
@@ -94,13 +94,13 @@ function OptionCard({ label, description, tags, active, bars, animateIn, animDel
         </div>
       </div>
       {/* Description */}
-      <p className="text-[#c0c0d0] text-base leading-snug">{description}</p>
+      <p className="text-[#c0c0d0] text-sm md:text-base leading-snug">{description}</p>
       {/* Tags */}
       <div className="flex flex-wrap gap-1">
         {tags.map(tag => (
           <span
             key={tag}
-            className="text-sm px-2 py-0.5 rounded-full capitalize leading-tight"
+            className="text-xs px-2 py-0.5 rounded-full capitalize leading-tight"
             style={{
               background: active ? "rgba(200,169,110,0.10)" : "rgba(30,30,30,0.9)",
               color: active ? "#C8A96E" : "#9090aa",
@@ -478,20 +478,20 @@ export function DemoWidget() {
                       style={{ height: `${h * 100}%` }} />
                   ))}
                 </div>
-                <span className="text-[#a0a0b8] text-[11px]">Analyzing your video…</span>
+                <span className="text-[#a0a0b8] text-sm md:text-base">Analyzing your video…</span>
               </div>
 
               {ANALYSIS_ITEMS.map((item, i) => (
                 <div
                   key={i}
-                  className="bg-[#1E1E1E]/60 rounded-lg px-2.5 py-2"
+                  className="bg-[#1E1E1E]/60 rounded-lg px-2.5 py-1.5"
                   style={{
                     opacity: i < analysisCount ? 1 : 0,
                     transform: i < analysisCount ? "translateY(0)" : "translateY(6px)",
                     transition: "opacity 0.4s ease-out, transform 0.4s ease-out",
                   }}
                 >
-                  <div className="text-[#9090aa] text-[9px] uppercase tracking-wide mb-1">
+                  <div className="text-[#9090aa] text-xs uppercase tracking-wide mb-1">
                     {item.label}
                   </div>
                   {item.kind === "bar" ? (
@@ -506,7 +506,7 @@ export function DemoWidget() {
                           }}
                         />
                       </div>
-                      <span className="text-[#C8A96E] text-[10px] font-bold shrink-0">
+                      <span className="text-[#C8A96E] text-sm md:text-base font-bold shrink-0">
                         {item.value}/10
                       </span>
                     </div>
@@ -514,13 +514,13 @@ export function DemoWidget() {
                     <div className="flex flex-wrap gap-1">
                       {(item.value as string[]).map(tag => (
                         <span key={tag}
-                          className="text-[#C8A96E] text-[9px] bg-[#C8A96E]/10 rounded px-1.5 py-0.5">
+                          className="text-[#C8A96E] text-xs bg-[#C8A96E]/10 rounded px-2 py-0.5">
                           {tag}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <span className="text-white text-[11px]">{item.value as string}</span>
+                    <span className="text-white text-sm md:text-base">{item.value as string}</span>
                   )}
                 </div>
               ))}
