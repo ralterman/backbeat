@@ -115,7 +115,7 @@ export default function PricingPage() {
                   <th className="text-left py-4 pr-8 text-[#a0a0b8] font-normal text-sm w-1/2">Feature</th>
                   <th className="text-center py-4 px-4 text-[#a0a0b8] font-normal text-sm">Free</th>
                   <th className="text-center py-4 px-4 text-white font-semibold text-sm">Creator</th>
-                  <th className="text-center py-4 px-4 text-[#a0a0b8] font-normal text-sm">Pro</th>
+                  <th className="text-center py-4 px-4 text-white font-semibold text-sm">Pro</th>
                 </tr>
               </thead>
               <tbody>
@@ -131,7 +131,7 @@ export default function PricingPage() {
                     <td className="py-4 pr-8 text-white text-sm">{feature}</td>
                     <td className="py-4 px-4 text-center text-[#a0a0b8] text-sm">{free}</td>
                     <td className="py-4 px-4 text-center text-white text-sm font-medium">{creator}</td>
-                    <td className="py-4 px-4 text-center text-white text-sm">{team}</td>
+                    <td className="py-4 px-4 text-center text-white text-sm font-medium">{team}</td>
                   </tr>
                 ))}
               </tbody>
