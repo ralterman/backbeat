@@ -171,20 +171,22 @@ export default async function DashboardPage({
           <div className="space-y-3">
             {videos.map((video) => {
               const statusInfo = STATUS_LABELS[video.status] ?? STATUS_LABELS.PENDING;
-              return (
-                <div
-                  key={video.id}
-                  className="bg-[#141414] border border-[#2A2A2A] rounded-xl px-5 py-4 flex items-center justify-between hover:border-[#9090aa] transition-colors"
-                >
-                  <div className="flex items-center gap-4">
+              const clickable = video.status === "ANALYZED";
+
+              // Shared card body: min-w-0 at every level a text node needs to
+              // truncate inside (flex items default to min-width:auto, which
+              // lets content overflow its box instead of respecting `truncate`).
+              const cardBody = (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 min-w-0">
+                  <div className="flex items-center gap-4 min-w-0">
                     <div className="w-10 h-10 bg-[#1E1E1E] rounded-lg flex items-center justify-center flex-shrink-0">
                       <svg className="w-5 h-5 text-[#9090aa]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                           d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
                     </div>
-                    <div>
-                      <p className="text-white text-sm font-medium truncate max-w-xs">
+                    <div className="min-w-0">
+                      <p className="text-white text-sm font-medium truncate">
                         {video.originalName}
                       </p>
                       <p className="text-[#6a6a8a] text-xs mt-0.5">
@@ -192,7 +194,7 @@ export default async function DashboardPage({
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap sm:flex-shrink-0">
                     {video.analysis && (
                       <div className="hidden sm:flex items-center gap-1.5 flex-wrap">
                         {video.analysis.moodTags.slice(0, 2).map((tag) => (
@@ -205,18 +207,32 @@ export default async function DashboardPage({
                         ))}
                       </div>
                     )}
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusInfo.color}`}>
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${statusInfo.color}`}>
                       {statusInfo.label}
                     </span>
-                    {video.status === "ANALYZED" && (
-                      <Link
-                        href={`/analyze/${video.id}`}
-                        className="text-[#C8A96E] hover:text-white text-sm font-medium transition-colors flex-shrink-0"
-                      >
+                    {clickable && (
+                      // Plain span, not a nested <Link> — the whole card below
+                      // is already the link; a link inside a link is invalid
+                      // HTML and unpredictable to tap on mobile.
+                      <span className="text-[#C8A96E] text-sm font-medium whitespace-nowrap">
                         View results →
-                      </Link>
+                      </span>
                     )}
                   </div>
+                </div>
+              );
+
+              const cardClassName =
+                "bg-[#141414] border border-[#2A2A2A] rounded-xl overflow-hidden transition-colors" +
+                (clickable ? " block hover:border-[#9090aa] active:bg-[#1a1a1a]" : "");
+
+              return clickable ? (
+                <Link key={video.id} href={`/analyze/${video.id}`} className={cardClassName}>
+                  {cardBody}
+                </Link>
+              ) : (
+                <div key={video.id} className={cardClassName}>
+                  {cardBody}
                 </div>
               );
             })}

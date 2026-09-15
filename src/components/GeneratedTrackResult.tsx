@@ -12,6 +12,11 @@ interface ExportResult {
 interface GeneratedTrackResultProps {
   audioUrl: string;
   videoUrl?: string | null;
+  /** First-frame poster so the player shows real content instead of solid
+   *  black before playback (preload="metadata" alone doesn't reliably paint
+   *  a frame in Safari/iOS). Absent for videos analyzed before this field
+   *  existed — preload="metadata" is the fallback for those. */
+  thumbnailUrl?: string | null;
   description: string;
   tags: string[];
   videoId: string;
@@ -26,6 +31,7 @@ interface GeneratedTrackResultProps {
 export function GeneratedTrackResult({
   audioUrl,
   videoUrl,
+  thumbnailUrl,
   description,
   tags,
   optionLabel,
@@ -150,6 +156,7 @@ export function GeneratedTrackResult({
             <video
               ref={videoRef}
               src={videoUrl}
+              poster={thumbnailUrl ?? undefined}
               muted
               playsInline
               preload="metadata"

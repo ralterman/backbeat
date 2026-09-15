@@ -94,6 +94,12 @@ model Video {
   fileSize     Int
   mimeType     String
   status       VideoStatus @default(PENDING)
+  // First-frame poster for the results-page preview player — see
+  // src/app/api/analyze/route.ts (reuses a frame already extracted for
+  // Claude, no extra ffmpeg pass). Null for videos analyzed before this
+  // field existed; the player falls back to preload="metadata" for those.
+  thumbnailKey String?
+  thumbnailUrl String?     @db.Text
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 

@@ -30,6 +30,7 @@ interface AnalysisResponse {
   status: string;
   videoId: string;
   videoUrl?: string | null;
+  thumbnailUrl?: string | null;
   analysis?: AnalysisData;
 }
 
@@ -170,7 +171,7 @@ export default function AnalysisResultsPage() {
     );
   }
 
-  const { analysis, videoUrl } = data;
+  const { analysis, videoUrl, thumbnailUrl } = data;
 
   // Resolve which options to render: prefer generatedOptions, fall back to legacy fields
   const allOptions: GeneratedOption[] = analysis.generatedOptions?.length > 0
@@ -353,6 +354,7 @@ export default function AnalysisResultsPage() {
                       key={opt.id}
                       audioUrl={opt.audioUrl}
                       videoUrl={videoUrl}
+                      thumbnailUrl={thumbnailUrl}
                       description={opt.description}
                       tags={opt.tags}
                       videoId={videoId}

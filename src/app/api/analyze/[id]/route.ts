@@ -33,8 +33,19 @@ export async function GET(
     console.error("[analyze/[id]] video presigned URL failed:", err);
   }
 
+  // Poster for the preview player. Null for videos analyzed before this
+  // field existed — the client falls back to preload="metadata".
+  let thumbnailUrl: string | null = video.thumbnailUrl;
+  if (video.thumbnailKey) {
+    try {
+      thumbnailUrl = await generateDownloadPresignedUrl(OUTPUT_BUCKET, video.thumbnailKey, 86400);
+    } catch (err) {
+      console.error("[analyze/[id]] thumbnail presigned URL failed:", err);
+    }
+  }
+
   if (!video.analysis) {
-    return NextResponse.json({ status: video.status, videoId, videoUrl });
+    return NextResponse.json({ status: video.status, videoId, videoUrl, thumbnailUrl });
   }
 
   const analysis = video.analysis;
@@ -74,6 +85,7 @@ export async function GET(
     status: "completed",
     videoId,
     videoUrl,
+    thumbnailUrl,
     analysis: {
       id:                analysis.id,
       moodTags:          analysis.moodTags,

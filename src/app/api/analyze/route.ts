@@ -220,6 +220,30 @@ export async function POST(req: NextRequest) {
           const frames = await extractFrames(videoBuffer, videoId);
           if (frames.length === 0) throw new Error("No frames could be extracted from the video");
           console.log(`[analyze][${videoId}] extracted ${frames.length} frames`);
+
+          // Thumbnail for the results-page poster: reuse the first extracted
+          // frame (512px-wide JPEG sampled at ~t=0) instead of a second ffmpeg
+          // pass. Only needed once — a regenerate takes the cachedVideoAnalysis
+          // branch above and skips extraction entirely, so it never gets here.
+          // Non-fatal: a missing poster degrades to preload="metadata" on the
+          // client, it's not worth failing the whole analysis over.
+          if (!video.thumbnailKey) {
+            try {
+              const thumbnailKey = `thumbnails/${videoId}/thumbnail.jpg`;
+              await s3Client.send(new PutObjectCommand({
+                Bucket: OUTPUT_BUCKET,
+                Key: thumbnailKey,
+                Body: Buffer.from(frames[0], "base64"),
+                ContentType: "image/jpeg",
+              }));
+              const thumbnailUrl = await generateDownloadPresignedUrl(OUTPUT_BUCKET, thumbnailKey, 86400);
+              await prisma.video.update({ where: { id: videoId }, data: { thumbnailKey, thumbnailUrl } });
+              console.log(`[analyze][${videoId}] thumbnail uploaded: ${thumbnailKey}`);
+            } catch (err) {
+              console.error(`[analyze][${videoId}] thumbnail generation failed (non-fatal):`, err);
+            }
+          }
+
           videoAnalysis = await analyzeVideoFrames(frames);
           console.log(`[analyze][${videoId}] Claude analysis complete: energy=${videoAnalysis.energy_score}`);
         }
