@@ -2,10 +2,8 @@ import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import ResendProvider from "next-auth/providers/resend";
-import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
-
-const resendClient = new Resend(process.env.RESEND_API_KEY);
+import { sendEmail, emailShell, ctaButton, divider } from "@/lib/email";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -21,86 +19,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Do not log `url` — it is a single-use bearer credential. Delivery is
         // auditable via the Resend message id logged below.
         console.log("[auth] Sending magic link to:", email);
-        try {
-          const { data, error } = await resendClient.emails.send({
-            from: process.env.EMAIL_FROM ?? "hello@backbeat.video",
-            to: email,
-            subject: "Sign in to Backbeat",
-            html: `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:48px 16px">
-    <tr><td align="center">
-      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px">
 
-        <!-- Logo -->
-        <tr><td align="center" style="padding-bottom:32px">
-          <table cellpadding="0" cellspacing="0"><tr><td>
-            <div style="display:inline-flex;align-items:center;gap:10px">
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="18" cy="18" r="16" fill="#C8A96E" fill-opacity="0.15"/>
-                <circle cx="18" cy="18" r="15.5" stroke="#C8A96E" stroke-width="1.25"/>
-                <circle cx="18" cy="18" r="5.5" fill="#C8A96E"/>
-                <polygon points="16.5,15.5 16.5,20.5 21.5,18" fill="#0A0A0A"/>
-              </svg>
-              <span style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.5px">Backbeat</span>
-            </div>
-          </td></tr></table>
-        </td></tr>
-
-        <!-- Card -->
-        <tr><td style="background:#141414;border:1px solid #2a2a2a;border-radius:16px;padding:40px 36px">
-
+        // Same shell/button/divider as every other transactional email
+        // (upgrade, cancellation, email-change, etc.) — this was previously
+        // its own hand-rolled template with the old #0a0a0a background, old
+        // SVG mark, and a non-serif white wordmark.
+        const html = emailShell(`
           <p style="margin:0 0 8px;color:#C8A96E;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Magic link</p>
           <h1 style="margin:0 0 16px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2">Your sign-in link is ready</h1>
           <p style="margin:0 0 32px;color:#a0a0b8;font-size:15px;line-height:1.6">
             Click the button below to sign in to Backbeat. This link expires in <strong style="color:#ffffff">24 hours</strong> and can only be used once.
           </p>
-
-          <!-- CTA button -->
-          <table cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">
-            <a href="${url}"
-               style="display:inline-block;background:#C8A96E;color:#0a0a0a;font-size:15px;font-weight:700;padding:14px 36px;border-radius:10px;text-decoration:none;letter-spacing:0.01em">
-              Sign in to Backbeat →
-            </a>
-          </td></tr></table>
-
-          <!-- Divider -->
-          <table cellpadding="0" cellspacing="0" width="100%" style="margin:32px 0">
-            <tr>
-              <td style="border-top:1px solid #2a2a2a"></td>
-            </tr>
-          </table>
-
+          ${ctaButton("Sign in to Backbeat →", url)}
+          ${divider()}
           <p style="margin:0 0 8px;color:#6a6a8a;font-size:12px">Didn't request this? You can safely ignore this email.</p>
           <p style="margin:0;color:#6a6a8a;font-size:12px">If the button doesn't work, copy and paste this link:</p>
           <p style="margin:8px 0 0;word-break:break-all">
             <a href="${url}" style="color:#C8A96E;font-size:12px;text-decoration:none">${url}</a>
           </p>
+        `);
 
-        </td></tr>
-
-        <!-- Footer -->
-        <tr><td align="center" style="padding-top:24px">
-          <p style="margin:0;color:#3a3a5a;font-size:12px">
-            Sent by <a href="https://backbeat.video" style="color:#3a3a5a;text-decoration:underline">backbeat.video</a> · AI-powered music for your videos
-          </p>
-        </td></tr>
-
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`,
-          });
-          if (error) {
-            console.error("[auth] Resend error:", JSON.stringify(error));
-            throw new Error(`Resend error: ${JSON.stringify(error)}`);
-          }
-          console.log("[auth] Magic link sent successfully, id:", data?.id);
+        try {
+          const id = await sendEmail({ to: email, subject: "Sign in to Backbeat", html });
+          console.log("[auth] Magic link sent successfully, id:", id);
         } catch (err) {
-          console.error("[auth] sendVerificationRequest exception:", err);
+          console.error("[auth] sendVerificationRequest failed:", err);
           throw err;
         }
       },

@@ -13,7 +13,6 @@ const FREE_FEATURES = [
   { text: "Full preview synced to your video", included: true },
   { text: "Export with watermark", included: true },
   { text: "No-watermark exports", included: false },
-  { text: "Priority processing", included: false },
 ];
 
 const CREATOR_FEATURES = [
@@ -21,8 +20,6 @@ const CREATOR_FEATURES = [
   { text: "Up to 4 AI-generated soundtrack options per analysis", included: true },
   { text: "Full preview synced to your video", included: true },
   { text: "No-watermark exports", included: true },
-  { text: "Priority processing", included: true },
-  { text: "Email support", included: true },
 ];
 
 // Marketed as "Pro"; the internal plan id is still TEAM (see src/lib/plans.ts).
@@ -31,8 +28,6 @@ const PRO_FEATURES = [
   { text: "Up to 6 AI-generated soundtrack options per analysis", included: true },
   { text: "Full preview synced to your video", included: true },
   { text: "No-watermark exports", included: true },
-  { text: "Priority processing", included: true },
-  { text: "Priority email support", included: true },
 ];
 
 const faqs = [
@@ -131,8 +126,6 @@ export default function PricingPage() {
                   ["AI video analysis", "✓", "✓", "✓"],
                   ["Audio preview", "Full", "Full", "Full"],
                   ["Exports", "Watermarked", "No watermark", "No watermark"],
-                  ["Priority processing", "—", "✓", "✓"],
-                  ["Support", "Community", "Email", "Priority email"],
                 ].map(([feature, free, creator, team]) => (
                   <tr key={feature} className="border-b border-[#1E1E1E] hover:bg-[#141414]/60 transition-colors">
                     <td className="py-4 pr-8 text-white text-sm">{feature}</td>

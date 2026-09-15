@@ -79,7 +79,6 @@ const FREE_FEATURES = [
   { text: "Full preview synced to your video", included: true },
   { text: "Export with watermark", included: true },
   { text: "No-watermark exports", included: false },
-  { text: "Priority processing", included: false },
 ];
 
 const CREATOR_FEATURES = [
@@ -87,7 +86,6 @@ const CREATOR_FEATURES = [
   { text: "Up to 4 AI-generated soundtrack options per analysis", included: true },
   { text: "Full preview synced to your video", included: true },
   { text: "No-watermark exports", included: true },
-  { text: "Priority processing", included: true },
 ];
 
 // Marketed as "Pro"; the internal plan id is still TEAM (see src/lib/plans.ts).
@@ -96,7 +94,6 @@ const PRO_FEATURES = [
   { text: "Up to 6 AI-generated soundtrack options per analysis", included: true },
   { text: "Full preview synced to your video", included: true },
   { text: "No-watermark exports", included: true },
-  { text: "Priority processing", included: true },
 ];
 
 export default function LandingPage() {

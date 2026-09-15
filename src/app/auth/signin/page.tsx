@@ -139,7 +139,7 @@ export default function SignInPage() {
               Backbeat
             </span>
           </Link>
-          <h1 className="text-2xl font-bold text-white">Welcome back</h1>
+          <h1 className="text-2xl font-bold text-white">Welcome Back</h1>
           <p className="text-[#a0a0b8] mt-2">Sign in to your account</p>
         </div>
 

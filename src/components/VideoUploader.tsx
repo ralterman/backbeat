@@ -313,20 +313,84 @@ function uploadToS3(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+    const startedAt = Date.now();
+    let lastLoaded = 0;
+
+    // No client-side deadline: a 500 MB file over cellular can legitimately
+    // take many minutes and the presigned URL is valid for an hour. We only
+    // abort on a true stall (no bytes for 2 min), which distinguishes a dead
+    // connection from a slow one.
+    const STALL_MS = 2 * 60 * 1000;
+    let stallTimer: ReturnType<typeof setTimeout> | null = null;
+    const armStall = () => {
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => {
+        xhr.abort();
+        reject(new Error(
+          `Upload stalled — no data was sent for 2 minutes (${Math.round(lastLoaded / file.size * 100)}% of ${sizeMB} MB done). ` +
+          `Check your connection and try again; on cellular, Wi-Fi is more reliable for large videos.`
+        ));
+      }, STALL_MS);
+    };
+
     xhr.open("PUT", presignedUrl);
     xhr.setRequestHeader("Content-Type", file.type);
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
+        lastLoaded = e.loaded;
         onProgress(Math.round((e.loaded / e.total) * 100));
       }
+      armStall();
     };
 
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error(`Upload failed with status ${xhr.status}`));
+      if (stallTimer) clearTimeout(stallTimer);
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      // S3 returns XML with a <Code>; surface it instead of a bare status.
+      const code = /<Code>([^<]+)<\/Code>/.exec(xhr.responseText || "")?.[1];
+      const hint =
+        xhr.status === 403 && code === "SignatureDoesNotMatch"
+          ? " (the file's type didn't match what was authorised — try re-selecting the file)"
+          : xhr.status === 403 && code === "AccessDenied"
+          ? " (upload link expired — please try again)"
+          : xhr.status === 413 || code === "EntityTooLarge"
+          ? " (file too large)"
+          : "";
+      reject(new Error(`Upload rejected by storage: HTTP ${xhr.status}${code ? ` ${code}` : ""}${hint}`));
     };
-    xhr.onerror = () => reject(new Error("Network error during upload"));
+
+    // onerror fires with status 0 for two very different things: the browser
+    // refused the request (CORS preflight failed, blocked by a content filter)
+    // or the connection dropped mid-transfer. Tell them apart by whether any
+    // bytes ever left the device, and say so — "Network error" hid the cause.
+    xhr.onerror = () => {
+      if (stallTimer) clearTimeout(stallTimer);
+      const secs = Math.round((Date.now() - startedAt) / 1000);
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+      let msg: string;
+      if (offline) {
+        msg = "You appear to be offline. Reconnect and try again.";
+      } else if (lastLoaded === 0) {
+        msg =
+          "The browser blocked the upload before any data was sent. This is usually a storage " +
+          "permissions (CORS) problem on our side rather than your connection — please contact " +
+          "hello@backbeat.video and mention this message.";
+      } else {
+        msg =
+          `Connection dropped after ${Math.round(lastLoaded / file.size * 100)}% of ${sizeMB} MB (${secs}s). ` +
+          "Please try again — on cellular, Wi-Fi is more reliable for large videos.";
+      }
+      console.error("[upload] xhr error", {
+        status: xhr.status, loaded: lastLoaded, total: file.size, type: file.type || "(none)",
+        secs, online: !offline, ua: navigator.userAgent,
+      });
+      reject(new Error(msg));
+    };
+    xhr.onabort = () => { if (stallTimer) clearTimeout(stallTimer); };
+
+    armStall();
     xhr.send(file);
   });
 }

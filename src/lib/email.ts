@@ -34,28 +34,35 @@ export async function sendEmail(opts: {
   return data.id;
 }
 
-function shell(content: string): string {
+/** Absolute URL for the current brand mark — email clients can't load relative paths or inline SVG reliably. */
+const LOGO_ICON_URL = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/brand/logo-icon.png`;
+
+/**
+ * Shared chrome for every transactional email: site-dark background
+ * (#0a0a0f), the current "B" mark as a hosted PNG, and the gold serif
+ * wordmark (Georgia is the email-safe stand-in for TAN Pearl — custom web
+ * fonts are stripped by most clients). Exported so auth.ts and the contact
+ * route render on the same shell instead of carrying their own copies.
+ */
+export function emailShell(content: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:48px 16px">
+<body style="margin:0;padding:0;background:#0a0a0f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0f;padding:48px 16px">
     <tr><td align="center">
       <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px">
 
-        <!-- Logo -->
+        <!-- Logo: mark + wordmark, table-based so it survives Gmail/Outlook -->
         <tr><td align="center" style="padding-bottom:32px">
-          <table cellpadding="0" cellspacing="0"><tr><td>
-            <div style="display:inline-flex;align-items:center;gap:10px">
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="18" cy="18" r="16" fill="#C8A96E" fill-opacity="0.15"/>
-                <circle cx="18" cy="18" r="15.5" stroke="#C8A96E" stroke-width="1.25"/>
-                <circle cx="18" cy="18" r="5.5" fill="#C8A96E"/>
-                <polygon points="16.5,15.5 16.5,20.5 21.5,18" fill="#0A0A0A"/>
-              </svg>
-              <span style="color:#C8A96E;font-size:22px;font-weight:400;letter-spacing:0.03em;font-family:Georgia,'Times New Roman',serif">Backbeat</span>
-            </div>
-          </td></tr></table>
+          <table cellpadding="0" cellspacing="0" role="presentation"><tr>
+            <td style="padding-right:12px;vertical-align:middle">
+              <img src="${LOGO_ICON_URL}" width="28" height="43" alt="" style="display:block;width:28px;height:43px;border:0">
+            </td>
+            <td style="vertical-align:middle">
+              <span style="color:#C8A96E;font-size:26px;font-weight:400;line-height:1;letter-spacing:0.04em;font-family:Georgia,'Times New Roman',serif">Backbeat</span>
+            </td>
+          </tr></table>
         </td></tr>
 
         <!-- Card -->
@@ -77,7 +84,7 @@ function shell(content: string): string {
 </html>`;
 }
 
-function ctaButton(label: string, url: string): string {
+export function ctaButton(label: string, url: string): string {
   return `<table cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">
     <a href="${url}"
        style="display:inline-block;background:#C8A96E;color:#0a0a0a;font-size:15px;font-weight:700;padding:14px 36px;border-radius:10px;text-decoration:none;letter-spacing:0.01em">
@@ -86,7 +93,7 @@ function ctaButton(label: string, url: string): string {
   </td></tr></table>`;
 }
 
-function divider(): string {
+export function divider(): string {
   return `<table cellpadding="0" cellspacing="0" width="100%" style="margin:28px 0">
     <tr><td style="border-top:1px solid #2a2a2a"></td></tr>
   </table>`;
@@ -97,7 +104,7 @@ export async function sendUpgradeEmail(to: string, plan: string): Promise<string
   const limit = PLAN_LIMITS[plan] ?? "";
   const dashboardUrl = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/dashboard`;
 
-  const html = shell(`
+  const html = emailShell(`
     <p style="margin:0 0 8px;color:#C8A96E;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Plan upgraded</p>
     <h1 style="margin:0 0 16px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2">Welcome to ${label}!</h1>
     <p style="margin:0 0 8px;color:#a0a0b8;font-size:15px;line-height:1.6">
@@ -123,7 +130,7 @@ export async function sendCancellationEmail(to: string, periodEnd: Date | null):
     ? `Your paid features remain active until <strong style="color:#ffffff">${periodEnd.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</strong>, then your account moves to the Free plan.`
     : `Your account has moved to the Free plan.`;
 
-  const html = shell(`
+  const html = emailShell(`
     <p style="margin:0 0 8px;color:#a0a0b8;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Subscription canceled</p>
     <h1 style="margin:0 0 16px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2">Your subscription has been canceled</h1>
     <p style="margin:0 0 8px;color:#a0a0b8;font-size:15px;line-height:1.6">
@@ -151,7 +158,7 @@ export async function sendEmailChangeVerification(
   confirmUrl: string,
   currentEmail: string
 ): Promise<string> {
-  const html = shell(`
+  const html = emailShell(`
     <p style="margin:0 0 8px;color:#C8A96E;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Confirm your new email</p>
     <h1 style="margin:0 0 16px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2">Verify this address</h1>
     <p style="margin:0 0 8px;color:#a0a0b8;font-size:15px;line-height:1.6">
@@ -175,7 +182,7 @@ export async function sendEmailChangeVerification(
  * so the real owner is warned if their session was hijacked.
  */
 export async function sendEmailChangeNotice(to: string, newEmail: string): Promise<string> {
-  const html = shell(`
+  const html = emailShell(`
     <p style="margin:0 0 8px;color:#a0a0b8;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Security notice</p>
     <h1 style="margin:0 0 16px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2">Email change requested</h1>
     <p style="margin:0 0 8px;color:#a0a0b8;font-size:15px;line-height:1.6">
@@ -199,7 +206,7 @@ export async function sendPaymentFailedEmail(to: string, plan: string): Promise<
   const label = PLAN_LABELS[plan] ?? plan;
   const portalUrl = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/api/stripe/portal`;
 
-  const html = shell(`
+  const html = emailShell(`
     <p style="margin:0 0 8px;color:#e5484d;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Payment failed</p>
     <h1 style="margin:0 0 16px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2">We couldn't process your payment</h1>
     <p style="margin:0 0 8px;color:#a0a0b8;font-size:15px;line-height:1.6">
@@ -228,7 +235,7 @@ export async function sendPlanChangeEmail(
   const limit = PLAN_LIMITS[toPlan] ?? "";
   const dashboardUrl = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/dashboard`;
 
-  const html = shell(`
+  const html = emailShell(`
     <p style="margin:0 0 8px;color:#C8A96E;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Plan changed</p>
     <h1 style="margin:0 0 16px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2">You've switched to ${toLabel}</h1>
     <p style="margin:0 0 8px;color:#a0a0b8;font-size:15px;line-height:1.6">
