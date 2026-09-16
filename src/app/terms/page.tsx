@@ -14,7 +14,7 @@ export default function TermsPage() {
         </Section>
 
         <Section title="2. Description of Service">
-          <p>Backbeat is an AI-powered platform that analyzes video content and generates custom background music using ElevenLabs&apos; music AI. Backbeat analyzes your video&apos;s mood, energy, pacing, and scene context, then produces a unique music track tailored to your content. Users may upload videos, receive a generated music track, preview it, and export a finished video with the music mixed in.</p>
+          <p>Backbeat is an AI-powered platform that analyzes video content and generates custom background music using ElevenLabs&apos; music AI. Backbeat analyzes your video&apos;s mood, energy, pacing, and scene context, then produces a unique music track tailored to your content. Users may upload videos, receive a generated music track, preview it, and export a finished video with the music mixed in. By default, exports keep the user&apos;s original video audio and mix the generated track underneath it; users may choose to replace the original audio with the generated track instead.</p>
         </Section>
 
         <Section title="3. Accounts">

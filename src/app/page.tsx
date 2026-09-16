@@ -47,7 +47,7 @@ const features = [
     ),
     title: "One-Click Export",
     description:
-      "Export your video with music automatically merged, fade in/out applied, and audio normalized to broadcast standards (-14 LUFS).",
+      "Export with your original audio and the new soundtrack mixed together, or swap it out entirely. Fades and levels handled automatically.",
   },
   {
     icon: (
