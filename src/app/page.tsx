@@ -25,7 +25,18 @@ const features = [
     ),
     title: "Custom AI Soundtrack",
     description:
-      "Your AI generates two unique tracks specifically for your video — matched to its mood, energy, scene type, and pacing. No catalog. No guesswork.",
+      "Your AI generates two unique tracks in minutes, matched to your video's mood, energy, scene type, and pacing. No catalog. No guesswork. Regenerate for more options on paid plans.",
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6 text-[#C8A96E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+          d="M12 4l8 4-8 4-8-4 8-4zM4 12l8 4 8-4M4 16l8 4 8-4" />
+      </svg>
+    ),
+    title: "Keeps Your Audio",
+    description:
+      "Your original sound stays in by default, with the new soundtrack mixed underneath. Or drop it and go music only.",
   },
   {
     icon: (
@@ -48,17 +59,6 @@ const features = [
     title: "One-Click Export",
     description:
       "Export with your original audio and the new soundtrack mixed together, or swap it out entirely. Fades and levels handled automatically.",
-  },
-  {
-    icon: (
-      <svg className="w-6 h-6 text-[#C8A96E]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-          d="M5 3l1.5 1.5M12 3v2m4.5-1.5L15 5M3 12h2m14 0h2M5.5 18.5L7 17M17 7l1.5-1.5M12 19v2m-5-2.5L8.5 17M12 8a4 4 0 100 8 4 4 0 000-8z" />
-      </svg>
-    ),
-    title: "Instant Results",
-    description:
-      "Upload your video and get two AI-generated soundtrack options in minutes. Pick the one that fits, or regenerate for more on paid plans.",
   },
   {
     icon: (
