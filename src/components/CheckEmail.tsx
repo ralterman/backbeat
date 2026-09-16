@@ -40,8 +40,14 @@ export function CheckEmail({ email, actionText, onResend, onUseDifferentEmail }:
     }, 1000);
   };
 
+  // This screen only appears right after a magic link was sent, so the
+  // cooldown starts immediately on mount — otherwise "Resend link" is
+  // clickable the instant the first email goes out and a double-tap sends
+  // two emails within a second. Cleared on unmount.
   useEffect(() => {
+    startCooldown();
     return () => { if (cooldownTimer.current) clearInterval(cooldownTimer.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleResend = async () => {
