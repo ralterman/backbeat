@@ -192,16 +192,19 @@ async function mergeVideoAudio(
     // defaults level=true ("auto level"), which renormalizes its output back
     // up toward 0 dB after limiting, silently undoing the ceiling entirely
     // (confirmed empirically: with level unset, changing `limit` from 0.97
-    // down to 0.25 made no difference to the final peak). With level=false,
-    // limit=0.5 (~-6 dBFS pre-encode) leaves enough margin to survive AAC's
-    // own lossy round-trip, which on hot/broadband source audio (continuous
-    // loud noise, not just typical dialogue/ambience) can reconstruct sample
-    // peaks 3-4 dB above whatever was fed to the encoder — a real limitation
-    // of ffmpeg's native `aac` encoder (the only one available on Vercel's
-    // Linux runtime; libfdk_aac is not built into ffmpeg-static). Verified:
-    // continuous white noise mixed at all three levels stays 1.9-2.6 dB
-    // below 0 dBFS after AAC encoding at limit=0.5; normal/moderate content
-    // is untouched since the limiter doesn't engage below its ceiling.
+    // down to 0.25 made no difference to the final peak).
+    //
+    // limit=0.8 is a -1.94 dBFS ceiling. Measured on a real phone recording
+    // (-20 LUFS, peaks -1.6 dBFS) mixed with a real ElevenLabs track
+    // (-12 LUFS): the native `aac` encoder's peak overshoot after the lossy
+    // round-trip is +0.2 to +0.6 dB, so the encoded file lands at about
+    // -2.0 dBFS with no clipped runs, and the limiter engages only on the
+    // loudest moments instead of continuously. (An earlier 0.5 ceiling was
+    // chosen from a full-scale white-noise test, where AAC overshoots by
+    // 3-5 dB; that is not representative and the -6 dBFS ceiling squashed
+    // 4-5 dB of transients on ordinary phone audio all the way through.)
+    // Content that never reaches the ceiling — dialogue peaking around
+    // -12 dBFS — passes through bit-identical.
     // atrim explicitly caps the audio at the video's real (ffprobe'd)
     // duration instead of relying on the global -shortest flag. -shortest
     // is unreliable here: verified it silently produced a near-silent
@@ -225,7 +228,7 @@ async function mergeVideoAudio(
           // when [0:a] runs out — the music keeps going. atrim below bounds
           // the result to the video's length either way.
           `[0:a][music]amix=inputs=2:duration=longest:dropout_transition=2:normalize=0[premix];` +
-          `[premix]alimiter=limit=0.5:level=false,atrim=0:${durationCap}[aout]`
+          `[premix]alimiter=limit=0.8:level=false,atrim=0:${durationCap}[aout]`
         : `${musicChain},volume=0.85,atrim=0:${durationCap}[aout]`;
 
     let filterComplex: string;
