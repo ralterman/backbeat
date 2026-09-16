@@ -10,16 +10,24 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Pre-existing gap, unchanged here: result?.error is not checked, so
-    // emailSent flips to true even if the send failed. Out of scope for this
-    // change — flagging rather than fixing silently.
-    await signIn("resend", { email, callbackUrl: "/dashboard", redirect: false });
-    setEmailSent(true);
-    setLoading(false);
+    setSendError(null);
+    try {
+      const result = await signIn("resend", { email, callbackUrl: "/dashboard", redirect: false });
+      if (result?.error) {
+        setSendError(result.error);
+      } else {
+        setEmailSent(true);
+      }
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Passed to CheckEmail, which owns the cooldown/error UI for this action —
@@ -55,6 +63,12 @@ export default function SignUpPage() {
         </div>
 
         <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl p-8">
+          {sendError && (
+            <div className="mb-6 bg-red-900/20 border border-red-800/30 rounded-lg px-4 py-3 text-red-400 text-sm">
+              Send failed: {sendError}
+            </div>
+          )}
+
           <div className="flex gap-2 mb-6 flex-wrap sm:flex-nowrap">
             {[
               { icon: "🎬", text: "1 free analysis" },
