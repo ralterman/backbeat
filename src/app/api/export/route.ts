@@ -81,6 +81,13 @@ function detectContentRect(videoPath: string, exportId: string): Promise<Content
   });
 }
 
+interface MergeResult {
+  buffer: Buffer;
+  /** audioMode actually used — differs from the requested mode only when a
+   *  self-correction happened (see below). */
+  effectiveAudioMode: AudioMode;
+}
+
 async function mergeVideoAudio(
   videoBuffer: Buffer,
   audioBuffer: Buffer,
@@ -88,7 +95,7 @@ async function mergeVideoAudio(
   hasWatermark: boolean,
   audioMode: AudioMode,
   musicLevel: MusicLevel
-): Promise<Buffer> {
+): Promise<MergeResult> {
   const tmpDir = path.join(os.tmpdir(), `backbeat-export-${exportId}`);
   fs.mkdirSync(tmpDir, { recursive: true });
 
@@ -100,14 +107,38 @@ async function mergeVideoAudio(
   fs.writeFileSync(audioPath, audioBuffer);
   console.log(`[export][${exportId}] wrote video (${videoBuffer.length}b) + audio (${audioBuffer.length}b)`);
 
-  const videoDuration = await new Promise<number>((resolve) => {
-    const t = setTimeout(() => { console.log(`[export][${exportId}] ffprobe timed out, using 30s`); resolve(30); }, 5000);
+  // One ffprobe covers both duration (already needed for the fade-out point)
+  // and audio-stream presence — no second probe. On error/timeout, default
+  // hasAudioStream to true (same permissive default used elsewhere) so a
+  // transient probe failure never wrongly flips a real video to "replace".
+  const { videoDuration, hasAudioStream } = await new Promise<{ videoDuration: number; hasAudioStream: boolean }>((resolve) => {
+    const t = setTimeout(() => {
+      console.log(`[export][${exportId}] ffprobe timed out, using 30s / assuming audio present`);
+      resolve({ videoDuration: 30, hasAudioStream: true });
+    }, 5000);
     ffmpeg.ffprobe(videoPath, (err, meta) => {
       clearTimeout(t);
-      resolve(err || !meta?.format?.duration ? 30 : Math.max(1, meta.format.duration));
+      resolve({
+        videoDuration: err || !meta?.format?.duration ? 30 : Math.max(1, meta.format.duration),
+        hasAudioStream: !err && !!meta?.streams?.some((s) => s.codec_type === "audio"),
+      });
     });
   });
   const fadeOutStart = Math.max(0, videoDuration - 2);
+
+  // Self-correction for the 16 legacy rows backfilled with hasOriginalAudio
+  // defaulted to true (never actually ffprobed): if the caller asked for
+  // "mix" — meaning Analysis.hasOriginalAudio said true — but the real
+  // downloaded file has no audio stream at all, there is nothing to mix
+  // with [0:a] would reference. Fall back to "replace" for this export; the
+  // caller persists the correction so future loads stop offering the toggle.
+  let effectiveAudioMode = audioMode;
+  if (audioMode === "mix" && !hasAudioStream) {
+    console.log(`[export][${exportId}] requested mix but source has no audio stream — falling back to replace`);
+    effectiveAudioMode = "replace";
+  }
+  audioMode = effectiveAudioMode;
+
   console.log(`[export][${exportId}] duration=${videoDuration.toFixed(1)}s fadeOutStart=${fadeOutStart.toFixed(1)}s hasWatermark=${hasWatermark} audioMode=${audioMode} musicLevel=${musicLevel}`);
 
   // Lives in public/ (and is force-included in the function bundle via
@@ -203,7 +234,7 @@ async function mergeVideoAudio(
           const buf = fs.readFileSync(outputPath);
           console.log(`[export][${exportId}] output: ${buf.length} bytes`);
           try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
-          resolve(buf);
+          resolve({ buffer: buf, effectiveAudioMode });
         } catch (err) {
           reject(err);
         }
@@ -297,7 +328,19 @@ export async function POST(req: NextRequest) {
 
     // Merge via FFmpeg (fade in/out + optional watermark)
     console.log(`[export][${exportId}] starting FFmpeg (hasWatermark=${hasWatermark}, audioMode=${audioMode}, musicLevel=${musicLevel})`);
-    const outputBuffer = await mergeVideoAudio(videoBuffer, audioBuffer, exportId, hasWatermark, audioMode, musicLevel);
+    const { buffer: outputBuffer, effectiveAudioMode } = await mergeVideoAudio(videoBuffer, audioBuffer, exportId, hasWatermark, audioMode, musicLevel);
+
+    // Self-correction: the requested mode was "mix" (i.e. Analysis.hasOriginalAudio
+    // said true) but ffprobe on the actual downloaded file found no audio stream —
+    // one of the 16 legacy rows backfilled with a default we never verified. Persist
+    // false so the results page stops offering the toggle for this video going forward.
+    if (effectiveAudioMode !== audioMode) {
+      await prisma.analysis.update({
+        where: { id: analysis.id },
+        data: { hasOriginalAudio: false },
+      }).catch((err) => console.error(`[export][${exportId}] failed to persist hasOriginalAudio correction:`, err));
+      console.log(`[export][${exportId}] corrected Analysis(${analysis.id}).hasOriginalAudio → false`);
+    }
 
     const outputKey = `exports/${userId}/${exportId}.mp4`;
     await s3Client.send(new PutObjectCommand({
