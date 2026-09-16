@@ -220,7 +220,11 @@ async function mergeVideoAudio(
     const audioChain =
       mode === "mix"
         ? `${musicChain},volume=${MUSIC_GAIN_DB[musicLevel]}dB[music];` +
-          `[0:a][music]amix=inputs=2:duration=first:dropout_transition=2:normalize=0[premix];` +
+          // duration=longest: a source whose audio track is shorter than its
+          // video (screen recordings, concatenated clips) must not end the mix
+          // when [0:a] runs out — the music keeps going. atrim below bounds
+          // the result to the video's length either way.
+          `[0:a][music]amix=inputs=2:duration=longest:dropout_transition=2:normalize=0[premix];` +
           `[premix]alimiter=limit=0.5:level=false,atrim=0:${durationCap}[aout]`
         : `${musicChain},volume=0.85,atrim=0:${durationCap}[aout]`;
 
