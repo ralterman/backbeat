@@ -12,12 +12,16 @@ import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3"
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
+import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 import { Readable } from "stream";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
+// See the matching note in export/route.ts: ffmpeg-static has no ffprobe and
+// neither does the Vercel runtime, so probeHasAudio() below needs this.
+ffmpeg.setFfprobePath(ffprobeInstaller.path);
 
 // Leave a 20 s buffer before maxDuration so we can write FAILED and return
 // a clean 504 rather than being killed mid-flight by Vercel.

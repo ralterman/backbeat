@@ -9,6 +9,7 @@ import { getUserPlan } from "@/lib/usage";
 import { isAdminEmail } from "@/lib/admin";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
+import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 import { Readable } from "stream";
 import * as fs from "fs";
 import * as path from "path";
@@ -26,6 +27,13 @@ import {
 } from "@/lib/audioMix";
 
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
+// ffmpeg-static ships no ffprobe, and the Vercel runtime has none on PATH.
+// Without this, every ffmpeg.ffprobe() call below fails ("Cannot find
+// ffprobe") and falls back to the 30 s duration guess. The binary is a
+// platform-specific optional dependency resolved via a dynamic require, so
+// it is force-included in the function bundle via outputFileTracingIncludes
+// in next.config.ts.
+ffmpeg.setFfprobePath(ffprobeInstaller.path);
 
 async function streamToBuffer(stream: Readable): Promise<Buffer> {
   return new Promise((resolve, reject) => {
