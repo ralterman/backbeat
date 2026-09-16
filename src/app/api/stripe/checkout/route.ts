@@ -48,13 +48,14 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  const base = process.env.NEXTAUTH_URL ?? "https://backbeat.video";
   const checkoutSession = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: "subscription",
     payment_method_types: ["card"],
     line_items: [{ price: PRICE_IDS[plan], quantity: 1 }],
-    success_url: `${process.env.NEXTAUTH_URL}/dashboard?upgraded=true`,
-    cancel_url: `${process.env.NEXTAUTH_URL}/pricing`,
+    success_url: `${base}/dashboard?upgraded=true`,
+    cancel_url: `${base}/pricing`,
     metadata: { userId, plan },
   });
 

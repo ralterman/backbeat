@@ -28,7 +28,7 @@ export async function GET() {
   const stripe = getStripe();
   const portalSession = await stripe.billingPortal.sessions.create({
     customer: sub.stripeCustomerId,
-    return_url: `${process.env.NEXTAUTH_URL}/dashboard`,
+    return_url: `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/dashboard`,
   });
 
   return NextResponse.redirect(portalSession.url);
