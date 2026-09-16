@@ -39,6 +39,10 @@ export async function sendEmail(opts: {
 
 /** Absolute URL for the current brand mark — email clients can't load relative paths or inline SVG reliably. */
 export const LOGO_ICON_URL = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/brand/logo-icon.png`;
+/** 72×111 px (2× for a 36×55 render), ~6 KB — for the magic-link email, where
+ *  pulling the 2512×3883 / 142 KB master for a thumbnail-sized mark is the
+ *  heaviest thing in an otherwise minimal message. */
+export const LOGO_ICON_EMAIL_URL = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/brand/logo-icon-email.png`;
 
 /**
  * Shared chrome for every transactional email: site-dark background

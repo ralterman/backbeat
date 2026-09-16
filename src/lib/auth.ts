@@ -3,7 +3,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import ResendProvider from "next-auth/providers/resend";
 import { prisma } from "@/lib/prisma";
-import { sendEmail, LOGO_ICON_URL } from "@/lib/email";
+import { sendEmail, LOGO_ICON_EMAIL_URL } from "@/lib/email";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -36,7 +36,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:420px">
         <tr><td align="center" style="padding-bottom:24px">
-          <img src="${LOGO_ICON_URL}" width="24" height="37" alt="Backbeat" style="display:block;width:24px;height:37px;border:0">
+          <img src="${LOGO_ICON_EMAIL_URL}" width="36" height="55" alt="Backbeat" style="display:block;width:36px;height:55px;border:0">
         </td></tr>
         <tr><td style="color:#e0e0e8;font-size:15px;line-height:1.6">
           <p style="margin:0 0 20px">Click below to sign in to Backbeat:</p>
