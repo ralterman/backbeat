@@ -13,6 +13,7 @@ import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import ffprobeInstaller from "@ffprobe-installer/ffprobe";
+import { probeMedia } from "@/lib/probe";
 import { Readable } from "stream";
 import * as fs from "fs";
 import * as path from "path";
@@ -58,24 +59,21 @@ async function streamToBuffer(stream: Readable): Promise<Buffer> {
   });
 }
 
-/** Whether the file has at least one audio stream. Benign default (true) on
- *  probe failure/timeout — worst case a genuinely silent video keeps the
- *  "keep my audio" option available and mixing just adds silence. */
-function probeHasAudio(inputPath: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const t = setTimeout(() => resolve(true), 5000);
-    ffmpeg.ffprobe(inputPath, (err, meta) => {
-      clearTimeout(t);
-      if (err || !meta?.streams) return resolve(true);
-      resolve(meta.streams.some((s) => s.codec_type === "audio"));
-    });
-  });
+/** Whether the file has at least one audio stream: true / false / null
+ *  (unknown — probe failed or timed out). Unknown is NOT "no audio"; the
+ *  caller falls back to the schema default (true) so a genuinely silent
+ *  video keeps the "keep my audio" option available and mixing just adds
+ *  silence, while the export route's own probe gets a second chance. */
+async function probeHasAudio(inputPath: string, videoId: string): Promise<boolean | null> {
+  const r = await probeMedia(inputPath);
+  if (r.error) console.log(`[analyze][${videoId}] audio probe unknown: ${r.error}`);
+  return r.hasAudioStream;
 }
 
 async function extractFrames(
   videoBuffer: Buffer,
   videoId: string
-): Promise<{ frames: string[]; hasAudioStream: boolean }> {
+): Promise<{ frames: string[]; hasAudioStream: boolean | null }> {
   const tmpDir = path.join(os.tmpdir(), `backbeat-${videoId}`);
   fs.mkdirSync(tmpDir, { recursive: true });
   const inputPath = path.join(tmpDir, "input.mp4");
@@ -98,7 +96,7 @@ async function extractFrames(
             fs.readFileSync(path.join(tmpDir, f)).toString("base64")
           );
           // Probe while the file is still on disk, before cleanup.
-          const hasAudioStream = await probeHasAudio(inputPath);
+          const hasAudioStream = await probeHasAudio(inputPath, videoId);
           try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
           resolve({ frames, hasAudioStream });
         } catch (err) {
@@ -395,9 +393,8 @@ export async function POST(req: NextRequest) {
           generatedAudioUrl2: result.audioUrl2,
           // New: accumulated options array
           generatedOptions: JSON.parse(JSON.stringify(initOpts)),
-          // hasAudioStream is only null if extractFrames was somehow skipped
-          // on this branch, which shouldn't happen — default true is the
-          // same safe fallback the schema itself uses.
+          // null = probe unknown (failed/timed out) → schema default (true).
+          // Only a positive "no audio stream" result stores false.
           hasOriginalAudio: result.hasAudioStream ?? true,
         },
       });

@@ -10,6 +10,7 @@ import { isAdminEmail } from "@/lib/admin";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import ffprobeInstaller from "@ffprobe-installer/ffprobe";
+import { probeMedia } from "@/lib/probe";
 import { Readable } from "stream";
 import * as fs from "fs";
 import * as path from "path";
@@ -92,8 +93,13 @@ function detectContentRect(videoPath: string, exportId: string): Promise<Content
 interface MergeResult {
   buffer: Buffer;
   /** audioMode actually used — differs from the requested mode only when a
-   *  self-correction happened (see below). */
+   *  fallback to "replace" happened (see below). */
   effectiveAudioMode: AudioMode;
+  /** true only when ffprobe POSITIVELY reported a stream list with no audio
+   *  stream while "mix" was requested. This — and only this — is safe to
+   *  persist as Analysis.hasOriginalAudio = false. A fallback caused by an
+   *  unknown probe + ffmpeg failure leaves this false. */
+  probeConfirmedNoAudio: boolean;
 }
 
 async function mergeVideoAudio(
@@ -115,39 +121,34 @@ async function mergeVideoAudio(
   fs.writeFileSync(audioPath, audioBuffer);
   console.log(`[export][${exportId}] wrote video (${videoBuffer.length}b) + audio (${audioBuffer.length}b)`);
 
-  // One ffprobe covers both duration (already needed for the fade-out point)
-  // and audio-stream presence — no second probe. On error/timeout, default
-  // hasAudioStream to true (same permissive default used elsewhere) so a
-  // transient probe failure never wrongly flips a real video to "replace".
-  const { videoDuration, hasAudioStream } = await new Promise<{ videoDuration: number; hasAudioStream: boolean }>((resolve) => {
-    const t = setTimeout(() => {
-      console.log(`[export][${exportId}] ffprobe timed out, using 30s / assuming audio present`);
-      resolve({ videoDuration: 30, hasAudioStream: true });
-    }, 5000);
-    ffmpeg.ffprobe(videoPath, (err, meta) => {
-      clearTimeout(t);
-      resolve({
-        videoDuration: err || !meta?.format?.duration ? 30 : Math.max(1, meta.format.duration),
-        hasAudioStream: !err && !!meta?.streams?.some((s) => s.codec_type === "audio"),
-      });
-    });
-  });
+  // One ffprobe covers both duration (needed for the fade-out point) and
+  // audio-stream presence. hasAudioStream is tri-state (see lib/probe.ts):
+  // true / false are positive findings; null means the probe failed or
+  // timed out and tells us NOTHING about the audio. Unknown must never be
+  // treated as "no audio" — that is exactly the bug this replaces.
+  const probe = await probeMedia(videoPath);
+  if (probe.error) console.log(`[export][${exportId}] ffprobe unknown (${probe.error}); duration fallback 30s`);
+  const videoDuration = probe.durationSec !== null ? Math.max(1, probe.durationSec) : 30;
+  const hasAudioStream = probe.hasAudioStream;
   const fadeOutStart = Math.max(0, videoDuration - 2);
 
-  // Self-correction for the 16 legacy rows backfilled with hasOriginalAudio
-  // defaulted to true (never actually ffprobed): if the caller asked for
-  // "mix" — meaning Analysis.hasOriginalAudio said true — but the real
-  // downloaded file has no audio stream at all, there is nothing to mix
-  // with [0:a] would reference. Fall back to "replace" for this export; the
-  // caller persists the correction so future loads stop offering the toggle.
-  let effectiveAudioMode = audioMode;
-  if (audioMode === "mix" && !hasAudioStream) {
-    console.log(`[export][${exportId}] requested mix but source has no audio stream — falling back to replace`);
+  // Fallback to "replace" happens in two distinct ways, and only the first
+  // is persisted by the caller:
+  //  1. ffprobe POSITIVELY reported no audio stream while "mix" was
+  //     requested (a legacy row whose hasOriginalAudio default was never
+  //     verified). Nothing for [0:a] to reference → replace, and the caller
+  //     writes hasOriginalAudio = false so the toggle stops being offered.
+  //  2. The probe was unknown (null). We keep the requested mode; if the
+  //     source really has no audio, ffmpeg fails on [0:a] and we retry once
+  //     as replace below. Nothing is persisted — we don't actually know.
+  let effectiveAudioMode: AudioMode = audioMode;
+  const probeConfirmedNoAudio = audioMode === "mix" && hasAudioStream === false;
+  if (probeConfirmedNoAudio) {
+    console.log(`[export][${exportId}] requested mix but ffprobe found no audio stream — falling back to replace`);
     effectiveAudioMode = "replace";
   }
-  audioMode = effectiveAudioMode;
 
-  console.log(`[export][${exportId}] duration=${videoDuration.toFixed(1)}s fadeOutStart=${fadeOutStart.toFixed(1)}s hasWatermark=${hasWatermark} audioMode=${audioMode} musicLevel=${musicLevel}`);
+  console.log(`[export][${exportId}] duration=${videoDuration.toFixed(1)}s fadeOutStart=${fadeOutStart.toFixed(1)}s hasWatermark=${hasWatermark} audioMode=${effectiveAudioMode} (requested ${audioMode}, probe audio=${hasAudioStream}) musicLevel=${musicLevel}`);
 
   // Lives in public/ (and is force-included in the function bundle via
   // outputFileTracingIncludes in next.config.ts) so it exists at runtime on Vercel.
@@ -174,16 +175,16 @@ async function mergeVideoAudio(
     }
   }
 
-  return new Promise((resolve, reject) => {
+  const runFfmpeg = (mode: AudioMode) => new Promise<Buffer>((resolve, reject) => {
     // "replace" (default until this feature, still the only option for a
     // silent source video): drop the original audio entirely, use the
     // generated track alone at a fixed gentle attenuation. Unchanged from
     // before this feature.
     //
-    // "mix": keep [0:a] — the video's own original audio, present because
-    // this mode is only ever reached when hasOriginalAudio is true — and
-    // layer the music on top at the level-specific dB gain instead of the
-    // flat 0.85. amix's own auto-normalize is disabled (normalize=0) because
+    // "mix": keep [0:a] — the video's own original audio — and layer the
+    // music on top at the level-specific dB gain instead of the flat 0.85.
+    // If [0:a] turns out not to exist (probe was unknown), ffmpeg rejects
+    // the graph and the caller retries with "replace". amix's own auto-normalize is disabled (normalize=0) because
     // it would rescale both inputs by input count and flatten the exact
     // gain difference the three levels are supposed to produce.
     //
@@ -217,7 +218,7 @@ async function mergeVideoAudio(
     const durationCap = videoDuration.toFixed(2);
     const musicChain = `[1:a]afade=t=in:st=0:d=2,afade=t=out:st=${fadeOutStart.toFixed(2)}:d=2`;
     const audioChain =
-      audioMode === "mix"
+      mode === "mix"
         ? `${musicChain},volume=${MUSIC_GAIN_DB[musicLevel]}dB[music];` +
           `[0:a][music]amix=inputs=2:duration=first:dropout_transition=2:normalize=0[premix];` +
           `[premix]alimiter=limit=0.5:level=false,atrim=0:${durationCap}[aout]`
@@ -267,8 +268,7 @@ async function mergeVideoAudio(
         try {
           const buf = fs.readFileSync(outputPath);
           console.log(`[export][${exportId}] output: ${buf.length} bytes`);
-          try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
-          resolve({ buffer: buf, effectiveAudioMode });
+          resolve(buf);
         } catch (err) {
           reject(err);
         }
@@ -276,11 +276,31 @@ async function mergeVideoAudio(
       .on("error", (err, _stdout, stderr) => {
         console.error(`[export][${exportId}] ffmpeg error: ${err.message}`);
         console.error(`[export][${exportId}] stderr: ${stderr}`);
-        try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
         reject(new Error(`FFmpeg: ${(stderr || err.message).split("\n").slice(-3).join(" | ")}`));
       })
       .run();
   });
+
+  try {
+    let buffer: Buffer;
+    try {
+      buffer = await runFfmpeg(effectiveAudioMode);
+    } catch (err) {
+      // Case 2 above: mix was attempted on an unknown probe and ffmpeg
+      // refused the graph (typically "[0:a] matches no streams"). Retry once
+      // as replace. Not persisted — see probeConfirmedNoAudio.
+      if (effectiveAudioMode === "mix" && hasAudioStream === null) {
+        console.log(`[export][${exportId}] mix failed with unknown audio probe — retrying as replace`);
+        effectiveAudioMode = "replace";
+        buffer = await runFfmpeg("replace");
+      } else {
+        throw err;
+      }
+    }
+    return { buffer, effectiveAudioMode, probeConfirmedNoAudio };
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -362,13 +382,17 @@ export async function POST(req: NextRequest) {
 
     // Merge via FFmpeg (fade in/out + optional watermark)
     console.log(`[export][${exportId}] starting FFmpeg (hasWatermark=${hasWatermark}, audioMode=${audioMode}, musicLevel=${musicLevel})`);
-    const { buffer: outputBuffer, effectiveAudioMode } = await mergeVideoAudio(videoBuffer, audioBuffer, exportId, hasWatermark, audioMode, musicLevel);
+    const { buffer: outputBuffer, effectiveAudioMode, probeConfirmedNoAudio } =
+      await mergeVideoAudio(videoBuffer, audioBuffer, exportId, hasWatermark, audioMode, musicLevel);
 
-    // Self-correction: the requested mode was "mix" (i.e. Analysis.hasOriginalAudio
-    // said true) but ffprobe on the actual downloaded file found no audio stream —
-    // one of the 16 legacy rows backfilled with a default we never verified. Persist
-    // false so the results page stops offering the toggle for this video going forward.
-    if (effectiveAudioMode !== audioMode) {
+    // Self-correction: "mix" was requested (Analysis.hasOriginalAudio said
+    // true) but ffprobe on the actual downloaded file POSITIVELY reported no
+    // audio stream — a legacy row whose default was never verified. Persist
+    // false so the results page stops offering the toggle for this video.
+    // Deliberately keyed on probeConfirmedNoAudio, not on
+    // effectiveAudioMode !== audioMode: a fallback caused by an unknown
+    // probe must not be written to the database.
+    if (probeConfirmedNoAudio) {
       await prisma.analysis.update({
         where: { id: analysis.id },
         data: { hasOriginalAudio: false },
