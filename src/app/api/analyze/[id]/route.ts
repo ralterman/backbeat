@@ -93,6 +93,7 @@ export async function GET(
       energyScore:       analysis.energyScore,
       sceneTags:         analysis.sceneTags,
       recommendedGenres: analysis.recommendedGenres,
+      hasOriginalAudio:  analysis.hasOriginalAudio,
       // Legacy fields (backward compat)
       musicDescription:   analysis.musicDescription,
       musicTags:          analysis.musicTags,

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { GeneratedTrackResult } from "@/components/GeneratedTrackResult";
 import type { GeneratedOption } from "@/app/api/analyze/route";
+import type { AudioMode, MusicLevel } from "@/lib/audioMix";
 
 interface AnalysisData {
   id: string;
@@ -13,6 +14,7 @@ interface AnalysisData {
   energyScore: number;
   sceneTags: string[];
   recommendedGenres: string[];
+  hasOriginalAudio: boolean;
   // Legacy fields (backward compat for pre-migration rows)
   musicDescription: string | null;
   musicTags: string[];
@@ -95,11 +97,15 @@ export default function AnalysisResultsPage() {
       .catch(() => {});
   }, []);
 
-  const handleExport = async (optionId: string): Promise<{ exportId: string; outputKey: string; downloadUrl: string }> => {
+  const handleExport = async (
+    optionId: string,
+    audioMode: AudioMode,
+    musicLevel: MusicLevel
+  ): Promise<{ exportId: string; outputKey: string; downloadUrl: string }> => {
     const res = await fetch("/api/export", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ videoId, optionId }),
+      body: JSON.stringify({ videoId, optionId, audioMode, musicLevel }),
     });
     if (!res.ok) {
       const err = await res.json();
@@ -355,6 +361,7 @@ export default function AnalysisResultsPage() {
                       audioUrl={opt.audioUrl}
                       videoUrl={videoUrl}
                       thumbnailUrl={thumbnailUrl}
+                      hasOriginalAudio={analysis.hasOriginalAudio}
                       description={opt.description}
                       tags={opt.tags}
                       videoId={videoId}
@@ -362,7 +369,7 @@ export default function AnalysisResultsPage() {
                       isFreeUser={isFreeUser}
                       isSelected={selectedOptionId === opt.id}
                       onSelect={() => setSelectedOptionId(opt.id)}
-                      onExport={() => handleExport(opt.id)}
+                      onExport={(opts) => handleExport(opt.id, opts.audioMode, opts.musicLevel)}
                     />
                   ))}
                 </div>

@@ -15,6 +15,15 @@ import * as path from "path";
 import * as os from "os";
 import { randomUUID } from "crypto";
 import type { GeneratedOption } from "@/app/api/analyze/route";
+import {
+  MUSIC_GAIN_DB,
+  DEFAULT_AUDIO_MODE,
+  DEFAULT_MUSIC_LEVEL,
+  isAudioMode,
+  isMusicLevel,
+  type AudioMode,
+  type MusicLevel,
+} from "@/lib/audioMix";
 
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -76,7 +85,9 @@ async function mergeVideoAudio(
   videoBuffer: Buffer,
   audioBuffer: Buffer,
   exportId: string,
-  hasWatermark: boolean
+  hasWatermark: boolean,
+  audioMode: AudioMode,
+  musicLevel: MusicLevel
 ): Promise<Buffer> {
   const tmpDir = path.join(os.tmpdir(), `backbeat-export-${exportId}`);
   fs.mkdirSync(tmpDir, { recursive: true });
@@ -97,7 +108,7 @@ async function mergeVideoAudio(
     });
   });
   const fadeOutStart = Math.max(0, videoDuration - 2);
-  console.log(`[export][${exportId}] duration=${videoDuration.toFixed(1)}s fadeOutStart=${fadeOutStart.toFixed(1)}s hasWatermark=${hasWatermark}`);
+  console.log(`[export][${exportId}] duration=${videoDuration.toFixed(1)}s fadeOutStart=${fadeOutStart.toFixed(1)}s hasWatermark=${hasWatermark} audioMode=${audioMode} musicLevel=${musicLevel}`);
 
   // Lives in public/ (and is force-included in the function bundle via
   // outputFileTracingIncludes in next.config.ts) so it exists at runtime on Vercel.
@@ -125,7 +136,27 @@ async function mergeVideoAudio(
   }
 
   return new Promise((resolve, reject) => {
-    const audioChain = `[1:a]afade=t=in:st=0:d=2,afade=t=out:st=${fadeOutStart.toFixed(2)}:d=2,volume=0.85[aout]`;
+    // "replace" (default until this feature, still the only option for a
+    // silent source video): drop the original audio entirely, use the
+    // generated track alone at a fixed gentle attenuation. Unchanged from
+    // before this feature.
+    //
+    // "mix": keep [0:a] — the video's own original audio, present because
+    // this mode is only ever reached when hasOriginalAudio is true — and
+    // layer the music on top at the level-specific dB gain instead of the
+    // flat 0.85. amix's own auto-normalize is disabled (normalize=0) because
+    // it would rescale both inputs by input count and flatten the exact
+    // gain difference the three levels are supposed to produce; alimiter
+    // afterward is a transparent peak ceiling that only catches the rare
+    // case where original + music happen to sum above 0 dBFS, without
+    // otherwise touching perceived loudness.
+    const musicChain = `[1:a]afade=t=in:st=0:d=2,afade=t=out:st=${fadeOutStart.toFixed(2)}:d=2`;
+    const audioChain =
+      audioMode === "mix"
+        ? `${musicChain},volume=${MUSIC_GAIN_DB[musicLevel]}dB[music];` +
+          `[0:a][music]amix=inputs=2:duration=first:dropout_transition=2:normalize=0[premix];` +
+          `[premix]alimiter=limit=0.97[aout]`
+        : `${musicChain},volume=0.85[aout]`;
 
     let filterComplex: string;
     let outputOpts: string[];
@@ -194,11 +225,16 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = session.user.id;
-  const { videoId, optionId, audioOption } = await req.json() as {
+  const body = await req.json() as {
     videoId: string;
     optionId?: string;
     audioOption?: 1 | 2; // legacy fallback
+    audioMode?: string;
+    musicLevel?: string;
   };
+  const { videoId, optionId, audioOption } = body;
+  const requestedAudioMode = isAudioMode(body.audioMode) ? body.audioMode : DEFAULT_AUDIO_MODE;
+  const musicLevel = isMusicLevel(body.musicLevel) ? body.musicLevel : DEFAULT_MUSIC_LEVEL;
 
   if (!videoId) {
     return NextResponse.json({ error: "videoId is required" }, { status: 400 });
@@ -213,6 +249,10 @@ export async function POST(req: NextRequest) {
   if (!analysis) {
     return NextResponse.json({ error: "No generated audio found — please run analysis first." }, { status: 404 });
   }
+
+  // A silent source video has nothing to mix with — ignore the request and
+  // fall back to replace regardless of what the client asked for.
+  const audioMode: AudioMode = analysis.hasOriginalAudio ? requestedAudioMode : "replace";
 
   // Resolve which audioKey to use: new optionId takes precedence over legacy audioOption
   let audioKey: string | null | undefined;
@@ -256,8 +296,8 @@ export async function POST(req: NextRequest) {
     console.log(`[export][${exportId}] audio fetched: ${audioBuffer.length}b`);
 
     // Merge via FFmpeg (fade in/out + optional watermark)
-    console.log(`[export][${exportId}] starting FFmpeg (hasWatermark=${hasWatermark})`);
-    const outputBuffer = await mergeVideoAudio(videoBuffer, audioBuffer, exportId, hasWatermark);
+    console.log(`[export][${exportId}] starting FFmpeg (hasWatermark=${hasWatermark}, audioMode=${audioMode}, musicLevel=${musicLevel})`);
+    const outputBuffer = await mergeVideoAudio(videoBuffer, audioBuffer, exportId, hasWatermark, audioMode, musicLevel);
 
     const outputKey = `exports/${userId}/${exportId}.mp4`;
     await s3Client.send(new PutObjectCommand({

@@ -139,6 +139,12 @@ model Analysis {
   generatedAudioUrl2 String?  @db.Text
   // Accumulated options across all rounds (source of truth going forward)
   generatedOptions   Json     @default("[]")
+  // Whether the uploaded video has its own audio track (ffprobe'd once at
+  // first analysis — see extractFrames() in analyze/route.ts). Defaults true
+  // so pre-existing rows (never probed) keep the "keep my audio" option
+  // available rather than silently losing it; a genuinely silent video just
+  // mixes in silence, which is harmless.
+  hasOriginalAudio   Boolean  @default(true)
   createdAt          DateTime @default(now())
 
   video        Video        @relation(fields: [videoId], references: [id], onDelete: Cascade)

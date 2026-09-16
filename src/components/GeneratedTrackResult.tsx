@@ -2,11 +2,23 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import {
+  MUSIC_GAIN_LINEAR,
+  DEFAULT_AUDIO_MODE,
+  DEFAULT_MUSIC_LEVEL,
+  type AudioMode,
+  type MusicLevel,
+} from "@/lib/audioMix";
 
 interface ExportResult {
   exportId: string;
   outputKey: string;
   downloadUrl: string;
+}
+
+interface ExportOptions {
+  audioMode: AudioMode;
+  musicLevel: MusicLevel;
 }
 
 interface GeneratedTrackResultProps {
@@ -17,6 +29,9 @@ interface GeneratedTrackResultProps {
    *  a frame in Safari/iOS). Absent for videos analyzed before this field
    *  existed — preload="metadata" is the fallback for those. */
   thumbnailUrl?: string | null;
+  /** Whether the uploaded video has its own audio track. Gates the
+   *  "keep my audio" toggle — with no original audio there's nothing to mix. */
+  hasOriginalAudio?: boolean;
   description: string;
   tags: string[];
   videoId: string;
@@ -24,14 +39,16 @@ interface GeneratedTrackResultProps {
   isFreeUser?: boolean;
   isSelected?: boolean;
   onSelect?: () => void;
-  /** Called on export click; must resolve with { exportId, downloadUrl } on success. */
-  onExport?: () => Promise<ExportResult>;
+  /** Called on export click with the current audio-mix choice; must resolve
+   *  with { exportId, downloadUrl } on success. */
+  onExport?: (opts: ExportOptions) => Promise<ExportResult>;
 }
 
 export function GeneratedTrackResult({
   audioUrl,
   videoUrl,
   thumbnailUrl,
+  hasOriginalAudio = true,
   description,
   tags,
   optionLabel,
@@ -49,6 +66,8 @@ export function GeneratedTrackResult({
   const [currentTime, setCurrentTime]             = useState(0);
   const [isExporting, setIsExporting]             = useState(false);
   const [exportResult, setExportResult]           = useState<ExportResult | null>(null);
+  const [audioMode, setAudioMode]                 = useState<AudioMode>(DEFAULT_AUDIO_MODE);
+  const [musicLevel, setMusicLevel]               = useState<MusicLevel>(DEFAULT_MUSIC_LEVEL);
 
   // Keep the muted video in sync with the audio element.
   useEffect(() => {
@@ -73,6 +92,22 @@ export function GeneratedTrackResult({
       audio.removeEventListener("ended",  onEnded);
     };
   }, [audioUrl, videoUrl]);
+
+  // Preview roughly what will be exported: in "mix" mode, unmute the video
+  // (its own original audio) and set the music track's volume to the linear
+  // equivalent of the selected dB level, so the two are heard together at
+  // approximately the exported balance. In "replace" mode — or when there's
+  // no original audio to mix in the first place — this is exactly the
+  // pre-existing behavior: video muted, generated track alone at full volume.
+  useEffect(() => {
+    const audio = audioRef.current;
+    const video = videoRef.current;
+    if (!audio || !video) return;
+    const previewMix = hasOriginalAudio && audioMode === "mix";
+    video.muted = !previewMix;
+    video.volume = 1;
+    audio.volume = previewMix ? MUSIC_GAIN_LINEAR[musicLevel] : 1;
+  }, [hasOriginalAudio, audioMode, musicLevel]);
 
   const togglePlay = () => {
     const audio = audioRef.current;
@@ -122,7 +157,7 @@ export function GeneratedTrackResult({
     if (!onExport) return;
     setIsExporting(true);
     try {
-      const result = await onExport();
+      const result = await onExport({ audioMode, musicLevel });
       setExportResult(result);
       // Immediately kick off the download so it starts in the background
       // while the user reads the success state / decides to share.
@@ -240,6 +275,52 @@ export function GeneratedTrackResult({
             </div>
           </div>
         </div>
+
+        {/* Audio mix controls — only when the source video actually has its
+            own audio to keep, and hidden once exported (nothing left to tune). */}
+        {hasOriginalAudio && !exportResult && (
+          <div className="mb-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[#a0a0b8] text-xs font-medium">Keep my video&rsquo;s audio</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={audioMode === "mix"}
+                onClick={() => setAudioMode((m) => (m === "mix" ? "replace" : "mix"))}
+                className={`relative w-10 h-5 rounded-full flex-shrink-0 transition-colors ${
+                  audioMode === "mix" ? "bg-[#C8A96E]" : "bg-[#2A2A2A]"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                    audioMode === "mix" ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {audioMode === "mix" ? (
+              <div className="grid grid-cols-3 gap-1.5">
+                {(["quiet", "balanced", "loud"] as const).map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => setMusicLevel(level)}
+                    className={`text-xs font-medium py-1.5 rounded-lg capitalize transition-colors ${
+                      musicLevel === level
+                        ? "bg-[#C8A96E] text-[#0a0a0f]"
+                        : "bg-[#1E1E1E] text-[#a0a0b8] hover:text-white"
+                    }`}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[#6a6a8a] text-xs">Your original audio will be removed.</p>
+            )}
+          </div>
+        )}
 
         {/* Export button ↔ inline success state */}
         <div className="mt-auto" onClick={(e) => e.stopPropagation()}>

@@ -54,7 +54,24 @@ async function streamToBuffer(stream: Readable): Promise<Buffer> {
   });
 }
 
-async function extractFrames(videoBuffer: Buffer, videoId: string): Promise<string[]> {
+/** Whether the file has at least one audio stream. Benign default (true) on
+ *  probe failure/timeout — worst case a genuinely silent video keeps the
+ *  "keep my audio" option available and mixing just adds silence. */
+function probeHasAudio(inputPath: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const t = setTimeout(() => resolve(true), 5000);
+    ffmpeg.ffprobe(inputPath, (err, meta) => {
+      clearTimeout(t);
+      if (err || !meta?.streams) return resolve(true);
+      resolve(meta.streams.some((s) => s.codec_type === "audio"));
+    });
+  });
+}
+
+async function extractFrames(
+  videoBuffer: Buffer,
+  videoId: string
+): Promise<{ frames: string[]; hasAudioStream: boolean }> {
   const tmpDir = path.join(os.tmpdir(), `backbeat-${videoId}`);
   fs.mkdirSync(tmpDir, { recursive: true });
   const inputPath = path.join(tmpDir, "input.mp4");
@@ -68,7 +85,7 @@ async function extractFrames(videoBuffer: Buffer, videoId: string): Promise<stri
         "-f", "image2",
       ])
       .output(path.join(tmpDir, "frame-%03d.jpg"))
-      .on("end", () => {
+      .on("end", async () => {
         try {
           const files = fs.readdirSync(tmpDir)
             .filter((f) => f.startsWith("frame-") && f.endsWith(".jpg"))
@@ -76,8 +93,10 @@ async function extractFrames(videoBuffer: Buffer, videoId: string): Promise<stri
           const frames = files.map((f) =>
             fs.readFileSync(path.join(tmpDir, f)).toString("base64")
           );
+          // Probe while the file is still on disk, before cleanup.
+          const hasAudioStream = await probeHasAudio(inputPath);
           try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
-          resolve(frames);
+          resolve({ frames, hasAudioStream });
         } catch (err) {
           reject(err);
         }
@@ -212,14 +231,20 @@ export async function POST(req: NextRequest) {
         console.log(`[analyze][${videoId}] video fetched: ${videoBuffer.length}b`);
 
         // 2. VideoAnalysis — from cache (regenerate) or Claude (first run)
+        // hasAudioStream stays null on the cached/regenerate path — that path
+        // never re-extracts frames, and the existing Analysis row already has
+        // hasOriginalAudio set from when it was first created.
         let videoAnalysis: VideoAnalysis;
+        let hasAudioStream: boolean | null = null;
         if (cachedVideoAnalysis) {
           console.log(`[analyze][${videoId}] regenerate: reusing cached VideoAnalysis`);
           videoAnalysis = cachedVideoAnalysis;
         } else {
-          const frames = await extractFrames(videoBuffer, videoId);
+          const extracted = await extractFrames(videoBuffer, videoId);
+          const { frames } = extracted;
+          hasAudioStream = extracted.hasAudioStream;
           if (frames.length === 0) throw new Error("No frames could be extracted from the video");
-          console.log(`[analyze][${videoId}] extracted ${frames.length} frames`);
+          console.log(`[analyze][${videoId}] extracted ${frames.length} frames, hasAudioStream=${hasAudioStream}`);
 
           // Thumbnail for the results-page poster: reuse the first extracted
           // frame (512px-wide JPEG sampled at ~t=0) instead of a second ffmpeg
@@ -274,7 +299,7 @@ export async function POST(req: NextRequest) {
           generateDownloadPresignedUrl(OUTPUT_BUCKET, audioKey2, 86400),
         ]);
 
-        return { videoAnalysis, option1, option2, audioKey1, audioUrl1, audioKey2, audioUrl2 };
+        return { videoAnalysis, hasAudioStream, option1, option2, audioKey1, audioUrl1, audioKey2, audioUrl2 };
       })(),
       ANALYSIS_TIMEOUT_MS,
       "Music generation timed out — try uploading a shorter clip."
@@ -366,6 +391,10 @@ export async function POST(req: NextRequest) {
           generatedAudioUrl2: result.audioUrl2,
           // New: accumulated options array
           generatedOptions: JSON.parse(JSON.stringify(initOpts)),
+          // hasAudioStream is only null if extractFrames was somehow skipped
+          // on this branch, which shouldn't happen — default true is the
+          // same safe fallback the schema itself uses.
+          hasOriginalAudio: result.hasAudioStream ?? true,
         },
       });
 
