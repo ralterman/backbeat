@@ -422,7 +422,17 @@ export async function POST(req: NextRequest) {
     });
     console.log(`[export][${exportId}] complete`);
 
-    return NextResponse.json({ exportId, outputKey, downloadUrl, expiresAt });
+    // effectiveAudioMode lets the results page hide the "keep my audio"
+    // toggle immediately when a mix request fell back to replace, instead of
+    // showing it until the next reload picks up the corrected flag.
+    return NextResponse.json({
+      exportId,
+      outputKey,
+      downloadUrl,
+      expiresAt,
+      requestedAudioMode: audioMode,
+      effectiveAudioMode,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[export][${exportId}] FAILED: ${message}`);

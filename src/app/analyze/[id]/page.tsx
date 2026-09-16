@@ -112,6 +112,17 @@ export default function AnalysisResultsPage() {
       throw new Error(err.error ?? "Export failed");
     }
     const result = await res.json();
+
+    // The server falls back to "replace" when the source turns out to have
+    // no audio to mix (see effectiveAudioMode in /api/export). Reflect that
+    // immediately so every card on this page stops offering the toggle,
+    // instead of waiting for a reload to pick up the corrected flag.
+    if (audioMode === "mix" && result.effectiveAudioMode === "replace") {
+      setData((prev) =>
+        prev?.analysis ? { ...prev, analysis: { ...prev.analysis, hasOriginalAudio: false } } : prev
+      );
+    }
+
     return {
       exportId:    result.exportId    as string,
       outputKey:   result.outputKey   as string,
