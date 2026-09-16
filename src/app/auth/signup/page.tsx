@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { signIn } from "next-auth/react";
+import { CheckEmail } from "@/components/CheckEmail";
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("");
@@ -13,9 +14,19 @@ export default function SignUpPage() {
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    // Pre-existing gap, unchanged here: result?.error is not checked, so
+    // emailSent flips to true even if the send failed. Out of scope for this
+    // change — flagging rather than fixing silently.
     await signIn("resend", { email, callbackUrl: "/dashboard", redirect: false });
     setEmailSent(true);
     setLoading(false);
+  };
+
+  // Passed to CheckEmail, which owns the cooldown/error UI for this action —
+  // throw so it knows the send failed and shouldn't start the cooldown.
+  const handleResend = async () => {
+    const result = await signIn("resend", { email, callbackUrl: "/dashboard", redirect: false });
+    if (result?.error) throw new Error(result.error);
   };
 
   const handleGoogleSignUp = () => {
@@ -58,17 +69,7 @@ export default function SignUpPage() {
           </div>
 
           {emailSent ? (
-            <div className="text-center py-4">
-              <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h3 className="text-white font-semibold text-lg mb-2">Check your email</h3>
-              <p className="text-[#a0a0b8] text-sm">
-                We sent a magic link to <strong className="text-white">{email}</strong>. Click it to activate your account.
-              </p>
-            </div>
+            <CheckEmail email={email} actionText="activate your account" onResend={handleResend} />
           ) : (
             <>
               <button

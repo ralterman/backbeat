@@ -1,10 +1,11 @@
 "use client";
 
-import React, { Suspense, useState, useEffect, useRef } from "react";
+import React, { Suspense, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
+import { CheckEmail } from "@/components/CheckEmail";
 
 function SignInForm() {
   const searchParams = useSearchParams();
@@ -16,46 +17,16 @@ function SignInForm() {
   const [loading, setLoading] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
-  const RESEND_COOLDOWN_S = 30;
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const [resending, setResending] = useState(false);
-  const cooldownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const startCooldown = () => {
-    setResendCooldown(RESEND_COOLDOWN_S);
-    if (cooldownTimer.current) clearInterval(cooldownTimer.current);
-    cooldownTimer.current = setInterval(() => {
-      setResendCooldown((s) => {
-        if (s <= 1) {
-          if (cooldownTimer.current) clearInterval(cooldownTimer.current);
-          return 0;
-        }
-        return s - 1;
-      });
-    }, 1000);
-  };
-
-  useEffect(() => {
-    return () => { if (cooldownTimer.current) clearInterval(cooldownTimer.current); };
-  }, []);
-
-  const sendMagicLink = async (): Promise<boolean> => {
-    const result = await signIn("resend", { email, callbackUrl, redirect: false });
-    if (result?.error) {
-      setSendError(result.error);
-      return false;
-    }
-    return true;
-  };
-
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setSendError(null);
     try {
-      if (await sendMagicLink()) {
+      const result = await signIn("resend", { email, callbackUrl, redirect: false });
+      if (result?.error) {
+        setSendError(result.error);
+      } else {
         setEmailSent(true);
-        startCooldown();
       }
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Unknown error");
@@ -64,18 +35,11 @@ function SignInForm() {
     }
   };
 
+  // Passed to CheckEmail, which owns the cooldown/error UI for this action —
+  // throw so it knows the send failed and shouldn't start the cooldown.
   const handleResend = async () => {
-    if (resendCooldown > 0 || resending) return;
-    setResending(true);
-    setSendError(null);
-    try {
-      await sendMagicLink();
-      startCooldown();
-    } catch (err) {
-      setSendError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setResending(false);
-    }
+    const result = await signIn("resend", { email, callbackUrl, redirect: false });
+    if (result?.error) throw new Error(result.error);
   };
 
   const handleGoogleSignIn = () => {
@@ -95,39 +59,12 @@ function SignInForm() {
       )}
 
       {emailSent ? (
-        <div className="text-center py-4">
-          <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h3 className="text-white font-semibold text-lg mb-2">Check your email</h3>
-          <p className="text-[#a0a0b8] text-sm">
-            We sent a magic link to <strong className="text-white">{email}</strong>. Click it to sign in.
-          </p>
-          <p className="text-[#6a6a8a] text-xs mt-3 leading-relaxed">
-            Didn&apos;t get it? Check your spam or promotions folder, and mark it as not spam so future links land in your inbox.
-          </p>
-
-          <button
-            onClick={handleResend}
-            disabled={resendCooldown > 0 || resending}
-            className="mt-6 w-full border border-[#2A2A2A] hover:border-[#9090aa] disabled:hover:border-[#2A2A2A] text-[#a0a0b8] hover:text-white disabled:text-[#5a5a70] text-sm font-medium py-2.5 rounded-xl transition-colors"
-          >
-            {resending
-              ? "Resending…"
-              : resendCooldown > 0
-              ? `Resend link (${resendCooldown}s)`
-              : "Resend link"}
-          </button>
-
-          <button
-            onClick={() => setEmailSent(false)}
-            className="mt-4 text-[#a0a0b8] hover:text-white text-sm transition-colors"
-          >
-            Use a different email
-          </button>
-        </div>
+        <CheckEmail
+          email={email}
+          actionText="sign in"
+          onResend={handleResend}
+          onUseDifferentEmail={() => setEmailSent(false)}
+        />
       ) : (
         <>
           <button
