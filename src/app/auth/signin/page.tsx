@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
+import React, { Suspense, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { signIn } from "next-auth/react";
@@ -16,21 +16,65 @@ function SignInForm() {
   const [loading, setLoading] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
+  const RESEND_COOLDOWN_S = 30;
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resending, setResending] = useState(false);
+  const cooldownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startCooldown = () => {
+    setResendCooldown(RESEND_COOLDOWN_S);
+    if (cooldownTimer.current) clearInterval(cooldownTimer.current);
+    cooldownTimer.current = setInterval(() => {
+      setResendCooldown((s) => {
+        if (s <= 1) {
+          if (cooldownTimer.current) clearInterval(cooldownTimer.current);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+  };
+
+  useEffect(() => {
+    return () => { if (cooldownTimer.current) clearInterval(cooldownTimer.current); };
+  }, []);
+
+  const sendMagicLink = async (): Promise<boolean> => {
+    const result = await signIn("resend", { email, callbackUrl, redirect: false });
+    if (result?.error) {
+      setSendError(result.error);
+      return false;
+    }
+    return true;
+  };
+
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setSendError(null);
     try {
-      const result = await signIn("resend", { email, callbackUrl, redirect: false });
-      if (result?.error) {
-        setSendError(result.error);
-      } else {
+      if (await sendMagicLink()) {
         setEmailSent(true);
+        startCooldown();
       }
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (resendCooldown > 0 || resending) return;
+    setResending(true);
+    setSendError(null);
+    try {
+      await sendMagicLink();
+      startCooldown();
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -61,9 +105,25 @@ function SignInForm() {
           <p className="text-[#a0a0b8] text-sm">
             We sent a magic link to <strong className="text-white">{email}</strong>. Click it to sign in.
           </p>
+          <p className="text-[#6a6a8a] text-xs mt-3 leading-relaxed">
+            Didn&apos;t get it? Check your spam or promotions folder, and mark it as not spam so future links land in your inbox.
+          </p>
+
+          <button
+            onClick={handleResend}
+            disabled={resendCooldown > 0 || resending}
+            className="mt-6 w-full border border-[#2A2A2A] hover:border-[#9090aa] disabled:hover:border-[#2A2A2A] text-[#a0a0b8] hover:text-white disabled:text-[#5a5a70] text-sm font-medium py-2.5 rounded-xl transition-colors"
+          >
+            {resending
+              ? "Resending…"
+              : resendCooldown > 0
+              ? `Resend link (${resendCooldown}s)`
+              : "Resend link"}
+          </button>
+
           <button
             onClick={() => setEmailSent(false)}
-            className="mt-6 text-[#a0a0b8] hover:text-white text-sm transition-colors"
+            className="mt-4 text-[#a0a0b8] hover:text-white text-sm transition-colors"
           >
             Use a different email
           </button>
@@ -72,7 +132,7 @@ function SignInForm() {
         <>
           <button
             onClick={handleGoogleSignIn}
-            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-[#f0f0f0] text-[#0A0A0A] font-bold py-3 px-4 rounded-xl transition-colors mb-6"
+            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-[#f0f0f0] text-[#0A0A0A] font-bold py-3.5 px-4 rounded-xl transition-colors shadow-lg shadow-black/20 mb-2"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -82,6 +142,7 @@ function SignInForm() {
             </svg>
             Continue with Google
           </button>
+          <p className="text-center text-[#6a6a8a] text-xs mb-6">Fastest way to sign in</p>
 
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
@@ -107,10 +168,12 @@ function SignInForm() {
                 className="w-full bg-[#1E1E1E] border border-[#2A2A2A] text-white placeholder-[#6a6a8a] rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#C8A96E] focus:border-transparent"
               />
             </div>
+            {/* Secondary to Google's solid button above — an outline, not a
+                second solid fill, so Google reads as the primary option. */}
             <button
               type="submit"
               disabled={loading || !email}
-              className="w-full bg-white hover:bg-[#f0f0f0] disabled:bg-[#1E1E1E] disabled:text-[#6a6a8a] text-[#0a0a0f] font-bold py-3 px-4 rounded-xl transition-colors"
+              className="w-full border border-[#2A2A2A] hover:border-[#9090aa] disabled:hover:border-[#2A2A2A] text-[#a0a0b8] hover:text-white disabled:text-[#5a5a70] font-medium py-3 px-4 rounded-xl transition-colors"
             >
               {loading ? "Sending..." : "Send magic link"}
             </button>

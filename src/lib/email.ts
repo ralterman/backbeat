@@ -22,6 +22,9 @@ export async function sendEmail(opts: {
   to: string;
   subject: string;
   html: string;
+  /** Plain-text alternative. Strongly recommended for deliverability — an
+   *  HTML-only email is a spam signal to several filters. */
+  text?: string;
   replyTo?: string;
 }): Promise<string> {
   const { data, error } = await resend.emails.send({ from: FROM, ...opts });
@@ -35,7 +38,7 @@ export async function sendEmail(opts: {
 }
 
 /** Absolute URL for the current brand mark — email clients can't load relative paths or inline SVG reliably. */
-const LOGO_ICON_URL = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/brand/logo-icon.png`;
+export const LOGO_ICON_URL = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/brand/logo-icon.png`;
 
 /**
  * Shared chrome for every transactional email: site-dark background

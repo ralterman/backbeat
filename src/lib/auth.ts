@@ -3,7 +3,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import ResendProvider from "next-auth/providers/resend";
 import { prisma } from "@/lib/prisma";
-import { sendEmail, emailShell, ctaButton, divider } from "@/lib/email";
+import { sendEmail, LOGO_ICON_URL } from "@/lib/email";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -20,27 +20,45 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // auditable via the Resend message id logged below.
         console.log("[auth] Sending magic link to:", email);
 
-        // Same shell/button/divider as every other transactional email
-        // (upgrade, cancellation, email-change, etc.) — this was previously
-        // its own hand-rolled template with the old #0a0a0a background, old
-        // SVG mark, and a non-serif white wordmark.
-        const html = emailShell(`
-          <p style="margin:0 0 8px;color:#C8A96E;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Magic link</p>
-          <h1 style="margin:0 0 16px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2">Your sign-in link is ready</h1>
-          <p style="margin:0 0 32px;color:#a0a0b8;font-size:15px;line-height:1.6">
-            Click the button below to sign in to Backbeat. This link expires in <strong style="color:#ffffff">24 hours</strong> and can only be used once.
-          </p>
-          ${ctaButton("Sign in to Backbeat →", url)}
-          ${divider()}
-          <p style="margin:0 0 8px;color:#6a6a8a;font-size:12px">Didn't request this? You can safely ignore this email.</p>
-          <p style="margin:0;color:#6a6a8a;font-size:12px">If the button doesn't work, copy and paste this link:</p>
-          <p style="margin:8px 0 0;word-break:break-all">
-            <a href="${url}" style="color:#C8A96E;font-size:12px;text-decoration:none">${url}</a>
-          </p>
-        `);
+        // Deliberately minimal — unlike the marketing-styled shell used by
+        // upgrade/cancellation/etc. Deliverability for an auth email is hurt
+        // by heavy HTML: a single embedded image, one link, a short plain
+        // body, and a text alternative all reduce the odds of landing in
+        // spam/promotions. No tracking is added anywhere in this template
+        // (see sendEmail() in lib/email.ts — the Resend send call has no
+        // open/click tracking option at all; that's a domain-level toggle,
+        // not a per-email one, and this code never touches it).
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0a0a0f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0f;padding:40px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:420px">
+        <tr><td align="center" style="padding-bottom:24px">
+          <img src="${LOGO_ICON_URL}" width="24" height="37" alt="Backbeat" style="display:block;width:24px;height:37px;border:0">
+        </td></tr>
+        <tr><td style="color:#e0e0e8;font-size:15px;line-height:1.6">
+          <p style="margin:0 0 20px">Click below to sign in to Backbeat:</p>
+          <p style="margin:0 0 20px"><a href="${url}" style="color:#C8A96E;font-weight:600;text-decoration:underline">Sign in to Backbeat →</a></p>
+          <p style="margin:0;color:#6a6a8a;font-size:13px">This link expires in 24 hours and can only be used once. Didn't request this? You can ignore this email.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+        const text = `Click below to sign in to Backbeat:\n\n${url}\n\nThis link expires in 24 hours and can only be used once. Didn't request this? You can ignore this email.`;
 
         try {
-          const id = await sendEmail({ to: email, subject: "Sign in to Backbeat", html });
+          const id = await sendEmail({
+            to: email,
+            subject: "Sign in to Backbeat",
+            html,
+            text,
+            replyTo: "hello@backbeat.video",
+          });
           console.log("[auth] Magic link sent successfully, id:", id);
         } catch (err) {
           console.error("[auth] sendVerificationRequest failed:", err);
