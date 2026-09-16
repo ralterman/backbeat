@@ -177,17 +177,43 @@ async function mergeVideoAudio(
     // layer the music on top at the level-specific dB gain instead of the
     // flat 0.85. amix's own auto-normalize is disabled (normalize=0) because
     // it would rescale both inputs by input count and flatten the exact
-    // gain difference the three levels are supposed to produce; alimiter
-    // afterward is a transparent peak ceiling that only catches the rare
-    // case where original + music happen to sum above 0 dBFS, without
-    // otherwise touching perceived loudness.
+    // gain difference the three levels are supposed to produce.
+    //
+    // alimiter caps the sum below 0 dBFS — but only if level=false. alimiter
+    // defaults level=true ("auto level"), which renormalizes its output back
+    // up toward 0 dB after limiting, silently undoing the ceiling entirely
+    // (confirmed empirically: with level unset, changing `limit` from 0.97
+    // down to 0.25 made no difference to the final peak). With level=false,
+    // limit=0.5 (~-6 dBFS pre-encode) leaves enough margin to survive AAC's
+    // own lossy round-trip, which on hot/broadband source audio (continuous
+    // loud noise, not just typical dialogue/ambience) can reconstruct sample
+    // peaks 3-4 dB above whatever was fed to the encoder — a real limitation
+    // of ffmpeg's native `aac` encoder (the only one available on Vercel's
+    // Linux runtime; libfdk_aac is not built into ffmpeg-static). Verified:
+    // continuous white noise mixed at all three levels stays 1.9-2.6 dB
+    // below 0 dBFS after AAC encoding at limit=0.5; normal/moderate content
+    // is untouched since the limiter doesn't engage below its ceiling.
+    // atrim explicitly caps the audio at the video's real (ffprobe'd)
+    // duration instead of relying on the global -shortest flag. -shortest
+    // is unreliable here: verified it silently produced a near-silent
+    // ~0-length-effective audio track specifically for replace+watermark
+    // (three inputs — video, music, a still-image watermark with no
+    // inherent duration — with the video's own [0:a] never referenced
+    // anywhere in that mode's graph). mix+watermark happened to come out
+    // correct because [0:a] IS referenced there (via amix), which
+    // incidentally gave -shortest a well-formed duration to key off; but
+    // depending on that coincidence for one mode and not the other isn't
+    // something to leave in place. Explicit atrim is deterministic in
+    // every mode/watermark combination and no longer depends on -shortest
+    // at all, so it's dropped from outputOpts below.
+    const durationCap = videoDuration.toFixed(2);
     const musicChain = `[1:a]afade=t=in:st=0:d=2,afade=t=out:st=${fadeOutStart.toFixed(2)}:d=2`;
     const audioChain =
       audioMode === "mix"
         ? `${musicChain},volume=${MUSIC_GAIN_DB[musicLevel]}dB[music];` +
           `[0:a][music]amix=inputs=2:duration=first:dropout_transition=2:normalize=0[premix];` +
-          `[premix]alimiter=limit=0.97[aout]`
-        : `${musicChain},volume=0.85[aout]`;
+          `[premix]alimiter=limit=0.5:level=false,atrim=0:${durationCap}[aout]`
+        : `${musicChain},volume=0.85,atrim=0:${durationCap}[aout]`;
 
     let filterComplex: string;
     let outputOpts: string[];
@@ -207,14 +233,14 @@ async function mergeVideoAudio(
       outputOpts = [
         "-map", "[vout]", "-map", "[aout]",
         "-c:v", "libx264", "-preset", "ultrafast", "-crf", "26",
-        "-c:a", "aac", "-shortest",
+        "-c:a", "aac",
       ];
     } else {
       filterComplex = audioChain;
       outputOpts = [
         "-map", "0:v:0", "-map", "[aout]",
         "-c:v", "copy",
-        "-c:a", "aac", "-shortest",
+        "-c:a", "aac",
       ];
     }
 
