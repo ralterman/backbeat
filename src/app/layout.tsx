@@ -17,38 +17,46 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+// Single source for the three places each of these appears (page, Open
+// Graph, Twitter) so they can't drift apart again.
+const SITE_TITLE = "Backbeat: AI Soundtracks for Your Videos";
+const SITE_DESCRIPTION =
+  "Upload your video and Backbeat generates a custom AI soundtrack to match it. Keeps your original audio by default. No copyright strikes.";
+// Absolute URL, and a versioned filename: social platforms cache preview
+// images by URL for a long time, so a new image needs a new name
+// (og-v3.png next time) rather than overwriting this one.
+const OG_IMAGE_URL = "https://backbeat.video/og-v2.png";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://backbeat.video"),
   alternates: { canonical: "https://backbeat.video" },
-  title: "Backbeat — Find the Perfect Music for Your Videos",
-  description:
-    "Upload your video and get AI-powered background music recommendations. Find the perfect track in seconds.",
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
   icons: {
     icon: "/brand/favicon-gold.png",
     shortcut: "/brand/favicon-gold.png",
     apple: "/brand/favicon-gold.png",
   },
   openGraph: {
-    title: "Backbeat — Find the Perfect Music for Your Videos",
-    description:
-      "Upload your video and get AI-powered background music recommendations. Find the perfect track in seconds.",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     url: "https://backbeat.video",
+    siteName: "Backbeat",
     images: [
       {
-        url: "/brand/og-image.png",
+        url: OG_IMAGE_URL,
         width: 1200,
         height: 630,
-        alt: "Backbeat — Find the Perfect Music for Your Videos",
+        alt: SITE_TITLE,
       },
     ],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Backbeat — Find the Perfect Music for Your Videos",
-    description:
-      "Upload your video and get AI-powered background music recommendations. Find the perfect track in seconds.",
-    images: ["/brand/og-image.png"],
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [OG_IMAGE_URL],
   },
 };
 
