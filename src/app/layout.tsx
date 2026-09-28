@@ -24,8 +24,10 @@ const SITE_DESCRIPTION =
   "Upload your video and Backbeat generates a custom AI soundtrack to match it. Keeps your original audio by default. No copyright strikes.";
 // Absolute URL, and a versioned filename: social platforms cache preview
 // images by URL for a long time, so a new image needs a new name
-// (og-v3.png next time) rather than overwriting this one.
-const OG_IMAGE_URL = "https://backbeat.video/og-v2.png";
+// (og-v4.png next time) rather than overwriting this one.
+// Composition is center-safe: all content sits inside the middle 630×630
+// square, because some surfaces crop the 1200×630 card to a square.
+const OG_IMAGE_URL = "https://backbeat.video/og-v3.png";
 // Icons keep their conventional filenames (browsers and iOS probe for
 // /favicon.ico and /apple-touch-icon.png by name), so cache-busting is a
 // query string instead of a new filename. Bump when the artwork changes.
