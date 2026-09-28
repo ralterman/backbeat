@@ -26,16 +26,33 @@ const SITE_DESCRIPTION =
 // images by URL for a long time, so a new image needs a new name
 // (og-v3.png next time) rather than overwriting this one.
 const OG_IMAGE_URL = "https://backbeat.video/og-v2.png";
+// Icons keep their conventional filenames (browsers and iOS probe for
+// /favicon.ico and /apple-touch-icon.png by name), so cache-busting is a
+// query string instead of a new filename. Bump when the artwork changes.
+const ICON_BASE = "https://backbeat.video";
+const ICON_V = "?v=2";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://backbeat.video"),
   alternates: { canonical: "https://backbeat.video" },
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
+  // Every icon is a true square (the old /brand/favicon-gold.png was 323×498,
+  // which link-preview cards stretched into a square box). Opaque #0a0a0f
+  // tile: the gold mark on a transparent background is ~2.3:1 against white
+  // and washes out in light-mode tabs and light-theme previews.
+  // There is deliberately no src/app/favicon.ico — Next would emit its own
+  // relative, hashed <link> for it alongside these.
   icons: {
-    icon: "/brand/favicon-gold.png",
-    shortcut: "/brand/favicon-gold.png",
-    apple: "/brand/favicon-gold.png",
+    icon: [
+      { url: `${ICON_BASE}/favicon.ico${ICON_V}`, sizes: "16x16 32x32 48x48", type: "image/x-icon" },
+      { url: `${ICON_BASE}/icon-32.png${ICON_V}`, sizes: "32x32", type: "image/png" },
+      { url: `${ICON_BASE}/icon-192.png${ICON_V}`, sizes: "192x192", type: "image/png" },
+      { url: `${ICON_BASE}/icon-512.png${ICON_V}`, sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: `${ICON_BASE}/apple-touch-icon.png${ICON_V}`, sizes: "180x180", type: "image/png" },
+    ],
   },
   openGraph: {
     title: SITE_TITLE,
