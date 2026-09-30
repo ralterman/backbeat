@@ -2,11 +2,21 @@
  * ElevenLabs video-to-music integration.
  *
  * Converts a Claude VideoAnalysis into a music description + tags,
- * then calls the ElevenLabs Music v2 API to generate a custom MP3
- * that matches the video's mood, energy, and scene context.
+ * then calls the ElevenLabs Music API (video-to-music) to generate a
+ * custom MP3 that matches the video's mood, energy, and scene context.
  */
 
 import { VideoAnalysis } from "@/lib/analyze";
+
+/**
+ * ElevenLabs music model. Set explicitly because the API's own default is
+ * still `music_v1` during its deprecation window. Overridable via env so a
+ * model change is a config change, not a deploy; the fallback tracks the
+ * current best model (`music_v2_5`, Sept 2026). Verified on video-to-music:
+ * v2 and v2.5 cost the same per generation and return the same response
+ * shape, so this is safe to change without touching the code below.
+ */
+const MUSIC_MODEL = process.env.ELEVENLABS_MUSIC_MODEL || "music_v2_5";
 
 export interface GeneratedMusic {
   audioBuffer: ArrayBuffer;
@@ -135,9 +145,9 @@ async function callElevenLabsMusicAPI(
   formData.append("videos", videoBlob, "video.mp4");
   formData.append("description", description);
   tags.forEach((tag) => formData.append("tags", tag));
-  formData.append("model_id", "music_v2");
+  formData.append("model_id", MUSIC_MODEL);
 
-  console.log(`[elevenlabs${label}] videoBlob: ${videoBlob.size}b, desc (${description.length} ch): ${description.slice(0, 80)}...`);
+  console.log(`[elevenlabs${label}] model=${MUSIC_MODEL} videoBlob: ${videoBlob.size}b, desc (${description.length} ch): ${description.slice(0, 80)}...`);
   console.log(`[elevenlabs${label}] tags: ${tags.join(", ")}`);
   console.log(`[elevenlabs${label}] calling video-to-music API...`);
 
