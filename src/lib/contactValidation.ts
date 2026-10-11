@@ -10,7 +10,7 @@ export interface ContactInput {
   message: string;
 }
 
-export const MIN_MESSAGE_LENGTH = 20;
+export const MIN_MESSAGE_LENGTH = 10;
 
 /** Share of a message that must be ordinary text (letters, spaces, common
  *  punctuation) before it is treated as real words. Below this it's mostly
@@ -63,7 +63,7 @@ export function validateContact(input: Partial<ContactInput>): string | null {
     return "Please enter a valid email address.";
   }
   if (message.length < MIN_MESSAGE_LENGTH) {
-    return `Please tell us a little more — messages need to be at least ${MIN_MESSAGE_LENGTH} characters.`;
+    return "Please add a bit more to your message.";
   }
   if (!/\s/.test(message)) {
     return "That message looks like a single word or link. Please write a sentence or two.";
