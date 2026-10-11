@@ -1,14 +1,23 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
+import { Turnstile, TURNSTILE_SITE_KEY, type TurnstileHandle } from "@/components/Turnstile";
 
 export default function ContactPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  // Honeypot. Hidden from people via CSS (not type="hidden", which bots
+  // skip); anything typed here marks the submission as automated.
+  const [website, setWebsite] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileHandle | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Only gate on the token when the widget is actually configured.
+  const needsToken = !!TURNSTILE_SITE_KEY && !turnstileToken;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,16 +28,19 @@ export default function ContactPage() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, message }),
+        body: JSON.stringify({ name, email, message, website, turnstileToken }),
       });
       const json = await res.json() as { ok?: boolean; error?: string };
       if (!res.ok) {
         setError(json.error ?? "Something went wrong. Please try again.");
+        // Turnstile tokens are single-use: get a fresh one for the retry.
+        turnstileRef.current?.reset();
       } else {
         setSuccess(true);
       }
     } catch {
       setError("Network error. Please try again.");
+      turnstileRef.current?.reset();
     } finally {
       setSubmitting(false);
     }
@@ -93,6 +105,31 @@ export default function ContactPage() {
                 />
               </div>
 
+              {/* Honeypot: off-screen and inert for people (and screen
+                  readers), but present in the DOM for bots that fill every
+                  text input. Name chosen because "website" is a field bots
+                  are eager to complete. */}
+              <div
+                aria-hidden="true"
+                style={{ position: "absolute", left: "-10000px", top: "auto", width: "1px", height: "1px", overflow: "hidden" }}
+              >
+                <label htmlFor="website">Website</label>
+                <input
+                  id="website"
+                  name="website"
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                />
+              </div>
+
+              <Turnstile
+                onToken={setTurnstileToken}
+                onReady={(h) => { turnstileRef.current = h; }}
+              />
+
               {error && (
                 <div className="flex items-center gap-2 text-red-400 bg-red-900/20 border border-red-800/30 rounded-lg px-4 py-3 text-sm">
                   <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -104,7 +141,7 @@ export default function ContactPage() {
 
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || needsToken}
                 className="px-6 py-3 rounded-xl font-semibold text-sm transition-colors disabled:opacity-60"
                 style={{ background: "#C8A96E", color: "#0a0a0f" }}
               >
