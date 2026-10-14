@@ -18,6 +18,34 @@ import { VideoAnalysis } from "@/lib/analyze";
  */
 const MUSIC_MODEL = process.env.ELEVENLABS_MUSIC_MODEL || "music_v2_5";
 
+/**
+ * Thrown when ElevenLabs refuses a generation because the account is out of
+ * credits. Callers treat it differently from every other failure: it's not
+ * the user's fault, retrying won't help until the balance is topped up, and
+ * the admin needs to know. `message` is safe to show to end users.
+ */
+export class ElevenLabsQuotaError extends Error {
+  readonly name = "ElevenLabsQuotaError";
+  constructor(public readonly status: number, public readonly detail: string) {
+    super(QUOTA_USER_MESSAGE);
+  }
+}
+
+export const QUOTA_USER_MESSAGE =
+  "Music generation is temporarily paused. We’ve been notified and it’ll be back shortly.";
+
+/**
+ * ElevenLabs reports an exhausted balance as HTTP 401 (not 402) with a body
+ * whose detail.status is "quota_exceeded"; the music endpoints have also
+ * been seen returning detail.type "payment_required" / code
+ * "insufficient_credits". Match on the body, not just the status code — a
+ * 401 is also what a bad API key returns.
+ */
+export function isQuotaExhausted(status: number, body: string): boolean {
+  if (status !== 401 && status !== 402) return false;
+  return /quota_exceeded|insufficient_credits|payment_required|exceeds your quota/i.test(body);
+}
+
 export interface GeneratedMusic {
   audioBuffer: ArrayBuffer;
   description: string;
@@ -166,6 +194,9 @@ async function callElevenLabsMusicAPI(
 
   if (!response.ok) {
     const errText = await response.text().catch(() => "(no body)");
+    if (isQuotaExhausted(response.status, errText)) {
+      throw new ElevenLabsQuotaError(response.status, errText.slice(0, 500));
+    }
     throw new Error(`ElevenLabs error (${response.status}): ${errText}`);
   }
 

@@ -29,6 +29,8 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   GENERATING: { label: "Generating...", color: "text-[#C8A96E] bg-[#C8A96E]/10" },
   ANALYZED: { label: "Analyzed", color: "text-green-400 bg-green-900/20" },
   FAILED: { label: "Failed", color: "text-red-400 bg-red-900/20" },
+  // Music generation paused on our side (ElevenLabs credits), retryable.
+  PAUSED: { label: "Paused — retry soon", color: "text-amber-300 bg-amber-900/20" },
 };
 
 export default async function DashboardPage({

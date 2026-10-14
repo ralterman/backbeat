@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { analyzeVideoFrames, VideoAnalysis } from "@/lib/analyze";
-import { generateMusicOptionsFromVideo } from "@/lib/elevenlabs";
+import { generateMusicOptionsFromVideo, ElevenLabsQuotaError } from "@/lib/elevenlabs";
+import { notifyAdminThrottled, elevenLabsQuotaAlert, ONE_HOUR_MS } from "@/lib/alerts";
 import { incrementUsage, getUserPlan, canAnalyze, OPTION_CAPS, HARD_MAX_OPTIONS } from "@/lib/usage";
 import { PLAN_LABELS } from "@/lib/plans";
 import { isAdminEmail } from "@/lib/admin";
@@ -406,6 +407,16 @@ export async function POST(req: NextRequest) {
     }
 
   } catch (err) {
+    // Out of ElevenLabs credits: not the user's fault and not a failure of
+    // their video. Park it as PAUSED (the owner can retry after a top-up),
+    // tell the user plainly, and page the admin — at most once an hour.
+    if (err instanceof ElevenLabsQuotaError) {
+      await prisma.video.update({ where: { id: videoId }, data: { status: "PAUSED" } });
+      console.error(`[analyze][${videoId}] ElevenLabs quota exhausted (${err.status}): ${err.detail}`);
+      await notifyAdminThrottled("elevenlabs-quota", ONE_HOUR_MS, elevenLabsQuotaAlert({ videoId, userId, detail: err.detail }));
+      return NextResponse.json({ error: err.message, status: "PAUSED" }, { status: 503 });
+    }
+
     const message = err instanceof Error ? err.message : "Analysis failed. Please try again.";
     await prisma.video.update({ where: { id: videoId }, data: { status: "FAILED" } });
     console.error(`[analyze][${videoId}] error:`, err);

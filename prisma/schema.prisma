@@ -116,6 +116,10 @@ enum VideoStatus {
   GENERATING
   ANALYZED
   FAILED
+  // Music generation stopped because the ElevenLabs account is out of
+  // credits — not the user's fault and not a failure of their video. The
+  // owner can retry once credits are topped up. See analyze/route.ts.
+  PAUSED
 }
 
 model Analysis {
@@ -215,6 +219,14 @@ enum SubscriptionStatus {
   PAST_DUE
   CANCELED
   TRIALING
+}
+
+// Rate-limits operational alerts (e.g. "ElevenLabs out of credits") to one
+// email per key per window. A table rather than an in-memory map because
+// Vercel runs many function instances. See src/lib/alerts.ts.
+model AlertThrottle {
+  key        String   @id
+  lastSentAt DateTime
 }
 
 model UsageRecord {

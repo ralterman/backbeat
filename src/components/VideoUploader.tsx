@@ -13,6 +13,11 @@ const ANALYSIS_STATUS_MESSAGES: Record<string, string> = {
   GENERATING: "Generating your soundtracks — usually 30–40 seconds...",
 };
 
+// Shown when the server parks a video as PAUSED (ElevenLabs out of credits).
+// Mirrors QUOTA_USER_MESSAGE in src/lib/elevenlabs.ts, which is server-only.
+const PAUSED_MESSAGE =
+  "Music generation is temporarily paused. We’ve been notified and it’ll be back shortly.";
+
 async function getApiErrorMessage(res: Response, fallback: string): Promise<string> {
   try {
     const data = (await res.json()) as { error?: string };
@@ -58,6 +63,10 @@ export function VideoUploader() {
         } else if (json.status === "FAILED") {
           if (pollingRef.current) clearInterval(pollingRef.current);
           setError("Analysis failed. Please try again.");
+          setStatus("error");
+        } else if (json.status === "PAUSED") {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          setError(PAUSED_MESSAGE);
           setStatus("error");
         } else {
           setAnalysisStatus(json.status);

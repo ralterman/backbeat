@@ -48,6 +48,7 @@ export default function AnalysisResultsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
   const [isFreeUser, setIsFreeUser] = useState(true);
   const [optionCap, setOptionCap] = useState(DEFAULT_OPTION_CAP);
@@ -130,6 +131,28 @@ export default function AnalysisResultsPage() {
     };
   };
 
+  // Re-run a first analysis for a PAUSED/FAILED video. Deliberately NOT
+  // `regenerate: true` — that path is for adding options to an existing
+  // analysis and is plan-gated; this is the original analysis being retried.
+  const handleRetry = async () => {
+    setRetrying(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Retry failed");
+      await fetchResults();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Retry failed");
+    } finally {
+      setRetrying(false);
+    }
+  };
+
   const handleRegenerate = async () => {
     setRegenerating(true);
     setRegenError(null);
@@ -167,6 +190,41 @@ export default function AnalysisResultsPage() {
 
   if (loading || !data?.analysis) {
     const videoStatus = data?.status;
+
+    // Terminal states for a video with no analysis yet. Without this branch
+    // both sat on the "Creating your music..." spinner forever.
+    //  PAUSED — ElevenLabs credits ran out on our side; retryable later.
+    //  FAILED — the attempt errored; retryable.
+    if (videoStatus === "PAUSED" || videoStatus === "FAILED") {
+      const paused = videoStatus === "PAUSED";
+      return (
+        <div className="max-w-4xl mx-auto px-4 py-24 text-center">
+          <div className={`rounded-2xl p-10 border ${paused ? "bg-amber-900/15 border-amber-800/30" : "bg-red-900/20 border-red-800/30"}`}>
+            <p className={`text-lg font-medium mb-2 ${paused ? "text-amber-300" : "text-red-400"}`}>
+              {paused
+                ? "Music generation is temporarily paused. We’ve been notified and it’ll be back shortly."
+                : "Something went wrong generating music for this video."}
+            </p>
+            <p className="text-[#a0a0b8] text-sm mb-6">
+              {paused ? "Your video is saved — check back in a little while and try again." : "You can try again now."}
+            </p>
+            <button
+              onClick={handleRetry}
+              disabled={retrying}
+              className="px-6 py-2.5 bg-[#C8A96E] hover:bg-[#d4b87a] disabled:opacity-60 text-[#0a0a0f] font-bold rounded-xl text-sm transition-colors"
+            >
+              {retrying ? "Retrying…" : "Try again"}
+            </button>
+            <div className="mt-6">
+              <Link href="/dashboard" className="text-[#C8A96E] hover:text-white transition-colors text-sm">
+                ← Back to Dashboard
+              </Link>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     const statusMessage =
       videoStatus === "GENERATING" || regenerating
         ? "Generating your soundtracks — usually 30–40 seconds..."
