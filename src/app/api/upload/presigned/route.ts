@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { canAnalyze } from "@/lib/usage";
 import { isAdminEmail } from "@/lib/admin";
 import { randomUUID } from "crypto";
+import { isUploadTooLarge, UPLOAD_TOO_LARGE_MESSAGE } from "@/lib/uploadLimits";
 
 const ALLOWED_TYPES: Record<string, string> = {
   "video/mp4": "mp4",
@@ -12,8 +13,6 @@ const ALLOWED_TYPES: Record<string, string> = {
   "video/x-msvideo": "avi",
   "video/x-matroska": "mkv",
 };
-
-const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -56,11 +55,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (fileSize > MAX_FILE_SIZE) {
-    return NextResponse.json(
-      { error: "File too large. Maximum size is 500MB" },
-      { status: 400 }
-    );
+  if (isUploadTooLarge(fileSize)) {
+    return NextResponse.json({ error: UPLOAD_TOO_LARGE_MESSAGE }, { status: 400 });
   }
 
   const videoId = randomUUID();

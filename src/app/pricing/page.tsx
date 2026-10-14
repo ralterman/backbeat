@@ -37,7 +37,7 @@ const faqs = [
   },
   {
     q: "What file formats are supported?",
-    a: "We support MP4, MOV, AVI, and MKV files up to 500MB per video.",
+    a: "We support MP4, MOV, AVI, and MKV files up to 150 MB per video. Larger files aren't supported yet — trim or compress first.",
   },
   {
     q: "Are the tracks licensed for commercial use?",

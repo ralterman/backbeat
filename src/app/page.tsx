@@ -212,7 +212,7 @@ export default function LandingPage() {
               {
                 step: "01",
                 title: "Upload your video",
-                desc: "Drag and drop your video file (MP4, MOV, AVI, MKV). Up to 500MB.",
+                desc: "Drag and drop your video file (MP4, MOV, AVI, MKV). Up to 150 MB.",
               },
               {
                 step: "02",

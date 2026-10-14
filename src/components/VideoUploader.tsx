@@ -2,11 +2,11 @@
 
 import React, { useCallback, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { isUploadTooLarge, UPLOAD_TOO_LARGE_MESSAGE, MAX_UPLOAD_MB } from "@/lib/uploadLimits";
 
 type UploadStatus = "idle" | "uploading" | "analyzing" | "done" | "error";
 
 const ACCEPTED_TYPES = ["video/mp4", "video/quicktime", "video/x-msvideo", "video/x-matroska"];
-const MAX_SIZE = 500 * 1024 * 1024;
 
 const ANALYSIS_STATUS_MESSAGES: Record<string, string> = {
   ANALYZING:  "Analyzing with AI — reading mood, energy, and scene...",
@@ -99,9 +99,9 @@ export function VideoUploader() {
         setError("Unsupported file type. Please upload MP4, MOV, AVI, or MKV.");
         return;
       }
-      if (file.size > MAX_SIZE) {
+      if (isUploadTooLarge(file.size)) {
         setStatus("error");
-        setError("File too large. Maximum size is 500MB.");
+        setError(UPLOAD_TOO_LARGE_MESSAGE);
         return;
       }
 
@@ -247,7 +247,7 @@ export function VideoUploader() {
                   {isDragging ? "Drop your video here" : "Upload your video"}
                 </p>
                 <p className="text-[#a0a0b8] text-sm mt-1">
-                  Drag &amp; drop or click to browse — MP4, MOV, AVI, MKV up to 500MB
+                  Drag &amp; drop or click to browse — MP4, MOV, AVI, MKV up to {MAX_UPLOAD_MB} MB
                 </p>
               </div>
             </>
@@ -326,7 +326,7 @@ function uploadToS3(
     const startedAt = Date.now();
     let lastLoaded = 0;
 
-    // No client-side deadline: a 500 MB file over cellular can legitimately
+    // No client-side deadline: a 150 MB file over cellular can legitimately
     // take many minutes and the presigned URL is valid for an hour. We only
     // abort on a true stall (no bytes for 2 min), which distinguishes a dead
     // connection from a slow one.

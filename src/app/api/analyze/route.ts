@@ -15,6 +15,7 @@ import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 import { probeMedia } from "@/lib/probe";
+import { isUploadTooLarge, UPLOAD_TOO_LARGE_MESSAGE } from "@/lib/uploadLimits";
 import { Readable } from "stream";
 import * as fs from "fs";
 import * as path from "path";
@@ -137,6 +138,14 @@ export async function POST(req: NextRequest) {
 
   if (video.status === "ANALYZING" || video.status === "GENERATING") {
     return NextResponse.json({ error: "Analysis already in progress" }, { status: 409 });
+  }
+
+  // Defense in depth for the upload cap (the presign route enforces it
+  // first): files above the limit can't be processed safely in this
+  // function's memory, and any that slipped in before the cap existed must
+  // not be retried into the same crash.
+  if (isUploadTooLarge(video.fileSize)) {
+    return NextResponse.json({ error: UPLOAD_TOO_LARGE_MESSAGE }, { status: 400 });
   }
 
   // ── Non-regenerate: return existing result early ────────────────────────
