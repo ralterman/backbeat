@@ -54,6 +54,18 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // First-touch attribution, copied from the bb_attr cookie when the row is
+  // created (see src/lib/attribution.ts and the createUser event in auth.ts).
+  // All nullable: users whose first visit predates capture have nothing.
+  signupReferrer        String?   @db.Text
+  signupLandingPath     String?   @db.Text
+  utmSource             String?
+  utmMedium             String?
+  utmCampaign           String?
+  utmTerm               String?
+  utmContent            String?
+  attributionCapturedAt DateTime?
+
   accounts            Account[]
   sessions            Session[]
   videos              Video[]

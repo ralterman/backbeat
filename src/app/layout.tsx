@@ -5,6 +5,7 @@ import { SessionProvider } from "next-auth/react";
 import { Navbar } from "@/components/Navbar";
 import { ConditionalAnalytics } from "@/components/ConditionalAnalytics";
 import { CookiePreferencesButton } from "@/components/CookiePreferencesButton";
+import { AttributionCapture } from "@/components/AttributionCapture";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -97,6 +98,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col text-white">
         <SessionProvider>
+          <AttributionCapture />
           <Navbar />
           <main className="flex-1 pt-16">{children}</main>
           <ConditionalAnalytics />

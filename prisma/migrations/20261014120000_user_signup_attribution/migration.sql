@@ -1,0 +1,9 @@
+-- First-touch attribution captured at signup (referrer, landing path, UTMs).
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "signupReferrer"        TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "signupLandingPath"     TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "utmSource"             TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "utmMedium"             TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "utmCampaign"           TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "utmTerm"               TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "utmContent"            TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "attributionCapturedAt" TIMESTAMP(3);

@@ -4,6 +4,8 @@ import GoogleProvider from "next-auth/providers/google";
 import ResendProvider from "next-auth/providers/resend";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, LOGO_ICON_EMAIL_URL } from "@/lib/email";
+import { cookies } from "next/headers";
+import { ATTRIBUTION_COOKIE, parseAttributionCookie, attributionToUserFields } from "@/lib/attribution";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -69,6 +71,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   session: {
     strategy: "jwt",
+  },
+  events: {
+    // Copy first-touch attribution from the bb_attr cookie onto the new User
+    // row. Runs inside the auth route handler, so the request's cookies are
+    // available via next/headers. Best-effort: nothing here may break a
+    // signup, so every failure is swallowed and logged.
+    async createUser({ user }) {
+      try {
+        if (!user.id) return;
+        const jar = await cookies();
+        const attribution = parseAttributionCookie(jar.get(ATTRIBUTION_COOKIE)?.value);
+        if (!attribution) return;
+        await prisma.user.update({ where: { id: user.id }, data: attributionToUserFields(attribution) });
+        console.log(`[auth] attribution stored for new user ${user.id}: ref=${attribution.referrer || "direct"} landing=${attribution.landingPath}`);
+      } catch (err) {
+        console.error("[auth] attribution capture failed (ignored):", err);
+      }
+    },
   },
   callbacks: {
     async jwt({ token, user, trigger }) {
