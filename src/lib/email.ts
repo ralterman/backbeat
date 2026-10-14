@@ -38,11 +38,19 @@ export async function sendEmail(opts: {
 }
 
 /** Absolute URL for the current brand mark — email clients can't load relative paths or inline SVG reliably. */
-export const LOGO_ICON_URL = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/brand/logo-icon.png`;
+/**
+ * Image assets referenced from emails are fetched by the recipient's mail
+ * client, so they must always point at the public production host —
+ * never at whatever NEXTAUTH_URL is in the sending environment
+ * (localhost in dev, a preview URL on a branch deploy). Hardcoded on
+ * purpose. Navigational links (dashboard, portal) stay env-derived below.
+ */
+const EMAIL_ASSET_ORIGIN = "https://backbeat.video";
+export const LOGO_ICON_URL = `${EMAIL_ASSET_ORIGIN}/brand/logo-icon.png`;
 /** 72×111 px (2× for a 36×55 render), ~6 KB — for the magic-link email, where
  *  pulling the 2512×3883 / 142 KB master for a thumbnail-sized mark is the
  *  heaviest thing in an otherwise minimal message. */
-export const LOGO_ICON_EMAIL_URL = `${process.env.NEXTAUTH_URL ?? "https://backbeat.video"}/brand/logo-icon-email.png`;
+export const LOGO_ICON_EMAIL_URL = `${EMAIL_ASSET_ORIGIN}/brand/logo-icon-email.png`;
 
 /**
  * Shared chrome for every transactional email: site-dark background
