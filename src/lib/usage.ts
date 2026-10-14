@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import { SubscriptionPlan } from "@prisma/client";
+import { SubscriptionPlan, type Prisma } from "@prisma/client";
+
+/** Either the global client or a transaction client — the helpers below
+ *  work inside reserveAnalysisSlot's transaction as well as outside it. */
+type Db = Prisma.TransactionClient;
 
 // FREE    = 1 lifetime analysis (not monthly)
 // CREATOR = 15/month
@@ -37,8 +41,8 @@ function currentMonth(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export async function getUserPlan(userId: string): Promise<SubscriptionPlan> {
-  const sub = await prisma.subscription.findUnique({ where: { userId } });
+export async function getUserPlan(userId: string, db: Db = prisma): Promise<SubscriptionPlan> {
+  const sub = await db.subscription.findUnique({ where: { userId } });
   if (!sub || sub.status === "CANCELED") return "FREE";
   return sub.plan;
 }
@@ -49,13 +53,14 @@ export async function getUserPlan(userId: string): Promise<SubscriptionPlan> {
  */
 export async function getUsageCount(
   userId: string,
-  action: "analysis" | "export" = "analysis"
+  action: "analysis" | "export" = "analysis",
+  db: Db = prisma
 ): Promise<number> {
-  const plan = await getUserPlan(userId);
+  const plan = await getUserPlan(userId, db);
 
   if (plan === "FREE") {
     // Lifetime count — sum all months
-    const records = await prisma.usageRecord.findMany({
+    const records = await db.usageRecord.findMany({
       where: { userId, action },
     });
     return records.reduce((sum, r) => sum + r.count, 0);
@@ -63,10 +68,59 @@ export async function getUsageCount(
 
   // Monthly count for paid plans
   const month = currentMonth();
-  const record = await prisma.usageRecord.findUnique({
+  const record = await db.usageRecord.findUnique({
     where: { userId_action_month: { userId, action, month } },
   });
   return record?.count ?? 0;
+}
+
+/**
+ * Claim an analysis slot BEFORE generation starts. Returns false if the
+ * user is at their limit.
+ *
+ * Check-and-increment runs in one transaction under a per-user advisory
+ * lock, so two requests racing for the same user's last slot serialize:
+ * the second waits, re-reads the count the first just wrote, and is
+ * refused. (The old flow checked at request start and incremented only
+ * after a successful generation — a free user could start a second
+ * analysis while the first was still generating and get two.)
+ *
+ * Pair with releaseAnalysisSlot() on any failure so a crash, timeout or
+ * out-of-credits pause doesn't burn the slot.
+ */
+export async function reserveAnalysisSlot(userId: string): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
+    const plan = await getUserPlan(userId, tx);
+    const used = await getUsageCount(userId, "analysis", tx);
+    if (used >= MONTHLY_LIMITS[plan]) return false;
+    const month = currentMonth();
+    await tx.usageRecord.upsert({
+      where: { userId_action_month: { userId, action: "analysis", month } },
+      update: { count: { increment: 1 } },
+      create: { userId, action: "analysis", month, count: 1 },
+    });
+    return true;
+  });
+}
+
+/** Give back a slot claimed by reserveAnalysisSlot(). Decrements this
+ *  month's record, or — if the reservation straddled a month boundary —
+ *  the most recent record that still has a count. Never goes below zero. */
+export async function releaseAnalysisSlot(userId: string): Promise<void> {
+  const month = currentMonth();
+  const r = await prisma.usageRecord.updateMany({
+    where: { userId, action: "analysis", month, count: { gt: 0 } },
+    data: { count: { decrement: 1 } },
+  });
+  if (r.count > 0) return;
+  const latest = await prisma.usageRecord.findFirst({
+    where: { userId, action: "analysis", count: { gt: 0 } },
+    orderBy: { month: "desc" },
+  });
+  if (latest) {
+    await prisma.usageRecord.update({ where: { id: latest.id }, data: { count: { decrement: 1 } } });
+  }
 }
 
 export async function getUsageLimit(userId: string): Promise<number> {

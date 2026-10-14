@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { analyzeVideoFrames, VideoAnalysis } from "@/lib/analyze";
 import { generateMusicOptionsFromVideo, ElevenLabsQuotaError } from "@/lib/elevenlabs";
 import { notifyAdminThrottled, elevenLabsQuotaAlert, ONE_HOUR_MS } from "@/lib/alerts";
-import { incrementUsage, getUserPlan, canAnalyze, OPTION_CAPS, HARD_MAX_OPTIONS } from "@/lib/usage";
+import { reserveAnalysisSlot, releaseAnalysisSlot, getUserPlan, OPTION_CAPS, HARD_MAX_OPTIONS } from "@/lib/usage";
 import { PLAN_LABELS } from "@/lib/plans";
 import { isAdminEmail } from "@/lib/admin";
 import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3";
@@ -203,16 +203,22 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Quota: enforce here, not just at upload time ────────────────────────
+  // ── Quota: reserve the slot now, release it if we fail ──────────────────
   // The presign-time check alone is bypassable (mint several presigned URLs
-  // while remaining > 0, then analyze each). Applies to first-run analyses
-  // only: regeneration is part of the analysis already paid for and is
-  // bounded by the per-plan option cap above, not by the monthly quota.
-  if (!admin && !regenerate && !(await canAnalyze(userId))) {
-    return NextResponse.json(
-      { error: "Analysis limit reached — upgrade your plan to continue." },
-      { status: 403 }
-    );
+  // while remaining > 0, then analyze each). Reserving here, before any
+  // work starts and under a per-user lock, also closes the race where two
+  // analyses started back-to-back both passed a check-only gate. Applies to
+  // first-run analyses only: regeneration is part of the analysis already
+  // paid for and is bounded by the per-plan option cap above.
+  let reserved = false;
+  if (!admin && !regenerate) {
+    reserved = await reserveAnalysisSlot(userId);
+    if (!reserved) {
+      return NextResponse.json(
+        { error: "Analysis limit reached — upgrade your plan to continue." },
+        { status: 403 }
+      );
+    }
   }
 
   await prisma.video.update({
@@ -401,12 +407,19 @@ export async function POST(req: NextRequest) {
       });
 
       await prisma.video.update({ where: { id: videoId }, data: { status: "ANALYZED" } });
-      if (!admin) await incrementUsage(userId, "analysis");
+      // The slot was reserved up front (reserveAnalysisSlot); nothing to count here.
 
       return NextResponse.json({ status: "completed", analysis });
     }
 
   } catch (err) {
+    // Whatever went wrong, the user didn't get an analysis: hand the slot back.
+    if (reserved) {
+      await releaseAnalysisSlot(userId).catch((e) =>
+        console.error(`[analyze][${videoId}] failed to release usage slot:`, e)
+      );
+    }
+
     // Out of ElevenLabs credits: not the user's fault and not a failure of
     // their video. Park it as PAUSED (the owner can retry after a top-up),
     // tell the user plainly, and page the admin — at most once an hour.
