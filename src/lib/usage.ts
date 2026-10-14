@@ -16,20 +16,27 @@ const MONTHLY_LIMITS: Record<SubscriptionPlan, number> = {
 
 /**
  * Maximum generated soundtrack options per analysis, by plan.
- * Every analysis produces 2; each regeneration adds 2 more up to this cap.
- *   FREE    = 2 (no regeneration)
- *   CREATOR = 4 (one regeneration)
- *   TEAM    = 6 (two regenerations)
+ * A paid analysis produces 2; each regeneration adds 2 more up to this cap.
+ * A free analysis produces 1 and cannot regenerate.
+ *   FREE    = 1 (one track, no regeneration)
+ *   CREATOR = 4 (two tracks + one regeneration)
+ *   TEAM    = 6 (two tracks + two regenerations)
  * Regeneration does not consume an analysis credit — the cap is its limit.
  */
 export const OPTION_CAPS: Record<SubscriptionPlan, number> = {
-  FREE: 2,
+  FREE: 1,
   CREATOR: 4,
   TEAM: 6,
 };
 
 /** Absolute ceiling regardless of plan (admins, and the size of the A–F label set). */
 export const HARD_MAX_OPTIONS = 6;
+
+/** How many tracks a first analysis generates: one on the free tier, two on
+ *  paid tiers. Admins are treated as paid. Pure — see the analyze route. */
+export function initialOptionCount(plan: SubscriptionPlan, admin = false): 1 | 2 {
+  return admin || plan !== "FREE" ? 2 : 1;
+}
 
 export async function getOptionCap(userId: string): Promise<number> {
   const plan = await getUserPlan(userId);

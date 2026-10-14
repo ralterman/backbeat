@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 const FREE_FEATURES = [
   { text: "1 free video analysis, lifetime", included: true },
-  { text: "2 AI-generated soundtrack options", included: true },
+  { text: "1 AI-generated soundtrack per analysis", included: true },
   { text: "Full preview synced to your video", included: true },
   { text: "Export with watermark", included: true },
   { text: "No-watermark exports", included: false },
@@ -53,7 +53,7 @@ const faqs = [
   },
   {
     q: "How good is the AI-generated music?",
-    a: "Backbeat uses Claude to deeply analyze your video's mood, energy, pacing, and scene context, then generates two distinct soundtrack options via ElevenLabs. Each generation is unique to your video. If neither option fits, paid plans can regenerate two more without using another analysis — Creator up to 4 options per video, Pro up to 6.",
+    a: "Backbeat uses Claude to deeply analyze your video's mood, energy, pacing, and scene context, then generates a soundtrack via ElevenLabs. Each generation is unique to your video. The free tier gets one track per analysis. Paid plans get two distinct options per analysis and, if neither fits, can regenerate two more without using another analysis — Creator up to 4 options per video, Pro up to 6.",
   },
 ];
 
@@ -121,7 +121,7 @@ export default function PricingPage() {
               <tbody>
                 {[
                   ["Analyses", "1 lifetime", "15/mo", "40/mo"],
-                  ["Generated soundtrack options", "2 per analysis", "Up to 4 per analysis", "Up to 6 per analysis"],
+                  ["Generated soundtrack options", "1 per analysis", "Up to 4 per analysis", "Up to 6 per analysis"],
                   ["Regenerate options", "—", "1× per video", "2× per video"],
                   ["AI video analysis", "✓", "✓", "✓"],
                   ["Audio preview", "Full", "Full", "Full"],

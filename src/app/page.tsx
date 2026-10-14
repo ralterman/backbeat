@@ -25,7 +25,7 @@ const features = [
     ),
     title: "Custom AI Soundtrack",
     description:
-      "Your AI generates two unique tracks in minutes, matched to your video's mood, energy, scene type, and pacing. No catalog. No guesswork. Regenerate for more options on paid plans.",
+      "Your AI generates a unique track in minutes, matched to your video's mood, energy, scene type, and pacing. No catalog. No guesswork. Paid plans get two options per video and can regenerate for more.",
   },
   {
     icon: (
@@ -75,7 +75,7 @@ const features = [
 
 const FREE_FEATURES = [
   { text: "1 free video analysis, lifetime", included: true },
-  { text: "2 AI-generated soundtrack options per analysis", included: true },
+  { text: "1 AI-generated soundtrack per analysis", included: true },
   { text: "Full preview synced to your video", included: true },
   { text: "Export with watermark", included: true },
   { text: "No-watermark exports", included: false },

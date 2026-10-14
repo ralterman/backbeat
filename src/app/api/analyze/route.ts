@@ -4,9 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { analyzeVideoFrames, VideoAnalysis } from "@/lib/analyze";
-import { generateMusicOptionsFromVideo, ElevenLabsQuotaError } from "@/lib/elevenlabs";
+import { generateMusicOptionsFromVideo, generateMusicFromVideo, ElevenLabsQuotaError, type GeneratedMusic } from "@/lib/elevenlabs";
 import { notifyAdminThrottled, elevenLabsQuotaAlert, ONE_HOUR_MS } from "@/lib/alerts";
-import { reserveAnalysisSlot, releaseAnalysisSlot, getUserPlan, OPTION_CAPS, HARD_MAX_OPTIONS } from "@/lib/usage";
+import { reserveAnalysisSlot, releaseAnalysisSlot, getUserPlan, OPTION_CAPS, HARD_MAX_OPTIONS, initialOptionCount } from "@/lib/usage";
 import { PLAN_LABELS } from "@/lib/plans";
 import { isAdminEmail } from "@/lib/admin";
 import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3";
@@ -230,6 +230,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // How many tracks this run generates. First analysis: 1 on the free tier,
+  // 2 on paid (and for admins). Regeneration is paid-only (gated above) and
+  // always adds a pair.
+  const trackCount: 1 | 2 = regenerate ? 2 : initialOptionCount(await getUserPlan(userId), admin);
+
   await prisma.video.update({
     where: { id: videoId },
     data: { status: "ANALYZING" },
@@ -295,27 +300,33 @@ export async function POST(req: NextRequest) {
         await prisma.video.update({ where: { id: videoId }, data: { status: "GENERATING" } });
         console.log(`[analyze][${videoId}] status → GENERATING`);
 
-        // 4. ElevenLabs: two tracks in parallel
-        console.log(`[analyze][${videoId}] calling ElevenLabs...`);
-        const { option1, option2 } = await generateMusicOptionsFromVideo(videoBuffer, video.mimeType, videoAnalysis);
-        console.log(`[analyze][${videoId}] ElevenLabs opt1: ${option1.audioBuffer.byteLength}b, opt2: ${option2.audioBuffer.byteLength}b`);
+        // 4. ElevenLabs: two tracks in parallel (paid / regenerate), or one (free)
+        console.log(`[analyze][${videoId}] calling ElevenLabs for ${trackCount} track(s)...`);
+        let option1: GeneratedMusic;
+        let option2: GeneratedMusic | null = null;
+        if (trackCount === 2) {
+          ({ option1, option2 } = await generateMusicOptionsFromVideo(videoBuffer, video.mimeType, videoAnalysis));
+        } else {
+          option1 = await generateMusicFromVideo(videoBuffer, video.mimeType, videoAnalysis);
+        }
+        console.log(`[analyze][${videoId}] ElevenLabs opt1: ${option1.audioBuffer.byteLength}b${option2 ? `, opt2: ${option2.audioBuffer.byteLength}b` : ""}`);
 
-        // 5. Upload both to S3
+        // 5. Upload to S3
         const timestamp = Date.now();
         const audioKey1 = `generated-music/${videoId}/${timestamp}-opt1.mp3`;
-        const audioKey2 = `generated-music/${videoId}/${timestamp}-opt2.mp3`;
+        const audioKey2 = option2 ? `generated-music/${videoId}/${timestamp}-opt2.mp3` : null;
 
         await Promise.all([
           s3Client.send(new PutObjectCommand({ Bucket: OUTPUT_BUCKET, Key: audioKey1, Body: Buffer.from(option1.audioBuffer), ContentType: "audio/mpeg" })),
-          s3Client.send(new PutObjectCommand({ Bucket: OUTPUT_BUCKET, Key: audioKey2, Body: Buffer.from(option2.audioBuffer), ContentType: "audio/mpeg" })),
+          ...(option2 && audioKey2
+            ? [s3Client.send(new PutObjectCommand({ Bucket: OUTPUT_BUCKET, Key: audioKey2, Body: Buffer.from(option2.audioBuffer), ContentType: "audio/mpeg" }))]
+            : []),
         ]);
-        console.log(`[analyze][${videoId}] audio uploaded: ${audioKey1}, ${audioKey2}`);
+        console.log(`[analyze][${videoId}] audio uploaded: ${audioKey1}${audioKey2 ? `, ${audioKey2}` : ""}`);
 
         // 6. Presigned playback URLs (24 h)
-        const [audioUrl1, audioUrl2] = await Promise.all([
-          generateDownloadPresignedUrl(OUTPUT_BUCKET, audioKey1, 86400),
-          generateDownloadPresignedUrl(OUTPUT_BUCKET, audioKey2, 86400),
-        ]);
+        const audioUrl1 = await generateDownloadPresignedUrl(OUTPUT_BUCKET, audioKey1, 86400);
+        const audioUrl2 = audioKey2 ? await generateDownloadPresignedUrl(OUTPUT_BUCKET, audioKey2, 86400) : null;
 
         return { videoAnalysis, hasAudioStream, option1, option2, audioKey1, audioUrl1, audioKey2, audioUrl2 };
       })(),
@@ -326,9 +337,10 @@ export async function POST(req: NextRequest) {
     const now = new Date().toISOString();
 
     if (regenerate && existingAnalysis) {
-      // ── Accumulate: append two new options to existing Analysis ──────────
+      // ── Accumulate: append the new options to the existing Analysis ──────
+      // Regeneration always produces a pair (trackCount === 2 above).
       const existing = (existingAnalysis.generatedOptions as unknown as GeneratedOption[]) ?? [];
-      const nextIndex = existing.length; // 2, 4
+      const nextIndex = existing.length; // 2, 4 (or 1, 3 for an account that upgraded from a 1-track free analysis)
       const round = Math.floor(nextIndex / 2) + 1;
 
       const newOpts: GeneratedOption[] = [
@@ -342,16 +354,18 @@ export async function POST(req: NextRequest) {
           tags: result.option1.tags,
           createdAt: now,
         },
-        {
-          id: `opt_${nextIndex + 2}`,
-          round,
-          label: OPTION_LABELS[nextIndex + 1],
-          audioKey: result.audioKey2,
-          audioUrl: result.audioUrl2,
-          description: result.option2.description,
-          tags: result.option2.tags,
-          createdAt: now,
-        },
+        ...(result.option2 && result.audioKey2 && result.audioUrl2
+          ? [{
+              id: `opt_${nextIndex + 2}`,
+              round,
+              label: OPTION_LABELS[nextIndex + 1],
+              audioKey: result.audioKey2,
+              audioUrl: result.audioUrl2,
+              description: result.option2.description,
+              tags: result.option2.tags,
+              createdAt: now,
+            }]
+          : []),
       ];
 
       const updated = await prisma.analysis.update({
@@ -366,7 +380,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: "completed", analysis: updated });
 
     } else {
-      // ── First analysis: create Analysis with round-1 options ─────────────
+      // ── First analysis: create Analysis with round-1 option(s) ───────────
+      // One track on the free tier, two on paid — see trackCount.
       const initOpts: GeneratedOption[] = [
         {
           id: "opt_1",
@@ -378,16 +393,18 @@ export async function POST(req: NextRequest) {
           tags: result.option1.tags,
           createdAt: now,
         },
-        {
-          id: "opt_2",
-          round: 1,
-          label: "B",
-          audioKey: result.audioKey2,
-          audioUrl: result.audioUrl2,
-          description: result.option2.description,
-          tags: result.option2.tags,
-          createdAt: now,
-        },
+        ...(result.option2 && result.audioKey2 && result.audioUrl2
+          ? [{
+              id: "opt_2",
+              round: 1,
+              label: "B",
+              audioKey: result.audioKey2,
+              audioUrl: result.audioUrl2,
+              description: result.option2.description,
+              tags: result.option2.tags,
+              createdAt: now,
+            }]
+          : []),
       ];
 
       const analysis = await prisma.analysis.create({
@@ -403,8 +420,8 @@ export async function POST(req: NextRequest) {
           musicTags:          result.option1.tags,
           generatedAudioKey:  result.audioKey1,
           generatedAudioUrl:  result.audioUrl1,
-          musicDescription2:  result.option2.description,
-          musicTags2:         result.option2.tags,
+          musicDescription2:  result.option2?.description ?? null,
+          musicTags2:         result.option2?.tags ?? [],
           generatedAudioKey2: result.audioKey2,
           generatedAudioUrl2: result.audioUrl2,
           // New: accumulated options array

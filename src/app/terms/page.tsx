@@ -30,7 +30,7 @@ export default function TermsPage() {
 
         <Section title="4. Subscriptions and Billing">
           <Subheading>4.1 Free Tier</Subheading>
-          <p>The free tier includes one (1) video analysis per account. This is a one-time allowance and does not renew monthly. Each analysis generates two (2) AI soundtrack options with full-length preview. Generating additional options for the same video is not available on the free tier. Free tier exports include a &lsquo;Made with Backbeat&rsquo; watermark.</p>
+          <p>The free tier includes one (1) video analysis per account. This is a one-time allowance and does not renew monthly. Each free-tier analysis generates one (1) AI soundtrack with full-length preview. Generating additional options for the same video is not available on the free tier. Free tier exports include a &lsquo;Made with Backbeat&rsquo; watermark.</p>
           <Subheading>4.2 Paid Subscriptions</Subheading>
           <p>Paid subscription plans are billed monthly. By subscribing, you authorize us to charge your payment method on a recurring basis. Prices are as displayed at backbeat.video/pricing at the time of purchase.</p>
           <Subheading>4.3 Cancellation and Refunds</Subheading>
