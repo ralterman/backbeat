@@ -43,6 +43,13 @@ export interface GeneratedOption {
   createdAt: string;
 }
 
+/** Whether an Analysis row holds at least one generated track (new options
+ *  array or the legacy single-track fields). */
+function analysisHasOptions(a: { generatedOptions: unknown; generatedAudioKey: string | null }): boolean {
+  const opts = (a.generatedOptions as unknown as GeneratedOption[] | null) ?? [];
+  return opts.length > 0 || !!a.generatedAudioKey;
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return Promise.race([
     promise,
@@ -149,9 +156,12 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Non-regenerate: return existing result early ────────────────────────
+  // Only when the analysis actually has a track. An Analysis row with no
+  // options (an interrupted first run) must fall through to a first
+  // analysis so the empty-state "Generate Music" button can work.
   if (video.status === "ANALYZED" && !regenerate) {
     const analysis = await prisma.analysis.findUnique({ where: { videoId } });
-    if (analysis) {
+    if (analysis && analysisHasOptions(analysis)) {
       let audioUrl = analysis.generatedAudioUrl;
       if (analysis.generatedAudioKey) {
         try { audioUrl = await generateDownloadPresignedUrl(OUTPUT_BUCKET, analysis.generatedAudioKey, 86400); } catch {}
@@ -171,10 +181,22 @@ export async function POST(req: NextRequest) {
   // These apply whether or not an Analysis row exists — otherwise a video
   // with no row (e.g. the empty-state "Generate Music" button) bypasses both.
   let cachedVideoAnalysis: VideoAnalysis | null = null;
-  let existingAnalysis: Awaited<ReturnType<typeof prisma.analysis.findUnique>> | null = null;
+  const existingAnalysis = await prisma.analysis.findUnique({ where: { videoId } });
+
+  // An existing row — whether we're regenerating or re-running an empty
+  // first analysis — already holds Claude's read of the video. Reuse it
+  // instead of paying for frames + Claude again.
+  if (existingAnalysis) {
+    cachedVideoAnalysis = {
+      mood_tags:          existingAnalysis.moodTags,
+      bpm_range:          existingAnalysis.bpmRange as { min: number; max: number },
+      energy_score:       existingAnalysis.energyScore,
+      scene_tags:         existingAnalysis.sceneTags,
+      recommended_genres: existingAnalysis.recommendedGenres,
+    };
+  }
 
   if (regenerate) {
-    existingAnalysis = await prisma.analysis.findUnique({ where: { videoId } });
     const opts = existingAnalysis
       ? ((existingAnalysis.generatedOptions as unknown as GeneratedOption[]) ?? [])
       : [];
@@ -200,16 +222,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (existingAnalysis) {
-      // Reuse cached Claude analysis — skips re-analyzing
-      cachedVideoAnalysis = {
-        mood_tags:          existingAnalysis.moodTags,
-        bpm_range:          existingAnalysis.bpmRange as { min: number; max: number },
-        energy_score:       existingAnalysis.energyScore,
-        scene_tags:         existingAnalysis.sceneTags,
-        recommended_genres: existingAnalysis.recommendedGenres,
-      };
-    }
   }
 
   // ── Quota: reserve the slot now, release it if we fail ──────────────────
@@ -407,9 +419,9 @@ export async function POST(req: NextRequest) {
           : []),
       ];
 
-      const analysis = await prisma.analysis.create({
-        data: {
-          videoId,
+      // Upsert, not create: a first run that was interrupted may have left
+      // an Analysis row with no options, and videoId is unique.
+      const analysisData = {
           moodTags:           result.videoAnalysis.mood_tags,
           bpmRange:           result.videoAnalysis.bpm_range,
           energyScore:        result.videoAnalysis.energy_score,
@@ -429,7 +441,14 @@ export async function POST(req: NextRequest) {
           // null = probe unknown (failed/timed out) → schema default (true).
           // Only a positive "no audio stream" result stores false.
           hasOriginalAudio: result.hasAudioStream ?? true,
-        },
+      };
+      // On the cached path the audio probe doesn't run (hasAudioStream is
+      // null); don't let the default clobber a value the first run stored.
+      const { hasOriginalAudio: probedHasAudio, ...rest } = analysisData;
+      const analysis = await prisma.analysis.upsert({
+        where: { videoId },
+        create: { videoId, ...analysisData },
+        update: result.hasAudioStream === null ? rest : { ...rest, hasOriginalAudio: probedHasAudio },
       });
 
       await prisma.video.update({ where: { id: videoId }, data: { status: "ANALYZED" } });

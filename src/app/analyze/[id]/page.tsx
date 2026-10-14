@@ -464,12 +464,16 @@ export default function AnalysisResultsPage() {
         </>
       ) : (
         <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl p-8 text-center">
-          <p className="text-[#a0a0b8]">No audio generated yet. Try re-analyzing this video.</p>
+          <p className="text-[#a0a0b8]">No audio generated yet.</p>
+          {/* A first analysis, not a regenerate: there are no options to add
+              to, and the regenerate path is plan-gated (free users would get
+              "Upgrade to generate more options" here). */}
           <button
-            onClick={handleRegenerate}
-            className="mt-4 px-6 py-2.5 bg-[#C8A96E] hover:bg-[#d4b87a] text-[#0a0a0f] font-bold rounded-xl text-sm transition-colors"
+            onClick={handleRetry}
+            disabled={retrying}
+            className="mt-4 px-6 py-2.5 bg-[#C8A96E] hover:bg-[#d4b87a] disabled:opacity-60 text-[#0a0a0f] font-bold rounded-xl text-sm transition-colors"
           >
-            Generate Music
+            {retrying ? "Generating…" : "Generate Music"}
           </button>
         </div>
       )}
