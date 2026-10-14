@@ -1,11 +1,13 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
+import React, { Suspense, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { CheckEmail } from "@/components/CheckEmail";
+import { Turnstile, TURNSTILE_SITE_KEY, type TurnstileHandle } from "@/components/Turnstile";
+import { requestMagicLink } from "@/lib/magicLinkClient";
 
 function SignInForm() {
   const searchParams = useSearchParams();
@@ -16,30 +18,32 @@ function SignInForm() {
   const [emailSent, setEmailSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileHandle | null>(null);
+  const needsToken = !!TURNSTILE_SITE_KEY && !turnstileToken;
 
+  // Magic links go through /api/auth/magic-link (Turnstile + address checks)
+  // rather than next-auth's client signIn("resend"); requestMagicLink throws
+  // a user-facing message on failure.
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setSendError(null);
     try {
-      const result = await signIn("resend", { email, callbackUrl, redirect: false });
-      if (result?.error) {
-        setSendError(result.error);
-      } else {
-        setEmailSent(true);
-      }
+      await requestMagicLink({ email, callbackUrl, turnstileToken });
+      setEmailSent(true);
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Unknown error");
+      turnstileRef.current?.reset(); // tokens are single-use
     } finally {
       setLoading(false);
     }
   };
 
-  // Passed to CheckEmail, which owns the cooldown/error UI for this action —
-  // throw so it knows the send failed and shouldn't start the cooldown.
-  const handleResend = async () => {
-    const result = await signIn("resend", { email, callbackUrl, redirect: false });
-    if (result?.error) throw new Error(result.error);
+  // CheckEmail owns the cooldown/error UI and its own Turnstile widget; it
+  // passes that widget's token here. Throw so it knows the send failed.
+  const handleResend = async (token: string | null) => {
+    await requestMagicLink({ email, callbackUrl, turnstileToken: token });
   };
 
   const handleGoogleSignIn = () => {
@@ -61,7 +65,6 @@ function SignInForm() {
       {emailSent ? (
         <CheckEmail
           email={email}
-          actionText="sign in"
           onResend={handleResend}
           onUseDifferentEmail={() => setEmailSent(false)}
         />
@@ -105,11 +108,15 @@ function SignInForm() {
                 className="w-full bg-[#1E1E1E] border border-[#2A2A2A] text-white placeholder-[#6a6a8a] rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#C8A96E] focus:border-transparent"
               />
             </div>
+            <Turnstile
+              onToken={setTurnstileToken}
+              onReady={(h) => { turnstileRef.current = h; }}
+            />
             {/* Secondary to Google's solid button above — an outline, not a
                 second solid fill, so Google reads as the primary option. */}
             <button
               type="submit"
-              disabled={loading || !email}
+              disabled={loading || !email || needsToken}
               className="w-full border border-[#2A2A2A] hover:border-[#9090aa] disabled:hover:border-[#2A2A2A] text-[#a0a0b8] hover:text-white disabled:text-[#5a5a70] font-medium py-3 px-4 rounded-xl transition-colors"
             >
               {loading ? "Sending..." : "Send magic link"}
