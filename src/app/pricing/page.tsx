@@ -41,7 +41,7 @@ const faqs = [
   },
   {
     q: "Are the tracks licensed for commercial use?",
-    a: "All music generated through Backbeat is produced by ElevenLabs' Music API, which is cleared for broad commercial use including YouTube, TikTok, Instagram, and podcast content. See elevenlabs.io/music-rights for full licensing details.",
+    a: "Free-tier exports are watermarked. All exports, free and paid, are cleared for commercial use online and offline, including social media and advertising, except film, TV, radio and games, which need separate licensing. The music is produced by ElevenLabs' Music API; see elevenlabs.io/music-rights for the full terms.",
   },
   {
     q: "What does the analysis count as?",
@@ -104,6 +104,11 @@ export default function PricingPage() {
             ctaHref="/api/stripe/checkout?plan=team"
           />
         </div>
+
+        {/* Licensing note — mirrors Terms §6 */}
+        <p className="text-center text-[#9090aa] text-sm max-w-2xl mx-auto -mt-8 mb-20 leading-relaxed">
+          Free-tier exports are watermarked. All exports, free and paid, are cleared for commercial use online and offline, including social media and advertising, except film, TV, radio and games, which need separate licensing.
+        </p>
 
         {/* Comparison table */}
         <div className="mb-20">
