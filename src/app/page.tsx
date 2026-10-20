@@ -1,7 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { PricingCard } from "@/components/PricingCard";
-import { DemoWidget } from "@/components/DemoWidget";
+import { HeroDemo } from "@/components/demo/HeroDemo";
+import { GenreRow } from "@/components/demo/GenreRow";
 import ScrollToTop from "@/components/ScrollToTop";
 
 const features = [
@@ -103,7 +104,7 @@ export default function LandingPage() {
 
       {/* ── Hero ──────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-16 text-center">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-16">
           {/* Logo lockup */}
           <div className="flex flex-col items-center gap-6 mb-10">
             <Image
@@ -119,43 +120,60 @@ export default function LandingPage() {
             </span>
           </div>
 
-          <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">
-            The simplest way to score a video
-          </p>
+          {/* Copy left, live demo right; stacked on phones with the demo under the CTAs. */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-12 lg:gap-16 items-center">
+            <div className="text-center lg:text-left">
+              <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">
+                The simplest way to score a video
+              </p>
 
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight tracking-tight mb-6">
-            Upload your video.
-            <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C8A96E] to-[#E8C87A]">
-              Get your music.
-            </span>
-          </h1>
+              <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight tracking-tight mb-6">
+                Upload your video.
+                <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C8A96E] to-[#E8C87A]">
+                  Get your music.
+                </span>
+              </h1>
 
-          <p className="text-lg text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            No prompts to write, no credits to manage. Upload a clip, Backbeat reads it and writes the soundtrack, you export. A few minutes start to finish.
-          </p>
+              <p className="text-lg text-gray-400 max-w-2xl mx-auto lg:mx-0 mb-10 leading-relaxed">
+                No prompts to write, no credits to manage. Upload a clip, Backbeat reads it and writes the soundtrack, you export. A few minutes start to finish.
+              </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/auth/signup"
-              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] font-bold text-base px-8 py-4 rounded-xl transition-all duration-200 shadow-lg"
-            >
-              Try it free
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-            <Link
-              href="/pricing"
-              className="inline-flex items-center justify-center gap-2 text-white border border-white/20 bg-white/[0.04] hover:bg-white/[0.08] hover:-translate-y-0.5 font-semibold text-base px-8 py-4 rounded-xl transition-all duration-200"
-            >
-              See pricing
-            </Link>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                <Link
+                  href="/auth/signup"
+                  className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] font-bold text-base px-8 py-4 rounded-xl transition-all duration-200 shadow-lg"
+                >
+                  Try it free
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+                <Link
+                  href="/pricing"
+                  className="inline-flex items-center justify-center gap-2 text-white border border-white/20 bg-white/[0.04] hover:bg-white/[0.08] hover:-translate-y-0.5 font-semibold text-base px-8 py-4 rounded-xl transition-all duration-200"
+                >
+                  See pricing
+                </Link>
+              </div>
+
+              <p className="text-[#9090aa] text-sm mt-5">No credit card required — analyze your first video free</p>
+            </div>
+
+            <HeroDemo />
           </div>
+        </div>
+      </section>
 
-          <p className="text-[#9090aa] text-sm mt-5">No credit card required — analyze your first video free</p>
-
-          <DemoWidget />
+      {/* ── Hear it on more kinds of video ─────────────────────────────── */}
+      <section className="pb-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-8">
+            <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-3">Real output</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Hear it on more kinds of video</h2>
+            <p className="text-gray-400 mt-3 max-w-xl mx-auto">Every track below was generated by Backbeat from the clip you see. Tap one to listen.</p>
+          </div>
+          <GenreRow />
         </div>
       </section>
 
