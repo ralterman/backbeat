@@ -282,6 +282,10 @@ export default function AnalysisResultsPage() {
   const optionCount = allOptions.length;
   const atMax = optionCount >= optionCap;
   const canUpgradeForMore = !isFreeUser && optionCap < DEFAULT_OPTION_CAP; // Creator (4) → Pro (6)
+  // Free analyses produce one track. Present it as the deliverable — a
+  // single centered card, no "choose", no round divider, no empty second
+  // slot — with a low-key upgrade line underneath.
+  const single = optionCount === 1;
 
   const RegenButton = () => {
     if (atMax && !isFreeUser) {
@@ -308,12 +312,13 @@ export default function AnalysisResultsPage() {
     }
     if (isFreeUser) {
       return (
-        <Link
-          href="/pricing"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-[#C8A96E] hover:bg-[#d4b87a] text-[#0a0a0f] rounded-xl text-sm font-bold transition-colors"
-        >
-          Upgrade to generate more options
-        </Link>
+        <p className="text-[#9090aa] text-sm">
+          {single ? "Want a second option?" : "Want more options?"}{" "}
+          <Link href="/pricing" className="text-[#C8A96E] hover:text-white underline transition-colors">
+            Creator plan
+          </Link>{" "}
+          gives you two per video plus regeneration.
+        </p>
       );
     }
     return (
@@ -407,23 +412,27 @@ export default function AnalysisResultsPage() {
       {/* Generated track options */}
       {allOptions.length > 0 ? (
         <>
-          <h2 className="text-xl font-bold text-white mb-1">Choose Your Track</h2>
-          <p className="text-[#9090aa] text-sm mb-6">Click a card to select it, then export.</p>
+          <h2 className="text-xl font-bold text-white mb-1">{single ? "Your Track" : "Choose Your Track"}</h2>
+          <p className="text-[#9090aa] text-sm mb-6">
+            {single ? "Preview it synced to your video, then export." : "Click a card to select it, then export."}
+          </p>
 
           {/* Options grouped by round */}
           {rounds.map((round, roundIdx) => {
             const roundOpts = optionsByRound.get(round) ?? [];
             return (
               <div key={round}>
-                {/* Round divider */}
-                <div className="flex items-center gap-3 mb-4 mt-2">
-                  <span className="text-[#6a6a8a] text-xs font-semibold uppercase tracking-widest whitespace-nowrap">
-                    Round {round}
-                  </span>
-                  <div className="flex-1 h-px bg-[#2A2A2A]" />
-                </div>
+                {/* Round divider — meaningless for a single track */}
+                {!single && (
+                  <div className="flex items-center gap-3 mb-4 mt-2">
+                    <span className="text-[#6a6a8a] text-xs font-semibold uppercase tracking-widest whitespace-nowrap">
+                      Round {round}
+                    </span>
+                    <div className="flex-1 h-px bg-[#2A2A2A]" />
+                  </div>
+                )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className={single ? "max-w-md mx-auto mb-6" : "grid grid-cols-1 md:grid-cols-2 gap-6 mb-6"}>
                   {roundOpts.map((opt) => (
                     <GeneratedTrackResult
                       key={opt.id}
