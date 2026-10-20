@@ -202,3 +202,19 @@ ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_userId_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "UsageRecord" ADD CONSTRAINT "UsageRecord_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Deny-all RLS (no policies) on every table. The app connects as the
+-- postgres role, which bypasses RLS, so this only closes the tables to the
+-- Supabase Data API roles (anon/authenticated). Production had these enabled
+-- out-of-band; recorded here so a fresh `prisma migrate` doesn't recreate the
+-- tables without it.
+ALTER TABLE "Account"           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Session"           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "VerificationToken" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "User"              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Video"             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Analysis"          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "TrackMatch"        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Export"            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Subscription"      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "UsageRecord"       ENABLE ROW LEVEL SECURITY;

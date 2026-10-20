@@ -8,3 +8,8 @@ CREATE TABLE IF NOT EXISTS "AlertThrottle" (
   "key"        TEXT PRIMARY KEY,
   "lastSentAt" TIMESTAMP(3) NOT NULL
 );
+
+-- Deny-all RLS (no policies), like every other table in public. The app
+-- connects as the postgres role, which bypasses RLS; this closes the table
+-- to the Supabase Data API roles (anon/authenticated) only.
+ALTER TABLE "AlertThrottle" ENABLE ROW LEVEL SECURITY;
