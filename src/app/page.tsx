@@ -12,9 +12,9 @@ const features = [
           d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
       </svg>
     ),
-    title: "Smart Video Analysis",
+    title: "No prompt writing",
     description:
-      "Our AI extracts keyframes from your video and analyzes mood, energy, scene type, and pacing to understand exactly what kind of music fits.",
+      "Backbeat watches your video and works out the mood, energy, pacing and scene type itself. You never describe what you want. There's nothing to get wrong.",
   },
   {
     icon: (
@@ -23,9 +23,9 @@ const features = [
           d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
       </svg>
     ),
-    title: "Custom AI Soundtrack",
+    title: "No credits to manage",
     description:
-      "Your AI generates a unique track in minutes, matched to your video's mood, energy, scene type, and pacing. No catalog. No guesswork. Paid plans get two options per video and can regenerate for more.",
+      "A flat plan, not a meter. Every analysis gives you a finished track matched to your footage, and paid plans give you two plus regeneration.",
   },
   {
     icon: (
@@ -120,7 +120,7 @@ export default function LandingPage() {
           </div>
 
           <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">
-            AI Music Generation
+            The simplest way to score a video
           </p>
 
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight tracking-tight mb-6">
@@ -132,7 +132,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-lg text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Backbeat analyzes your video and generates a custom soundtrack in minutes — no music theory, no searching, no copyright strikes.
+            No prompts to write, no credits to manage. Upload a clip, Backbeat reads it and writes the soundtrack, you export. A few minutes start to finish.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -165,10 +165,10 @@ export default function LandingPage() {
           <div className="text-center mb-12">
             <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-4">Features</p>
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
-              Everything you need to score your videos
+              One job, done simply
             </h2>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
-              From upload to export in minutes. No music theory knowledge required.
+              Upload, get music, export. That&rsquo;s the whole workflow.
             </p>
           </div>
 
