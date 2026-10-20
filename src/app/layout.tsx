@@ -114,6 +114,15 @@ export default function RootLayout({
                 <CookiePreferencesButton />
                 <a href="/contact" className="hover:text-[#C8A96E] transition-colors">Contact Us</a>
               </div>
+              {/* Co-branding required by ElevenLabs Music Terms §4.6. Text, not a
+                  badge: their brand page offers no "powered by" asset. */}
+              <p className="mb-2">
+                Powered by{" "}
+                <a href="https://elevenlabs.io" target="_blank" rel="noopener noreferrer" className="hover:text-[#C8A96E] transition-colors underline">
+                  ElevenLabs
+                </a>{" "}
+                Music
+              </p>
               <p>© 2026 Backbeat. All rights reserved.</p>
             </div>
           </footer>
