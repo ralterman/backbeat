@@ -1,7 +1,14 @@
 import { Resend } from "resend";
 import { PLAN_LABELS } from "@/lib/plans";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Constructed on first send, not at import: the SDK throws on a missing key,
+// which broke `next build` (page-data collection) in environments without
+// RESEND_API_KEY, such as Vercel Preview.
+let resendClient: Resend | null = null;
+function resend(): Resend {
+  if (!resendClient) resendClient = new Resend(process.env.RESEND_API_KEY);
+  return resendClient;
+}
 const FROM = process.env.EMAIL_FROM ?? "hello@backbeat.video";
 
 const PLAN_LIMITS: Record<string, string> = {
@@ -27,7 +34,7 @@ export async function sendEmail(opts: {
   text?: string;
   replyTo?: string;
 }): Promise<string> {
-  const { data, error } = await resend.emails.send({ from: FROM, ...opts });
+  const { data, error } = await resend().emails.send({ from: FROM, ...opts });
   if (error) {
     throw new Error(`Resend ${error.name ?? "error"}: ${error.message}`);
   }
