@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
+import { resetMonthlyAnalysisCount } from "@/lib/usage";
 import {
   sendUpgradeEmail,
   sendCancellationEmail,
@@ -116,6 +117,15 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
       }
       const stripePlan = upper as SubscriptionPlan;
 
+      // Was this user on the free tier until now? (No row, FREE, or a
+      // canceled paid plan all read as FREE in getUserPlan.) Decided before
+      // the upsert below overwrites the row.
+      const previous = await prisma.subscription.findUnique({
+        where: { userId },
+        select: { plan: true, status: true },
+      });
+      const upgradingFromFree = !previous || previous.plan === "FREE" || previous.status === "CANCELED";
+
       await prisma.subscription.upsert({
         where: { userId },
         update: {
@@ -133,6 +143,13 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
           status: "ACTIVE",
         },
       });
+
+      // The free-tier analysis run before upgrading must not count against
+      // the first paid month. Idempotent, so a webhook retry is harmless.
+      if (upgradingFromFree) {
+        const touched = await resetMonthlyAnalysisCount(userId);
+        console.log(`[webhook] ${userId} upgraded FREE → ${stripePlan}; monthly analysis count reset (${touched} record${touched === 1 ? "" : "s"})`);
+      }
 
       const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
       if (user?.email) {

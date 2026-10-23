@@ -53,6 +53,8 @@ export default function AnalysisResultsPage() {
   const [isFreeUser, setIsFreeUser] = useState(true);
   const [optionCap, setOptionCap] = useState(DEFAULT_OPTION_CAP);
   const [planName, setPlanName] = useState<string>("");
+  // "You've used 12 of 15 analyses this month." once a paid user is at 80%.
+  const [usageNotice, setUsageNotice] = useState<string | null>(null);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
 
   const fetchResults = useCallback(async () => {
@@ -94,6 +96,13 @@ export default function AnalysisResultsPage() {
         setIsFreeUser(json.plan === "FREE" && !json.isAdmin);
         if (typeof json.optionCap === "number") setOptionCap(json.optionCap);
         if (typeof json.planLabel === "string") setPlanName(json.planLabel);
+        if (
+          json.plan !== "FREE" && !json.isAdmin &&
+          typeof json.used === "number" && typeof json.limit === "number" &&
+          json.limit > 0 && json.used / json.limit >= 0.8
+        ) {
+          setUsageNotice(`You’ve used ${json.used} of ${json.limit} analyses this month.`);
+        }
       })
       .catch(() => {});
   }, []);
@@ -463,6 +472,9 @@ export default function AnalysisResultsPage() {
             <RegenButton />
             {regenError && (
               <p className="text-red-400 text-sm mt-3">{regenError}</p>
+            )}
+            {usageNotice && (
+              <p className="text-[#a0a0b8] text-sm mt-3">{usageNotice}</p>
             )}
             {!atMax && !isFreeUser && (
               <p className="text-[#9090aa] text-xs mt-2">

@@ -130,6 +130,22 @@ export async function releaseAnalysisSlot(userId: string): Promise<void> {
   }
 }
 
+/**
+ * Zero this month's analysis count. Called when a user moves from FREE to a
+ * paid plan: the free-tier analysis they ran before upgrading would otherwise
+ * count against their first paid month (paid plans read the current month's
+ * record, and the free analysis lives in it). Earlier months are left alone;
+ * paid usage never reads them.
+ */
+export async function resetMonthlyAnalysisCount(userId: string): Promise<number> {
+  const month = currentMonth();
+  const r = await prisma.usageRecord.updateMany({
+    where: { userId, action: "analysis", month },
+    data: { count: 0 },
+  });
+  return r.count;
+}
+
 export async function getUsageLimit(userId: string): Promise<number> {
   const plan = await getUserPlan(userId);
   return MONTHLY_LIMITS[plan];

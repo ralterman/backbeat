@@ -69,6 +69,10 @@ export default async function DashboardPage({
   // Only admins are unlimited. Every plan (including Pro/TEAM = 40/mo) has a
   // real monthly cap now, so paid users see the normal counter.
   const unlimited = admin;
+  // Plain-text heads-up once a paid user is at 80% of the monthly cap. Free
+  // users have a lifetime count and their own upgrade prompt; admins are
+  // uncapped.
+  const nearCap = !admin && plan !== "FREE" && limit > 0 && used / limit >= 0.8;
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -138,6 +142,11 @@ export default async function DashboardPage({
             </>
           )}
         </div>
+        {nearCap && (
+          <p className="text-sm text-[#a0a0b8]">
+            You&rsquo;ve used {used} of {limit} analyses this month.
+          </p>
+        )}
       </div>
 
       {/* Upload zone */}
