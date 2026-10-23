@@ -158,8 +158,8 @@ const fmtDate = (d: Date | null) =>
 export function creditAlertEmail(s: CreditSnapshot, v: Verdict): { subject: string; text: string; html: string } {
   const runway = s.runwayDays === null ? "no usage in the last 7 days" : `~${s.runwayDays.toFixed(1)} days`;
   const cadence = v.critical
-    ? "Runway is under 2 days, so this repeats every 6 hours until it recovers."
-    : "Sent at most once a day (every 6 hours once runway drops under 2 days).";
+    ? "Runway is under 2 days, so this repeats on every check until it recovers."
+    : "Sent at most once a day.";
   const subject =
     `Backbeat: ElevenLabs credits ${v.critical ? "critical" : "low"} — ` +
     `${fmt(s.remaining)} left, yesterday ${fmt(s.yesterdayBurn)}, 7d avg ${fmt(s.avgDailyBurn)}`;

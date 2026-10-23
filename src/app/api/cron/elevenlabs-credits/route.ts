@@ -12,17 +12,19 @@ import { notifyAdminThrottled } from "@/lib/alerts";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-// ElevenLabs credit check, every 6 hours (vercel.json). Vercel invokes it
-// with `Authorization: Bearer <CRON_SECRET>`; anything else is refused, so
-// the route can't be used to make us email ourselves.
+// Daily ElevenLabs credit check (vercel.json; Vercel Hobby allows one cron
+// run per day, so the schedule cannot be tighter). Vercel invokes it with
+// `Authorization: Bearer <CRON_SECRET>`; anything else is refused, so the
+// route can't be used to make us email ourselves.
 //
 // Emails the admin via the throttled alert helper when credits are under
 // 50 % or under 7 days of runway at the 7-day average burn: at most once a
 // day (a ~20 h window, so a manual re-run the same day doesn't double-send).
 // Under 2 days of runway the alert is critical and uses its own key with a
-// ~5.5 h window, so it repeats on every 6-hourly run instead. If the key
-// can't read the balance (missing user_read scope), that's reported the
-// same way instead of failing silently.
+// short window, so it is never suppressed by an earlier "low" email and
+// repeats on every run (daily on Hobby; every run if the cron is ever made
+// more frequent). If the key can't read the balance (missing user_read
+// scope), that's reported the same way instead of failing silently.
 const DAILY_WINDOW_MS = 20 * 60 * 60 * 1000;
 const CRITICAL_WINDOW_MS = 5.5 * 60 * 60 * 1000;
 
