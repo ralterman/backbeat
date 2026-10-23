@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { analyzeVideoFrames, VideoAnalysis } from "@/lib/analyze";
 import { generateMusicOptionsFromVideo, generateMusicFromVideo, ElevenLabsQuotaError, type GeneratedMusic } from "@/lib/elevenlabs";
 import { notifyAdminThrottled, elevenLabsQuotaAlert, ONE_HOUR_MS } from "@/lib/alerts";
-import { reserveAnalysisSlot, releaseAnalysisSlot, getUserPlan, OPTION_CAPS, HARD_MAX_OPTIONS, initialOptionCount } from "@/lib/usage";
+import { reserveAnalysisSlot, releaseAnalysisSlot, getUserPlan, OPTION_CAPS, HARD_MAX_OPTIONS, initialOptionCount, FREE_PREVIEW_SECONDS } from "@/lib/usage";
 import { PLAN_LABELS } from "@/lib/plans";
 import { isAdminEmail } from "@/lib/admin";
 import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3";
@@ -68,21 +68,51 @@ async function streamToBuffer(stream: Readable): Promise<Buffer> {
   });
 }
 
-/** Whether the file has at least one audio stream: true / false / null
- *  (unknown — probe failed or timed out). Unknown is NOT "no audio"; the
- *  caller falls back to the schema default (true) so a genuinely silent
- *  video keeps the "keep my audio" option available and mixing just adds
- *  silence, while the export route's own probe gets a second chance. */
-async function probeHasAudio(inputPath: string, videoId: string): Promise<boolean | null> {
-  const r = await probeMedia(inputPath);
-  if (r.error) console.log(`[analyze][${videoId}] audio probe unknown: ${r.error}`);
-  return r.hasAudioStream;
+// hasAudioStream from the probe is tri-state: true / false / null (unknown —
+// probe failed or timed out). Unknown is NOT "no audio"; the caller falls
+// back to the schema default (true) so a genuinely silent video keeps the
+// "keep my audio" option available and mixing just adds silence, while the
+// export route's own probe gets a second chance.
+
+/**
+ * First `seconds` of the video as an MP4, stream-copied (no re-encode, so a
+ * cut can land up to a keyframe early; fine for music generation, and the
+ * export trims precisely). Used for the free tier: ElevenLabs' track length
+ * follows the video, so a shorter video is the only way to cap the music.
+ * Falls back to the untrimmed buffer if ffmpeg fails, logging loudly: the
+ * user still gets a result, we just paid for a longer track.
+ */
+async function trimVideoToSeconds(videoBuffer: Buffer, seconds: number, videoId: string): Promise<Buffer> {
+  const tmpDir = path.join(os.tmpdir(), `backbeat-trim-${videoId}`);
+  fs.mkdirSync(tmpDir, { recursive: true });
+  const inputPath = path.join(tmpDir, "input.mp4");
+  const outputPath = path.join(tmpDir, "trimmed.mp4");
+  fs.writeFileSync(inputPath, videoBuffer);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      ffmpeg(inputPath)
+        .outputOptions(["-t", String(seconds), "-c", "copy", "-movflags", "+faststart"])
+        .format("mp4")
+        .output(outputPath)
+        .on("end", () => resolve())
+        .on("error", (err) => reject(err))
+        .run();
+    });
+    const out = fs.readFileSync(outputPath);
+    console.log(`[analyze][${videoId}] trimmed to first ${seconds}s for generation: ${videoBuffer.length}b → ${out.length}b`);
+    return out;
+  } catch (err) {
+    console.error(`[analyze][${videoId}] trim to ${seconds}s FAILED, sending full video:`, err);
+    return videoBuffer;
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
+  }
 }
 
 async function extractFrames(
   videoBuffer: Buffer,
   videoId: string
-): Promise<{ frames: string[]; hasAudioStream: boolean | null }> {
+): Promise<{ frames: string[]; hasAudioStream: boolean | null; durationSec: number | null }> {
   const tmpDir = path.join(os.tmpdir(), `backbeat-${videoId}`);
   fs.mkdirSync(tmpDir, { recursive: true });
   const inputPath = path.join(tmpDir, "input.mp4");
@@ -105,9 +135,10 @@ async function extractFrames(
             fs.readFileSync(path.join(tmpDir, f)).toString("base64")
           );
           // Probe while the file is still on disk, before cleanup.
-          const hasAudioStream = await probeHasAudio(inputPath, videoId);
+          const probe = await probeMedia(inputPath);
+          if (probe.error) console.log(`[analyze][${videoId}] probe unknown: ${probe.error}`);
           try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
-          resolve({ frames, hasAudioStream });
+          resolve({ frames, hasAudioStream: probe.hasAudioStream, durationSec: probe.durationSec });
         } catch (err) {
           reject(err);
         }
@@ -196,6 +227,14 @@ export async function POST(req: NextRequest) {
     };
   }
 
+  // Admins are treated as the top plan everywhere below.
+  const plan = admin ? "TEAM" : await getUserPlan(userId);
+
+  // Free tier: generate music for the first 60 s only. The analysis
+  // (frames → Claude) still runs on the whole video; only the ElevenLabs
+  // input is trimmed. Null = full length.
+  const capSec: number | null = !admin && plan === "FREE" ? FREE_PREVIEW_SECONDS : null;
+
   if (regenerate) {
     const opts = existingAnalysis
       ? ((existingAnalysis.generatedOptions as unknown as GeneratedOption[]) ?? [])
@@ -204,7 +243,6 @@ export async function POST(req: NextRequest) {
     // Per-plan option cap: FREE 2 (no regen), CREATOR 4, TEAM/Pro 6. Admins
     // get the hard ceiling. Regeneration does not consume an analysis credit;
     // this cap is its only limiter.
-    const plan = admin ? "TEAM" : await getUserPlan(userId);
     const cap = admin ? HARD_MAX_OPTIONS : OPTION_CAPS[plan];
 
     if (!admin && plan === "FREE") {
@@ -245,7 +283,7 @@ export async function POST(req: NextRequest) {
   // How many tracks this run generates. First analysis: 1 on the free tier,
   // 2 on paid (and for admins). Regeneration is paid-only (gated above) and
   // always adds a pair.
-  const trackCount: 1 | 2 = regenerate ? 2 : initialOptionCount(await getUserPlan(userId), admin);
+  const trackCount: 1 | 2 = regenerate ? 2 : initialOptionCount(plan, admin);
 
   await prisma.video.update({
     where: { id: videoId },
@@ -271,6 +309,7 @@ export async function POST(req: NextRequest) {
         // hasOriginalAudio set from when it was first created.
         let videoAnalysis: VideoAnalysis;
         let hasAudioStream: boolean | null = null;
+        let durationSec: number | null = video.durationSec ?? null;
         if (cachedVideoAnalysis) {
           console.log(`[analyze][${videoId}] regenerate: reusing cached VideoAnalysis`);
           videoAnalysis = cachedVideoAnalysis;
@@ -278,8 +317,13 @@ export async function POST(req: NextRequest) {
           const extracted = await extractFrames(videoBuffer, videoId);
           const { frames } = extracted;
           hasAudioStream = extracted.hasAudioStream;
+          if (extracted.durationSec !== null) durationSec = extracted.durationSec;
           if (frames.length === 0) throw new Error("No frames could be extracted from the video");
-          console.log(`[analyze][${videoId}] extracted ${frames.length} frames, hasAudioStream=${hasAudioStream}`);
+          console.log(`[analyze][${videoId}] extracted ${frames.length} frames, hasAudioStream=${hasAudioStream}, duration=${durationSec?.toFixed(1) ?? "?"}s`);
+          if (durationSec !== null && video.durationSec == null) {
+            await prisma.video.update({ where: { id: videoId }, data: { durationSec } })
+              .catch((err) => console.error(`[analyze][${videoId}] failed to store duration (non-fatal):`, err));
+          }
 
           // Thumbnail for the results-page poster: reuse the first extracted
           // frame (512px-wide JPEG sampled at ~t=0) instead of a second ffmpeg
@@ -312,14 +356,26 @@ export async function POST(req: NextRequest) {
         await prisma.video.update({ where: { id: videoId }, data: { status: "GENERATING" } });
         console.log(`[analyze][${videoId}] status → GENERATING`);
 
-        // 4. ElevenLabs: two tracks in parallel (paid / regenerate), or one (free)
-        console.log(`[analyze][${videoId}] calling ElevenLabs for ${trackCount} track(s)...`);
+        // 4. ElevenLabs: two tracks in parallel (paid / regenerate), or one (free).
+        // Free tier sends only the first FREE_PREVIEW_SECONDS of the video; the
+        // track length follows the video, so this is what caps the music (and
+        // the credits). cappedSec is recorded only when we know the video was
+        // actually longer than the cap.
+        let genBuffer = videoBuffer;
+        let genMime = video.mimeType;
+        let cappedSec: number | null = null;
+        if (capSec !== null && (durationSec === null || durationSec > capSec)) {
+          genBuffer = await trimVideoToSeconds(videoBuffer, capSec, videoId);
+          genMime = "video/mp4";
+          if (durationSec !== null && genBuffer !== videoBuffer) cappedSec = capSec;
+        }
+        console.log(`[analyze][${videoId}] calling ElevenLabs for ${trackCount} track(s)${cappedSec ? ` (first ${cappedSec}s)` : ""}...`);
         let option1: GeneratedMusic;
         let option2: GeneratedMusic | null = null;
         if (trackCount === 2) {
-          ({ option1, option2 } = await generateMusicOptionsFromVideo(videoBuffer, video.mimeType, videoAnalysis));
+          ({ option1, option2 } = await generateMusicOptionsFromVideo(genBuffer, genMime, videoAnalysis));
         } else {
-          option1 = await generateMusicFromVideo(videoBuffer, video.mimeType, videoAnalysis);
+          option1 = await generateMusicFromVideo(genBuffer, genMime, videoAnalysis);
         }
         console.log(`[analyze][${videoId}] ElevenLabs opt1: ${option1.audioBuffer.byteLength}b${option2 ? `, opt2: ${option2.audioBuffer.byteLength}b` : ""}`);
 
@@ -340,7 +396,7 @@ export async function POST(req: NextRequest) {
         const audioUrl1 = await generateDownloadPresignedUrl(OUTPUT_BUCKET, audioKey1, 86400);
         const audioUrl2 = audioKey2 ? await generateDownloadPresignedUrl(OUTPUT_BUCKET, audioKey2, 86400) : null;
 
-        return { videoAnalysis, hasAudioStream, option1, option2, audioKey1, audioUrl1, audioKey2, audioUrl2 };
+        return { videoAnalysis, hasAudioStream, cappedSec, option1, option2, audioKey1, audioUrl1, audioKey2, audioUrl2 };
       })(),
       ANALYSIS_TIMEOUT_MS,
       "Music generation timed out — try uploading a shorter clip."
@@ -380,9 +436,14 @@ export async function POST(req: NextRequest) {
           : []),
       ];
 
+      // A regeneration is paid (or admin), so it is full-length: clear a cap
+      // left by an earlier free-tier run of the same video.
       const updated = await prisma.analysis.update({
         where: { id: existingAnalysis.id },
-        data: { generatedOptions: JSON.parse(JSON.stringify([...existing, ...newOpts])) },
+        data: {
+          generatedOptions: JSON.parse(JSON.stringify([...existing, ...newOpts])),
+          ...(result.cappedSec === null && existingAnalysis.cappedSec !== null ? { cappedSec: null } : {}),
+        },
       });
 
       await prisma.video.update({ where: { id: videoId }, data: { status: "ANALYZED" } });
@@ -441,6 +502,7 @@ export async function POST(req: NextRequest) {
           // null = probe unknown (failed/timed out) → schema default (true).
           // Only a positive "no audio stream" result stores false.
           hasOriginalAudio: result.hasAudioStream ?? true,
+          cappedSec: result.cappedSec,
       };
       // On the cached path the audio probe doesn't run (hasAudioStream is
       // null); don't let the default clobber a value the first run stored.

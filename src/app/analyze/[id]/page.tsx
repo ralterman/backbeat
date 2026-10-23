@@ -15,6 +15,8 @@ interface AnalysisData {
   sceneTags: string[];
   recommendedGenres: string[];
   hasOriginalAudio: boolean;
+  /** Free tier: the soundtrack covers only the first N seconds. Null = full length. */
+  cappedSec?: number | null;
   // Legacy fields (backward compat for pre-migration rows)
   musicDescription: string | null;
   musicTags: string[];
@@ -33,6 +35,7 @@ interface AnalysisResponse {
   videoId: string;
   videoUrl?: string | null;
   thumbnailUrl?: string | null;
+  videoDurationSec?: number | null;
   analysis?: AnalysisData;
 }
 
@@ -295,6 +298,9 @@ export default function AnalysisResultsPage() {
   // single centered card, no "choose", no round divider, no empty second
   // slot — with a low-key upgrade line underneath.
   const single = optionCount === 1;
+  // Free tier: the track (and any export) covers only the first N seconds of
+  // a longer video. Shown only when the server recorded an actual cap.
+  const previewCapped = isFreeUser && typeof analysis.cappedSec === "number" && analysis.cappedSec > 0;
 
   const RegenButton = () => {
     if (atMax && !isFreeUser) {
@@ -422,9 +428,18 @@ export default function AnalysisResultsPage() {
       {allOptions.length > 0 ? (
         <>
           <h2 className="text-xl font-bold text-white mb-1">{single ? "Your Track" : "Choose Your Track"}</h2>
-          <p className="text-[#9090aa] text-sm mb-6">
+          <p className={`text-[#9090aa] text-sm ${previewCapped ? "mb-2" : "mb-6"}`}>
             {single ? "Preview it synced to your video, then export." : "Click a card to select it, then export."}
           </p>
+          {previewCapped && (
+            <p className="text-[#a0a0b8] text-sm mb-6">
+              Free previews cover the first {analysis.cappedSec} seconds.{" "}
+              <Link href="/pricing" className="text-[#C8A96E] hover:text-white underline transition-colors">
+                Upgrade
+              </Link>{" "}
+              for the full video.
+            </p>
+          )}
 
           {/* Options grouped by round */}
           {rounds.map((round, roundIdx) => {
@@ -454,6 +469,7 @@ export default function AnalysisResultsPage() {
                       videoId={videoId}
                       optionLabel={`Option ${opt.label}`}
                       isFreeUser={isFreeUser}
+                      exportCapSec={previewCapped ? analysis.cappedSec ?? null : null}
                       isSelected={selectedOptionId === opt.id}
                       onSelect={() => setSelectedOptionId(opt.id)}
                       onExport={(opts) => handleExport(opt.id, opts.audioMode, opts.musicLevel)}

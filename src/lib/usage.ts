@@ -29,6 +29,14 @@ export const OPTION_CAPS: Record<SubscriptionPlan, number> = {
   TEAM: 6,
 };
 
+/**
+ * Free tier: music is generated for, and exports cover, only the first
+ * N seconds of the video. The analysis itself still reads the whole video.
+ * ElevenLabs' video-to-music has no length parameter (the track follows the
+ * video), so the analyze route trims the upload to this before sending it.
+ */
+export const FREE_PREVIEW_SECONDS = 60;
+
 /** Absolute ceiling regardless of plan (admins, and the size of the A–F label set). */
 export const HARD_MAX_OPTIONS = 6;
 

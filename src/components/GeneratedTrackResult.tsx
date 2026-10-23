@@ -37,6 +37,8 @@ interface GeneratedTrackResultProps {
   videoId: string;
   optionLabel?: string;
   isFreeUser?: boolean;
+  /** Free tier: the export covers only the first N seconds of the video. */
+  exportCapSec?: number | null;
   isSelected?: boolean;
   onSelect?: () => void;
   /** Called on export click with the current audio-mix choice; must resolve
@@ -53,6 +55,7 @@ export function GeneratedTrackResult({
   tags,
   optionLabel,
   isFreeUser = false,
+  exportCapSec = null,
   isSelected = false,
   onSelect,
   onExport,
@@ -375,7 +378,9 @@ export function GeneratedTrackResult({
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  {isFreeUser ? "Export (with Watermark)" : "Export Video"}
+                  {isFreeUser
+                    ? exportCapSec ? `Export first ${exportCapSec}s (with Watermark)` : "Export (with Watermark)"
+                    : "Export Video"}
                 </>
               )}
             </button>

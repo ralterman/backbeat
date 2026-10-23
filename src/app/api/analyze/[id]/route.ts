@@ -45,7 +45,7 @@ export async function GET(
   }
 
   if (!video.analysis) {
-    return NextResponse.json({ status: video.status, videoId, videoUrl, thumbnailUrl });
+    return NextResponse.json({ status: video.status, videoId, videoUrl, thumbnailUrl, videoDurationSec: video.durationSec });
   }
 
   const analysis = video.analysis;
@@ -86,8 +86,11 @@ export async function GET(
     videoId,
     videoUrl,
     thumbnailUrl,
+    videoDurationSec: video.durationSec,
     analysis: {
       id:                analysis.id,
+      // Free tier: soundtrack covers only the first N seconds (null = full)
+      cappedSec:         analysis.cappedSec,
       moodTags:          analysis.moodTags,
       bpmRange:          analysis.bpmRange,
       energyScore:       analysis.energyScore,

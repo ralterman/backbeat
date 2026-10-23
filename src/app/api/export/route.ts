@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { getUserPlan } from "@/lib/usage";
+import { getUserPlan, FREE_PREVIEW_SECONDS } from "@/lib/usage";
 import { isAdminEmail } from "@/lib/admin";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
@@ -108,7 +108,9 @@ async function mergeVideoAudio(
   exportId: string,
   hasWatermark: boolean,
   audioMode: AudioMode,
-  musicLevel: MusicLevel
+  musicLevel: MusicLevel,
+  /** Free tier: export only the first N seconds of the video. Null = all. */
+  maxDurationSec: number | null = null
 ): Promise<MergeResult> {
   const tmpDir = path.join(os.tmpdir(), `backbeat-export-${exportId}`);
   fs.mkdirSync(tmpDir, { recursive: true });
@@ -128,7 +130,13 @@ async function mergeVideoAudio(
   // treated as "no audio" — that is exactly the bug this replaces.
   const probe = await probeMedia(videoPath);
   if (probe.error) console.log(`[export][${exportId}] ffprobe unknown (${probe.error}); duration fallback 30s`);
-  const videoDuration = probe.durationSec !== null ? Math.max(1, probe.durationSec) : 30;
+  const sourceDuration = probe.durationSec !== null ? Math.max(1, probe.durationSec) : 30;
+  // With a cap, every duration-derived value (fade-out point, atrim, -t)
+  // is computed from the capped length so the music fades out at the cut.
+  const videoDuration = maxDurationSec !== null ? Math.min(sourceDuration, maxDurationSec) : sourceDuration;
+  if (maxDurationSec !== null && sourceDuration > maxDurationSec) {
+    console.log(`[export][${exportId}] free tier: exporting first ${maxDurationSec}s of ${sourceDuration.toFixed(1)}s`);
+  }
   const hasAudioStream = probe.hasAudioStream;
   const fadeOutStart = Math.max(0, videoDuration - 2);
 
@@ -259,6 +267,9 @@ async function mergeVideoAudio(
         "-c:a", "aac",
       ];
     }
+    // Cap the container too, not just the audio chain: -t stops the video
+    // stream at the capped length in both branches.
+    if (maxDurationSec !== null) outputOpts.push("-t", durationCap);
 
     console.log(`[export][${exportId}] filter_complex: ${filterComplex}`);
 
@@ -364,10 +375,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Admin accounts always get watermark-free exports regardless of plan.
-  const hasWatermark = isAdminEmail(session.user.email)
-    ? false
-    : (await getUserPlan(userId)) === "FREE";
+  // Admin accounts always get watermark-free, full-length exports regardless
+  // of plan. Free tier: watermarked and limited to the first 60 s (the
+  // generated track is that long too — see FREE_PREVIEW_SECONDS).
+  const admin = isAdminEmail(session.user.email);
+  const plan = admin ? "TEAM" : await getUserPlan(userId);
+  const hasWatermark = plan === "FREE";
+  const exportCapSec: number | null = plan === "FREE" ? FREE_PREVIEW_SECONDS : null;
 
   const exportId = randomUUID();
   await prisma.export.create({
@@ -388,9 +402,9 @@ export async function POST(req: NextRequest) {
     console.log(`[export][${exportId}] audio fetched: ${audioBuffer.length}b`);
 
     // Merge via FFmpeg (fade in/out + optional watermark)
-    console.log(`[export][${exportId}] starting FFmpeg (hasWatermark=${hasWatermark}, audioMode=${audioMode}, musicLevel=${musicLevel})`);
+    console.log(`[export][${exportId}] starting FFmpeg (hasWatermark=${hasWatermark}, audioMode=${audioMode}, musicLevel=${musicLevel}, cap=${exportCapSec ?? "none"})`);
     const { buffer: outputBuffer, effectiveAudioMode, probeConfirmedNoAudio } =
-      await mergeVideoAudio(videoBuffer, audioBuffer, exportId, hasWatermark, audioMode, musicLevel);
+      await mergeVideoAudio(videoBuffer, audioBuffer, exportId, hasWatermark, audioMode, musicLevel, exportCapSec);
 
     // Self-correction: "mix" was requested (Analysis.hasOriginalAudio said
     // true) but ffprobe on the actual downloaded file POSITIVELY reported no

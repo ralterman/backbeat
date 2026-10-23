@@ -133,6 +133,9 @@ model Video {
   // field existed; the player falls back to preload="metadata" for those.
   thumbnailKey String?
   thumbnailUrl String?     @db.Text
+  // Probed at first analysis (ffprobe); null for videos analyzed before
+  // this existed or when the probe failed. Drives the free-tier 60 s note.
+  durationSec  Float?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -182,6 +185,9 @@ model Analysis {
   // available rather than silently losing it; a genuinely silent video just
   // mixes in silence, which is harmless.
   hasOriginalAudio   Boolean  @default(true)
+  // Free tier: the soundtrack was generated from only the first N seconds
+  // of the video (see FREE_PREVIEW_SECONDS). Null = full length.
+  cappedSec        Int?
   createdAt          DateTime @default(now())
 
   video        Video        @relation(fields: [videoId], references: [id], onDelete: Cascade)
