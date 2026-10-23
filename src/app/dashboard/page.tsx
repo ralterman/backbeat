@@ -134,6 +134,10 @@ export default async function DashboardPage({
               ) : (
                 <Link
                   href="/api/stripe/portal"
+                  // Side-effecting GET: it creates a Stripe billing-portal
+                  // session. Without this, Next prefetched it on every
+                  // dashboard view (same issue as the checkout CTA).
+                  prefetch={false}
                   className="border border-[#2A2A2A] hover:border-[#9090aa] text-[#a0a0b8] hover:text-white text-sm px-4 py-2.5 rounded-xl transition-colors font-medium whitespace-nowrap"
                 >
                   Manage billing

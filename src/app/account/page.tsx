@@ -253,6 +253,9 @@ function AccountPageInner() {
           ) : (
             <Link
               href="/api/stripe/portal"
+              // Side-effecting GET (creates a Stripe billing-portal session);
+              // never let Next prefetch it.
+              prefetch={false}
               className="border border-[#2A2A2A] hover:border-[#9090aa] text-[#a0a0b8] hover:text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
             >
               Manage billing
