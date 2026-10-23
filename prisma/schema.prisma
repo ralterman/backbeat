@@ -89,6 +89,27 @@ model EmailChangeRequest {
   @@index([userId])
 }
 
+/// First-touch attribution captured server-side when a magic link is
+/// requested, keyed by the normalized email. Consumed once, when the User row
+/// is created. Needed because the link is often opened in a different browser
+/// (a mail app's in-app browser) than the one that requested it, so the
+/// bb_attr cookie is absent there. Rows live as long as the link (24 h).
+model MagicLinkAttribution {
+  email       String   @id
+  referrer    String?  @db.Text
+  landingPath String?  @db.Text
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+  capturedAt  DateTime
+  expires     DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([expires])
+}
+
 /// Processed Stripe webhook event IDs, for idempotency (Stripe delivers at-least-once).
 model StripeEvent {
   id          String   @id // Stripe event id (evt_…)

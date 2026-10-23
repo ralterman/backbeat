@@ -5,12 +5,17 @@ export async function requestMagicLink(params: {
   callbackUrl: string;
   turnstileToken: string | null;
 }): Promise<void> {
+  // Fallback attribution for browsers without the bb_attr cookie: the
+  // sign-in page's own referrer and path. The server prefers the cookie.
+  const context = typeof window === "undefined"
+    ? {}
+    : { referrer: document.referrer, landingPath: location.pathname + location.search };
   let res: Response;
   try {
     res = await fetch("/api/auth/magic-link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params),
+      body: JSON.stringify({ ...params, ...context }),
     });
   } catch {
     throw new Error("Network error. Please try again.");

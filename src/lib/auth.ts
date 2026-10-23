@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail, LOGO_ICON_EMAIL_URL } from "@/lib/email";
 import { cookies } from "next/headers";
 import { ATTRIBUTION_COOKIE, parseAttributionCookie, attributionToUserFields } from "@/lib/attribution";
+import { takePendingAttribution } from "@/lib/attributionStore";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -18,6 +19,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       apiKey: process.env.RESEND_API_KEY!,
       from: process.env.EMAIL_FROM ?? "hello@backbeat.video",
       async sendVerificationRequest({ identifier: email, url }) {
+        // Local testing only: print the link instead of emailing it. Hard-off
+        // in production builds regardless of the variable.
+        if (process.env.NODE_ENV !== "production" && process.env.MAGIC_LINK_DEBUG_URL === "1") {
+          console.log(`[auth][dev] MAGIC_LINK_DEBUG_URL=1, not sending. Link for ${email}: ${url}`);
+          return;
+        }
+
         // Do not log `url` — it is a single-use bearer credential. Delivery is
         // auditable via the Resend message id logged below.
         console.log("[auth] Sending magic link to:", email);
@@ -73,18 +81,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     strategy: "jwt",
   },
   events: {
-    // Copy first-touch attribution from the bb_attr cookie onto the new User
-    // row. Runs inside the auth route handler, so the request's cookies are
+    // Copy first-touch attribution onto the new User row. Two sources, in
+    // order: what the magic-link route stored server-side when the link was
+    // requested (the browser that found the site), then the bb_attr cookie
+    // in this request (the browser opening the link; the only source for
+    // Google sign-in). Runs inside the auth route handler, so cookies are
     // available via next/headers. Best-effort: nothing here may break a
     // signup, so every failure is swallowed and logged.
     async createUser({ user }) {
       try {
         if (!user.id) return;
+        const pending = user.email ? await takePendingAttribution(user.email) : null;
         const jar = await cookies();
-        const attribution = parseAttributionCookie(jar.get(ATTRIBUTION_COOKIE)?.value);
+        const fromCookie = parseAttributionCookie(jar.get(ATTRIBUTION_COOKIE)?.value);
+        const attribution = pending ?? fromCookie;
         if (!attribution) return;
         await prisma.user.update({ where: { id: user.id }, data: attributionToUserFields(attribution) });
-        console.log(`[auth] attribution stored for new user ${user.id}: ref=${attribution.referrer || "direct"} landing=${attribution.landingPath}`);
+        console.log(`[auth] attribution stored for new user ${user.id} (${pending ? "magic-link request" : "cookie"}): ref=${attribution.referrer || "direct"} landing=${attribution.landingPath}`);
       } catch (err) {
         console.error("[auth] attribution capture failed (ignored):", err);
       }
