@@ -37,6 +37,8 @@ export default function TermsPage() {
           <p>You may cancel your subscription at any time. Cancellation takes effect at the end of the current billing period. We do not provide refunds for partial months. If you believe you have been charged in error, contact us at <a href="mailto:hello@backbeat.video" className="underline" style={{ color: "#C8A96E" }}>hello@backbeat.video</a> within 30 days of the charge.</p>
           <Subheading>4.4 Price Changes</Subheading>
           <p>We reserve the right to modify subscription prices with 30 days&apos; notice. Continued use of the Service after a price change constitutes acceptance of the new pricing.</p>
+          <Subheading>4.5 Video Pass</Subheading>
+          <p>A Video Pass is a one-time purchase that applies to a single video. It unlocks a full-length soundtrack with two options for that video and a watermark-free export of it. A Video Pass does not change your plan, does not add analyses to your account, and cannot be transferred to another video. If you believe you have been charged in error, contact us at <a href="mailto:hello@backbeat.video" className="underline" style={{ color: "#C8A96E" }}>hello@backbeat.video</a> within 30 days of the charge.</p>
         </Section>
 
         <Section title="5. User Content">

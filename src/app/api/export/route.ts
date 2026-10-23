@@ -7,6 +7,7 @@ import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3"
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getUserPlan, FREE_PREVIEW_SECONDS } from "@/lib/usage";
 import { isAdminEmail } from "@/lib/admin";
+import { getVideoPass } from "@/lib/videoPass";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import ffprobeInstaller from "@ffprobe-installer/ffprobe";
@@ -378,10 +379,12 @@ export async function POST(req: NextRequest) {
   // Admin accounts always get watermark-free, full-length exports regardless
   // of plan. Free tier: watermarked and limited to the first 60 s (the
   // generated track is that long too — see FREE_PREVIEW_SECONDS).
+  // A one-time Video Pass lifts both for this video only.
   const admin = isAdminEmail(session.user.email);
   const plan = admin ? "TEAM" : await getUserPlan(userId);
-  const hasWatermark = plan === "FREE";
-  const exportCapSec: number | null = plan === "FREE" ? FREE_PREVIEW_SECONDS : null;
+  const freeLimited = plan === "FREE" && !(await getVideoPass(videoId));
+  const hasWatermark = freeLimited;
+  const exportCapSec: number | null = freeLimited ? FREE_PREVIEW_SECONDS : null;
 
   const exportId = randomUUID();
   await prisma.export.create({

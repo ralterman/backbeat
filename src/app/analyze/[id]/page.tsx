@@ -6,6 +6,7 @@ import Link from "next/link";
 import { GeneratedTrackResult } from "@/components/GeneratedTrackResult";
 import type { GeneratedOption } from "@/app/api/analyze/route";
 import type { AudioMode, MusicLevel } from "@/lib/audioMix";
+import { PASS_OPTION_CAP } from "@/lib/videoPassShared";
 
 interface AnalysisData {
   id: string;
@@ -36,6 +37,8 @@ interface AnalysisResponse {
   videoUrl?: string | null;
   thumbnailUrl?: string | null;
   videoDurationSec?: number | null;
+  /** One-time $5 Video Pass bought for this video. */
+  hasPass?: boolean;
   analysis?: AnalysisData;
 }
 
@@ -90,6 +93,22 @@ export default function AnalysisResultsPage() {
     }, 3000);
     return () => clearInterval(interval);
   }, [fetchResults, data?.status]);
+
+  // Back from a successful Video Pass checkout (?unlocked=true): kick off the
+  // full-length pair once, as soon as the results have loaded. The webhook
+  // only records the entitlement; generation is triggered from here so it
+  // runs in the analyze route's own time budget.
+  const autoRegenRef = React.useRef(false);
+  useEffect(() => {
+    if (autoRegenRef.current || regenerating) return;
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("unlocked") !== "true") return;
+    if (!data?.hasPass || data.status !== "completed" || !data.analysis) return;
+    if ((data.analysis.generatedOptions ?? []).length >= PASS_OPTION_CAP) return;
+    autoRegenRef.current = true;
+    void handleRegenerate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   useEffect(() => {
     fetch("/api/user/usage")
@@ -292,26 +311,31 @@ export default function AnalysisResultsPage() {
   }
 
   const optionCount = allOptions.length;
-  const atMax = optionCount >= optionCap;
-  const canUpgradeForMore = !isFreeUser && optionCap < DEFAULT_OPTION_CAP; // Creator (4) → Pro (6)
+  // Video Pass: a FREE user with this video unlocked. Treated as paid for
+  // this page (full-length regeneration, no watermark) up to PASS_OPTION_CAP.
+  const hasPass = !!data?.hasPass;
+  const freeLimited = isFreeUser && !hasPass;
+  const effectiveOptionCap = isFreeUser && hasPass ? Math.max(optionCap, PASS_OPTION_CAP) : optionCap;
+  const atMax = optionCount >= effectiveOptionCap;
+  const canUpgradeForMore = !freeLimited && effectiveOptionCap < DEFAULT_OPTION_CAP; // Creator (4) → Pro (6)
   // Free analyses produce one track. Present it as the deliverable — a
   // single centered card, no "choose", no round divider, no empty second
   // slot — with a low-key upgrade line underneath.
   const single = optionCount === 1;
   // Free tier: the track (and any export) covers only the first N seconds of
   // a longer video. Shown only when the server recorded an actual cap.
-  const previewCapped = isFreeUser && typeof analysis.cappedSec === "number" && analysis.cappedSec > 0;
+  const previewCapped = freeLimited && typeof analysis.cappedSec === "number" && analysis.cappedSec > 0;
 
   const RegenButton = () => {
-    if (atMax && !isFreeUser) {
+    if (atMax && !freeLimited) {
       return (
         <p className="text-[#9090aa] text-sm">
           You&rsquo;ve generated {optionCount} option{optionCount === 1 ? "" : "s"}
-          {planName ? ` — the ${planName} plan maximum` : ""}.{" "}
+          {isFreeUser && hasPass ? " — the Video Pass maximum" : planName ? ` — the ${planName} plan maximum` : ""}.{" "}
           {canUpgradeForMore ? (
             <>
               <Link href="/pricing" className="text-[#C8A96E] hover:text-white underline transition-colors">
-                Upgrade to Pro
+                {isFreeUser && hasPass ? "Upgrade to a plan" : "Upgrade to Pro"}
               </Link>{" "}
               for up to {DEFAULT_OPTION_CAP} per video, or{" "}
             </>
@@ -325,15 +349,30 @@ export default function AnalysisResultsPage() {
         </p>
       );
     }
-    if (isFreeUser) {
+    if (freeLimited) {
       return (
-        <p className="text-[#9090aa] text-sm">
-          {single ? "Want a second option?" : "Want more options?"}{" "}
-          <Link href="/pricing" className="text-[#C8A96E] hover:text-white underline transition-colors">
-            Creator plan
-          </Link>{" "}
-          gives you two per video plus regeneration.
-        </p>
+        <div className="space-y-3">
+          <p className="text-[#9090aa] text-sm">
+            {single ? "Want a second option?" : "Want more options?"}{" "}
+            <Link href="/pricing" className="text-[#C8A96E] hover:text-white underline transition-colors">
+              Creator plan
+            </Link>{" "}
+            gives you two per video plus regeneration.
+          </p>
+          {/* One-time pass. Plain <a>, not <Link>: the checkout route is a
+              side-effecting GET and must never be prefetched. */}
+          <div className="pt-1">
+            <a
+              href={`/api/stripe/checkout?video=${videoId}`}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#C8A96E] hover:bg-[#d4b87a] text-[#0a0a0f] text-sm font-bold transition-colors"
+            >
+              Score this video for $5
+            </a>
+            <p className="text-[#6a6a8a] text-xs mt-2">
+              One-time, no subscription. Full-length soundtrack, two tracks to choose from, watermark-free export. Just this video.
+            </p>
+          </div>
+        </div>
       );
     }
     return (
@@ -354,7 +393,7 @@ export default function AnalysisResultsPage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Generate New Options ({optionCount}/{optionCap})
+            Generate New Options ({optionCount}/{effectiveOptionCap})
           </>
         )}
       </button>
@@ -428,9 +467,14 @@ export default function AnalysisResultsPage() {
       {allOptions.length > 0 ? (
         <>
           <h2 className="text-xl font-bold text-white mb-1">{single ? "Your Track" : "Choose Your Track"}</h2>
-          <p className={`text-[#9090aa] text-sm ${previewCapped ? "mb-2" : "mb-6"}`}>
+          <p className={`text-[#9090aa] text-sm ${previewCapped || (isFreeUser && hasPass) ? "mb-2" : "mb-6"}`}>
             {single ? "Preview it synced to your video, then export." : "Click a card to select it, then export."}
           </p>
+          {isFreeUser && hasPass && (
+            <p className="text-[#a0a0b8] text-sm mb-6">
+              Video Pass active: full-length tracks and a watermark-free export for this video.
+            </p>
+          )}
           {previewCapped && (
             <p className="text-[#a0a0b8] text-sm mb-6">
               Free previews cover the first {analysis.cappedSec} seconds.{" "}
@@ -468,7 +512,7 @@ export default function AnalysisResultsPage() {
                       tags={opt.tags}
                       videoId={videoId}
                       optionLabel={`Option ${opt.label}`}
-                      isFreeUser={isFreeUser}
+                      isFreeUser={freeLimited}
                       exportCapSec={previewCapped ? analysis.cappedSec ?? null : null}
                       isSelected={selectedOptionId === opt.id}
                       onSelect={() => setSelectedOptionId(opt.id)}
@@ -492,7 +536,7 @@ export default function AnalysisResultsPage() {
             {usageNotice && (
               <p className="text-[#a0a0b8] text-sm mt-3">{usageNotice}</p>
             )}
-            {!atMax && !isFreeUser && (
+            {!atMax && !freeLimited && (
               <p className="text-[#9090aa] text-xs mt-2">
                 Keeps your video analysis — skips re-analyzing with Claude
               </p>

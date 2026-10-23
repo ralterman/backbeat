@@ -18,7 +18,7 @@ export async function GET(
 
   const video = await prisma.video.findFirst({
     where: { id: videoId, userId: session.user.id },
-    include: { analysis: true },
+    include: { analysis: true, pass: { select: { id: true } } },
   });
 
   if (!video) {
@@ -45,7 +45,7 @@ export async function GET(
   }
 
   if (!video.analysis) {
-    return NextResponse.json({ status: video.status, videoId, videoUrl, thumbnailUrl, videoDurationSec: video.durationSec });
+    return NextResponse.json({ status: video.status, videoId, videoUrl, thumbnailUrl, videoDurationSec: video.durationSec, hasPass: !!video.pass });
   }
 
   const analysis = video.analysis;
@@ -87,6 +87,8 @@ export async function GET(
     videoUrl,
     thumbnailUrl,
     videoDurationSec: video.durationSec,
+    // One-time Video Pass bought for this video (see src/lib/videoPass.ts)
+    hasPass: !!video.pass,
     analysis: {
       id:                analysis.id,
       // Free tier: soundtrack covers only the first N seconds (null = full)

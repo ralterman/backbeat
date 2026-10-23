@@ -102,10 +102,55 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ received: true });
 }
 
+/**
+ * One-time Video Pass paid: record the per-video entitlement. The user's
+ * plan is untouched. Idempotent two ways: the StripeEvent claim in POST
+ * stops a redelivery, and the upsert on videoId makes a second session for
+ * the same video a no-op (logged loudly so it can be refunded by hand).
+ */
+async function handleVideoPassCheckout(session: Stripe.Checkout.Session): Promise<void> {
+  const userId = session.metadata?.userId;
+  const videoId = session.metadata?.videoId;
+  if (!userId || !videoId) {
+    console.error(`[webhook] video_pass session ${session.id} missing userId/videoId metadata`);
+    return;
+  }
+  if (session.payment_status !== "paid") {
+    console.warn(`[webhook] video_pass session ${session.id} completed but payment_status=${session.payment_status}; not unlocking`);
+    return;
+  }
+  const video = await prisma.video.findFirst({ where: { id: videoId, userId }, select: { id: true } });
+  if (!video) {
+    console.error(`[webhook] video_pass session ${session.id}: video ${videoId} not found for user ${userId}`);
+    return;
+  }
+  const existing = await prisma.videoPass.findUnique({ where: { videoId } });
+  if (existing) {
+    console.error(`[webhook][REFUND?] video ${videoId} already has pass ${existing.id} (session ${existing.stripeCheckoutSessionId}); new session ${session.id} paid ${session.amount_total} ${session.currency} — duplicate purchase`);
+    return;
+  }
+  const paymentIntent = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null;
+  await prisma.videoPass.create({
+    data: {
+      videoId,
+      userId,
+      stripeCheckoutSessionId: session.id,
+      stripePaymentIntentId: paymentIntent,
+      amountCents: session.amount_total ?? 0,
+      currency: session.currency ?? "usd",
+    },
+  });
+  console.log(`[webhook] video pass: user ${userId} unlocked video ${videoId} (${session.amount_total} ${session.currency}, session ${session.id})`);
+}
+
 async function handleEvent(event: Stripe.Event): Promise<void> {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+      if (session.metadata?.kind === "video_pass") {
+        await handleVideoPassCheckout(session);
+        break;
+      }
       const userId = session.metadata?.userId;
       const plan = session.metadata?.plan;
       if (!userId || !plan) break;

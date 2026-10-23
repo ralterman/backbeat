@@ -110,6 +110,24 @@ model MagicLinkAttribution {
   @@index([expires])
 }
 
+/// A paid one-time unlock for a single video (Stripe Checkout in payment
+/// mode, see /api/stripe/checkout?video=). Per-video entitlement, not a
+/// plan change: the user stays on FREE for every other video.
+model VideoPass {
+  id                      String   @id @default(cuid())
+  videoId                 String   @unique
+  userId                  String
+  stripeCheckoutSessionId String   @unique
+  stripePaymentIntentId   String?
+  amountCents             Int
+  currency                String
+  createdAt               DateTime @default(now())
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 /// Processed Stripe webhook event IDs, for idempotency (Stripe delivers at-least-once).
 model StripeEvent {
   id          String   @id // Stripe event id (evt_…)
@@ -136,6 +154,9 @@ model Video {
   // Probed at first analysis (ffprobe); null for videos analyzed before
   // this existed or when the probe failed. Drives the free-tier 60 s note.
   durationSec  Float?
+  // One-time $5 "Video Pass": unlocks this one video (full-length tracks,
+  // two options, watermark-free export) without changing the user's plan.
+  pass         VideoPass?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 

@@ -9,6 +9,7 @@ import { notifyAdminThrottled, elevenLabsQuotaAlert, ONE_HOUR_MS } from "@/lib/a
 import { reserveAnalysisSlot, releaseAnalysisSlot, getUserPlan, OPTION_CAPS, HARD_MAX_OPTIONS, initialOptionCount, FREE_PREVIEW_SECONDS } from "@/lib/usage";
 import { PLAN_LABELS } from "@/lib/plans";
 import { isAdminEmail } from "@/lib/admin";
+import { getVideoPass, PASS_OPTION_CAP, PASS_LABEL } from "@/lib/videoPass";
 import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import ffmpeg from "fluent-ffmpeg";
@@ -229,11 +230,16 @@ export async function POST(req: NextRequest) {
 
   // Admins are treated as the top plan everywhere below.
   const plan = admin ? "TEAM" : await getUserPlan(userId);
+  // A FREE user who bought the one-time Video Pass for THIS video gets
+  // paid-tier generation for it (full length, pairs, one regeneration) while
+  // staying FREE everywhere else.
+  const pass = !admin && plan === "FREE" ? await getVideoPass(videoId) : null;
+  const freeLimited = !admin && plan === "FREE" && !pass;
 
   // Free tier: generate music for the first 60 s only. The analysis
   // (frames → Claude) still runs on the whole video; only the ElevenLabs
   // input is trimmed. Null = full length.
-  const capSec: number | null = !admin && plan === "FREE" ? FREE_PREVIEW_SECONDS : null;
+  const capSec: number | null = freeLimited ? FREE_PREVIEW_SECONDS : null;
 
   if (regenerate) {
     const opts = existingAnalysis
@@ -243,14 +249,14 @@ export async function POST(req: NextRequest) {
     // Per-plan option cap: FREE 2 (no regen), CREATOR 4, TEAM/Pro 6. Admins
     // get the hard ceiling. Regeneration does not consume an analysis credit;
     // this cap is its only limiter.
-    const cap = admin ? HARD_MAX_OPTIONS : OPTION_CAPS[plan];
+    const cap = admin ? HARD_MAX_OPTIONS : pass ? PASS_OPTION_CAP : OPTION_CAPS[plan];
 
-    if (!admin && plan === "FREE") {
+    if (freeLimited) {
       return NextResponse.json({ error: "Upgrade to generate more options." }, { status: 403 });
     }
 
     if (opts.length >= cap) {
-      const label = PLAN_LABELS[plan] ?? plan;
+      const label = pass ? PASS_LABEL : PLAN_LABELS[plan] ?? plan;
       const hint = cap < HARD_MAX_OPTIONS
         ? ` Upgrade to ${PLAN_LABELS.TEAM} for up to ${HARD_MAX_OPTIONS} per video.`
         : "";
@@ -283,7 +289,7 @@ export async function POST(req: NextRequest) {
   // How many tracks this run generates. First analysis: 1 on the free tier,
   // 2 on paid (and for admins). Regeneration is paid-only (gated above) and
   // always adds a pair.
-  const trackCount: 1 | 2 = regenerate ? 2 : initialOptionCount(plan, admin);
+  const trackCount: 1 | 2 = regenerate ? 2 : initialOptionCount(plan, admin || !!pass);
 
   await prisma.video.update({
     where: { id: videoId },
@@ -436,8 +442,8 @@ export async function POST(req: NextRequest) {
           : []),
       ];
 
-      // A regeneration is paid (or admin), so it is full-length: clear a cap
-      // left by an earlier free-tier run of the same video.
+      // A regeneration is paid, passed or admin, so it is full-length: clear
+      // a cap left by an earlier free-tier run of the same video.
       const updated = await prisma.analysis.update({
         where: { id: existingAnalysis.id },
         data: {

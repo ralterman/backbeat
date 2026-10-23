@@ -52,6 +52,10 @@ const faqs = [
     a: "Free tier exports cover the first 60 seconds of your video and include a subtle Backbeat text overlay. Upgrade to Creator or Pro to export the full video without any watermark.",
   },
   {
+    q: "Can I pay for just one video?",
+    a: "Yes. After your free analysis, the results page offers a $5 Video Pass for that video: a full-length soundtrack with two options to choose from and a watermark-free export. It is a one-time payment, not a subscription, and it applies only to that video. Your account stays on the free plan.",
+  },
+  {
     q: "How good is the AI-generated music?",
     a: "Backbeat uses Claude to deeply analyze your video's mood, energy, pacing, and scene context, then generates a soundtrack via ElevenLabs. Each generation is unique to your video. The free tier gets one track per analysis, covering the first 60 seconds of the video. Paid plans get two distinct full-length options per analysis and, if neither fits, can regenerate two more without using another analysis — Creator up to 4 options per video, Pro up to 6.",
   },
@@ -105,8 +109,24 @@ export default function PricingPage() {
           />
         </div>
 
+        {/* One-time pass: the third way to pay, no subscription */}
+        <div className="-mt-8 mb-12 mx-auto max-w-3xl rounded-2xl border border-[#2A2A2A] bg-[#141414] px-6 py-5 flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex-1">
+            <p className="text-white font-semibold">Just one video? $5, no subscription.</p>
+            <p className="text-[#a0a0b8] text-sm mt-1 leading-relaxed">
+              Run your free analysis, then unlock that video from its results page: a full-length soundtrack, two tracks to choose from, and a watermark-free export. Your account stays on the free plan.
+            </p>
+          </div>
+          <Link
+            href="/auth/signup"
+            className="shrink-0 text-center bg-white/[0.06] hover:bg-white/[0.1] text-white border border-white/10 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+          >
+            Start with the free analysis
+          </Link>
+        </div>
+
         {/* Licensing note — mirrors Terms §6 */}
-        <p className="text-center text-[#9090aa] text-sm max-w-2xl mx-auto -mt-8 mb-3 leading-relaxed">
+        <p className="text-center text-[#9090aa] text-sm max-w-2xl mx-auto mb-3 leading-relaxed">
           Free-tier exports cover the first 60 seconds and are watermarked. All exports, free and paid, are cleared for commercial use online and offline, including social media and advertising, except film, TV, radio and games, which need separate licensing.
         </p>
         <p className="text-center text-[#9090aa] text-sm max-w-2xl mx-auto mb-20 leading-relaxed">
