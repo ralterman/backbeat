@@ -94,40 +94,70 @@ export default function AnalysisResultsPage() {
     return () => clearInterval(interval);
   }, [fetchResults, data?.status]);
 
-  // Back from a successful Video Pass checkout (?unlocked=true): kick off the
-  // full-length pair once, as soon as the results have loaded. The webhook
-  // only records the entitlement; generation is triggered from here so it
-  // runs in the analyze route's own time budget.
+  // ?unlocked=true: back from a successful checkout (a Video Pass for this
+  // video, or a plan upgrade that sent the user here because this analysis
+  // was capped at 60 s). Kick off the full-length pair once, as soon as the
+  // results have loaded and the entitlement is visible. The webhook only
+  // records the purchase; generation is triggered from here so it runs in
+  // the analyze route's own time budget. For a plan upgrade the webhook can
+  // land after the redirect, so the plan is re-checked below until it reads
+  // as paid.
+  const unlockedParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("unlocked") === "true";
+  const upgradedParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("upgraded") === "true";
   const autoRegenRef = React.useRef(false);
   useEffect(() => {
-    if (autoRegenRef.current || regenerating) return;
-    if (typeof window === "undefined") return;
-    if (new URLSearchParams(window.location.search).get("unlocked") !== "true") return;
-    if (!data?.hasPass || data.status !== "completed" || !data.analysis) return;
-    if ((data.analysis.generatedOptions ?? []).length >= PASS_OPTION_CAP) return;
+    if (!unlockedParam || autoRegenRef.current || regenerating) return;
+    if (!data?.analysis || data.status !== "completed") return;
+    const capped = typeof data.analysis.cappedSec === "number";
+    if (data.hasPass) {
+      if ((data.analysis.generatedOptions ?? []).length >= PASS_OPTION_CAP) return;
+    } else {
+      // Plan upgrade: only a capped analysis needs regenerating, and only
+      // once the server sees the paid plan (isFreeUser flips via polling).
+      if (!capped || isFreeUser) return;
+    }
     autoRegenRef.current = true;
     void handleRegenerate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+  }, [data, isFreeUser, unlockedParam]);
 
-  useEffect(() => {
-    fetch("/api/user/usage")
-      .then((r) => r.ok ? r.json() : null)
-      .then((json) => {
-        if (!json) return;
-        setIsFreeUser(json.plan === "FREE" && !json.isAdmin);
-        if (typeof json.optionCap === "number") setOptionCap(json.optionCap);
-        if (typeof json.planLabel === "string") setPlanName(json.planLabel);
-        if (
-          json.plan !== "FREE" && !json.isAdmin &&
-          typeof json.used === "number" && typeof json.limit === "number" &&
-          json.limit > 0 && json.used / json.limit >= 0.8
-        ) {
-          setUsageNotice(`You’ve used ${json.used} of ${json.limit} analyses this month.`);
-        }
-      })
-      .catch(() => {});
+  const loadUsage = useCallback(async (): Promise<{ plan?: string; isAdmin?: boolean } | null> => {
+    try {
+      const r = await fetch("/api/user/usage", { cache: "no-store" });
+      if (!r.ok) return null;
+      const json = await r.json();
+      setIsFreeUser(json.plan === "FREE" && !json.isAdmin);
+      if (typeof json.optionCap === "number") setOptionCap(json.optionCap);
+      if (typeof json.planLabel === "string") setPlanName(json.planLabel);
+      if (
+        json.plan !== "FREE" && !json.isAdmin &&
+        typeof json.used === "number" && typeof json.limit === "number" &&
+        json.limit > 0 && json.used / json.limit >= 0.8
+      ) {
+        setUsageNotice(`You’ve used ${json.used} of ${json.limit} analyses this month.`);
+      }
+      return json;
+    } catch {
+      return null;
+    }
   }, []);
+
+  useEffect(() => { void loadUsage(); }, [loadUsage]);
+
+  // After a plan upgrade the Stripe webhook may not have run by the time the
+  // user is redirected here. Poll the plan for up to a minute so the
+  // full-length generation above can start as soon as it lands.
+  useEffect(() => {
+    if (!unlockedParam || !upgradedParam || !isFreeUser || data?.hasPass) return;
+    if (typeof data?.analysis?.cappedSec !== "number") return;
+    let tries = 0;
+    const id = setInterval(async () => {
+      tries += 1;
+      const json = await loadUsage();
+      if ((json && json.plan !== "FREE") || tries >= 30) clearInterval(id);
+    }, 2000);
+    return () => clearInterval(id);
+  }, [unlockedParam, upgradedParam, isFreeUser, data?.hasPass, data?.analysis?.cappedSec, loadUsage]);
 
   const handleExport = async (
     optionId: string,
@@ -325,6 +355,10 @@ export default function AnalysisResultsPage() {
   // Free tier: the track (and any export) covers only the first N seconds of
   // a longer video. Shown only when the server recorded an actual cap.
   const previewCapped = freeLimited && typeof analysis.cappedSec === "number" && analysis.cappedSec > 0;
+  // A paid user (subscriber, or this video's pass holder) looking at a 60 s
+  // free-tier analysis: the next regeneration replaces it with full-length
+  // tracks. For a subscriber that costs one analysis, like any paid one.
+  const uncapAvailable = !freeLimited && typeof analysis.cappedSec === "number" && analysis.cappedSec > 0;
 
   const RegenButton = () => {
     if (atMax && !freeLimited) {
@@ -393,7 +427,7 @@ export default function AnalysisResultsPage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Generate New Options ({optionCount}/{effectiveOptionCap})
+            {uncapAvailable ? "Generate full-length tracks" : `Generate New Options (${optionCount}/${effectiveOptionCap})`}
           </>
         )}
       </button>
@@ -467,12 +501,19 @@ export default function AnalysisResultsPage() {
       {allOptions.length > 0 ? (
         <>
           <h2 className="text-xl font-bold text-white mb-1">{single ? "Your Track" : "Choose Your Track"}</h2>
-          <p className={`text-[#9090aa] text-sm ${previewCapped || (isFreeUser && hasPass) ? "mb-2" : "mb-6"}`}>
+          <p className={`text-[#9090aa] text-sm ${previewCapped || (isFreeUser && hasPass) || (upgradedParam && !hasPass && typeof analysis.cappedSec === "number") ? "mb-2" : "mb-6"}`}>
             {single ? "Preview it synced to your video, then export." : "Click a card to select it, then export."}
           </p>
           {isFreeUser && hasPass && (
             <p className="text-[#a0a0b8] text-sm mb-6">
               Video Pass active: full-length tracks and a watermark-free export for this video.
+            </p>
+          )}
+          {upgradedParam && !hasPass && typeof analysis.cappedSec === "number" && (
+            <p className="text-[#a0a0b8] text-sm mb-6">
+              {isFreeUser
+                ? "Your plan is upgraded. Full-length tracks for this video start as soon as the payment is confirmed, usually within a few seconds."
+                : "Your plan is upgraded. Generating full-length tracks for this video now."}
             </p>
           )}
           {previewCapped && (
@@ -538,7 +579,11 @@ export default function AnalysisResultsPage() {
             )}
             {!atMax && !freeLimited && (
               <p className="text-[#9090aa] text-xs mt-2">
-                Keeps your video analysis — skips re-analyzing with Claude
+                {uncapAvailable && !hasPass
+                  ? "Two full-length tracks for the whole video. Counts as one analysis."
+                  : uncapAvailable
+                    ? "Two full-length tracks for the whole video."
+                    : "Keeps your video analysis — skips re-analyzing with Claude"}
               </p>
             )}
           </div>

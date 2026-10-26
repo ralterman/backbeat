@@ -83,12 +83,25 @@ export async function GET(req: NextRequest) {
   }
 
   const customerId = await ensureCustomer(userId, userEmail);
+
+  // A free user upgrading with a 60 s-capped analysis lands back on that
+  // video's results page, where the page generates the full-length pair
+  // (see the ?unlocked effect in /analyze/[id]). Otherwise the dashboard.
+  const capped = await prisma.analysis.findFirst({
+    where: { cappedSec: { not: null }, video: { userId, status: "ANALYZED" } },
+    orderBy: { createdAt: "desc" },
+    select: { videoId: true },
+  });
+  const successUrl = capped
+    ? `${base}/analyze/${capped.videoId}?unlocked=true&upgraded=true`
+    : `${base}/dashboard?upgraded=true`;
+
   const checkoutSession = await getStripe().checkout.sessions.create({
     customer: customerId,
     mode: "subscription",
     payment_method_types: ["card"],
     line_items: [{ price: PRICE_IDS[plan], quantity: 1 }],
-    success_url: `${base}/dashboard?upgraded=true`,
+    success_url: successUrl,
     cancel_url: `${base}/pricing`,
     metadata: { userId, plan },
   });

@@ -273,10 +273,14 @@ export async function POST(req: NextRequest) {
   // while remaining > 0, then analyze each). Reserving here, before any
   // work starts and under a per-user lock, also closes the race where two
   // analyses started back-to-back both passed a check-only gate. Applies to
-  // first-run analyses only: regeneration is part of the analysis already
-  // paid for and is bounded by the per-plan option cap above.
+  // first-run analyses, plus one case of regeneration: a subscriber turning
+  // a 60 s free-tier analysis into full-length tracks ("uncapping") pays one
+  // analysis for it, like any paid analysis. Ordinary regeneration is part
+  // of the analysis already paid for and is bounded by the option cap above;
+  // a Video Pass uncapping is paid for by the pass.
+  const uncapping = regenerate && existingAnalysis?.cappedSec != null && capSec === null;
   let reserved = false;
-  if (!admin && !regenerate) {
+  if (!admin && (!regenerate || (uncapping && !pass))) {
     reserved = await reserveAnalysisSlot(userId);
     if (!reserved) {
       return NextResponse.json(
@@ -375,7 +379,7 @@ export async function POST(req: NextRequest) {
           genMime = "video/mp4";
           if (durationSec !== null && genBuffer !== videoBuffer) cappedSec = capSec;
         }
-        console.log(`[analyze][${videoId}] calling ElevenLabs for ${trackCount} track(s)${cappedSec ? ` (first ${cappedSec}s)` : ""}...`);
+        console.log(`[analyze][${videoId}] calling ElevenLabs for ${trackCount} track(s)${cappedSec ? ` (first ${cappedSec}s)` : uncapping ? " (full length, replacing a capped preview)" : ""}...`);
         let option1: GeneratedMusic;
         let option2: GeneratedMusic | null = null;
         if (trackCount === 2) {
