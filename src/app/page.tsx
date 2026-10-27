@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { PricingCard } from "@/components/PricingCard";
 import { HeroDemo } from "@/components/demo/HeroDemo";
 import { GenreRow } from "@/components/demo/GenreRow";
@@ -104,23 +103,10 @@ export default function LandingPage() {
 
       {/* ── Hero ──────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-16">
-          {/* Logo lockup */}
-          <div className="flex flex-col items-center gap-6 mb-10">
-            <Image
-              src="/brand/logo-icon.png"
-              alt="Backbeat icon"
-              width={120}
-              height={120}
-              priority
-              className="h-[120px] w-auto"
-            />
-            <span style={{ color: "#C8A96E", fontSize: "56px", fontWeight: 400, lineHeight: 1, letterSpacing: "0.05em", fontFamily: "'TAN Pearl', serif" }}>
-              Backbeat
-            </span>
-          </div>
-
-          {/* Copy left, live demo right; stacked on phones with the demo under the CTAs. */}
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 lg:pt-20 pb-16">
+          {/* The hero starts at the eyebrow line: the navbar carries the only
+              logo and wordmark. Copy left, live demo right; stacked on phones
+              with the demo under the CTAs. */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-12 lg:gap-16 items-center">
             <div className="text-center lg:text-left">
               <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">

@@ -4,23 +4,31 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { MUSIC_GAIN_LINEAR } from "@/lib/audioMix";
 
 /**
- * A looping clip with one control.
+ * A looping clip with the browser's native controls (play, pause, scrub,
+ * volume) plus Backbeat's generated track riding underneath it.
  *
- * A clip with its own audio (the hero) gets an Original / With Backbeat
- * toggle: "Original" plays the clip's recorded sound, "With Backbeat"
- * crossfades the generated track in underneath at the Balanced level — the
- * same gain the export uses — and animates a waveform driven by the track's
- * actual signal. A clip with no audio of its own (the genre row) has nothing
- * to toggle against, so it gets a single "Play with Backbeat" button that
- * starts the clip with the track, and pauses it on a second press.
+ * The track is a second media element kept in lockstep with the video: it
+ * starts and stops with the video's own play/pause (native controls, overlay
+ * taps and scroll-away pauses all go through the same events), its volume
+ * follows the video's volume slider and mute, and it is re-synced to the
+ * video's clock on every timeupdate.
  *
- * Mobile rules: the video autoplays muted and inline; nothing is unmuted
- * and no audio element plays until the user taps, and both happen inside
- * that tap's handler (iOS requires it). On a data-saver / slow connection
- * the clip doesn't autoplay at all — a poster is shown until a tap.
+ * Hero (a clip with recorded sound): autoplays muted and inline, with an
+ * Original / With Backbeat toggle whose state is derived from the player:
+ * muted = nothing selected; unmuted with the track off = Original; unmuted
+ * with the track on = With Backbeat. "Original" unmutes the clip alone,
+ * "With Backbeat" unmutes and crossfades the track in at the Balanced level
+ * (the same gain the export uses).
  *
- * Only one player on the page has sound at a time: activating one
- * broadcasts on `window`, and every other player drops back to Original.
+ * Row (clips shown as a poster): nothing loads or plays until a tap. The
+ * centered play overlay starts the clip with its track; a tap on the playing
+ * clip pauses both. The track is always on for a row clip.
+ *
+ * Mobile rules: every unmute and every audio.play() happens synchronously
+ * inside a user gesture (iOS requires it), and the AudioContext behind the
+ * waveform is only ever created inside a gesture. Only one player has sound
+ * at a time: starting one broadcasts on `window`; other row players pause and
+ * the hero drops back to muted. Any clip that scrolls out of view pauses.
  */
 
 export interface DemoClip {
@@ -48,12 +56,14 @@ function constrainedNetwork(): boolean {
 
 interface Props {
   clip: DemoClip;
-  /** Hero: preload the whole clip and autoplay. Row: metadata only, play on tap. */
+  /** Hero: preload the whole clip and autoplay muted. Row: poster until a tap. */
   variant: "hero" | "row";
   className?: string;
 }
 
 export function DemoPlayer({ clip, variant, className = "" }: Props) {
+  const isHero = variant === "hero";
+  const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -61,58 +71,100 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const rafRef = useRef<number | null>(null);
+  /** Fade factor of the track, 0..1; the audible level is gain × Balanced × video volume. */
+  const gainRef = useRef(0);
+  /** Whether the generated track rides along whenever the video plays. Always on for a row clip. */
+  const trackOnRef = useRef(!isHero);
+  const pausedByViewRef = useRef(false);
 
-  const [mode, setMode] = useState<DemoMode>("original");
-  const [started, setStarted] = useState(false); // user has tapped at least once
-  const [autoplay, setAutoplay] = useState(variant === "hero");
+  const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(isHero);
+  const [trackOn, setTrackOn] = useState(!isHero);
+  const [autoplay, setAutoplay] = useState(isHero);
 
   // Respect data-saver / slow links: no autoplay anywhere.
   useEffect(() => {
     if (constrainedNetwork()) setAutoplay(false);
   }, []);
 
-  // Keep the generated track locked to the clip's loop point.
+  // React does not render the `muted` attribute on the server, so an
+  // autoplaying hero could be blocked as "unmuted" before hydration. Set it
+  // explicitly on mount and (re)start muted playback, which never needs a
+  // gesture.
   useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isHero) return;
+    video.muted = true;
+    video.defaultMuted = true;
+    if (autoplay && video.paused) video.play().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoplay]);
+
+  const applyVolume = useCallback(() => {
     const video = videoRef.current, audio = audioRef.current;
     if (!video || !audio) return;
-    const onTime = () => {
-      if (audio.paused) return;
-      if (video.currentTime < 0.35 && audio.currentTime > 1) audio.currentTime = 0;
-      else if (Math.abs(audio.currentTime - video.currentTime) > 0.5) audio.currentTime = video.currentTime;
-    };
-    video.addEventListener("timeupdate", onTime);
-    return () => video.removeEventListener("timeupdate", onTime);
+    audio.volume = Math.max(0, Math.min(1, gainRef.current * MUSIC_LEVEL * video.volume));
+    audio.muted = video.muted;
   }, []);
 
-  // Drop to Original when another player takes the sound.
-  useEffect(() => {
-    const onActivate = (e: Event) => {
-      if ((e as CustomEvent<string>).detail !== clip.id) deactivate();
-    };
-    window.addEventListener(ACTIVATE_EVENT, onActivate);
-    return () => window.removeEventListener(ACTIVATE_EVENT, onActivate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clip.id]);
-
-  useEffect(() => () => { stopWaveform(); if (fadeRef.current) cancelAnimationFrame(fadeRef.current); }, []);
-
-  const fadeTo = (target: number, onDone?: () => void) => {
-    const audio = audioRef.current;
-    if (!audio) return;
+  const fadeTo = useCallback((target: number, onDone?: () => void) => {
     if (fadeRef.current) cancelAnimationFrame(fadeRef.current);
-    const from = audio.volume, t0 = performance.now();
+    const from = gainRef.current, t0 = performance.now();
     const step = (now: number) => {
       const k = Math.min(1, (now - t0) / FADE_MS);
-      audio.volume = from + (target - from) * (k * k * (3 - 2 * k)); // smoothstep
+      gainRef.current = from + (target - from) * (k * k * (3 - 2 * k)); // smoothstep
+      applyVolume();
       if (k < 1) fadeRef.current = requestAnimationFrame(step);
       else { fadeRef.current = null; onDone?.(); }
     };
     fadeRef.current = requestAnimationFrame(step);
-  };
+  }, [applyVolume]);
 
-  const startWaveform = () => {
-    const audio = audioRef.current, canvas = canvasRef.current;
-    if (!audio || !canvas) return;
+  const stopWaveform = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    const canvas = canvasRef.current;
+    canvas?.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
+  }, []);
+
+  /**
+   * Draw the waveform from the track's real signal when an AudioContext
+   * exists, else from a gentle synthetic motion. The context is created only
+   * by `ensureAnalyser`, inside a user gesture: routing a media element
+   * through a context that is still suspended would silence it on Safari.
+   */
+  const startWaveform = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || rafRef.current) return;
+    const g = canvas.getContext("2d");
+    if (!g) return;
+    const analyser = analyserRef.current;
+    const data = analyser ? new Uint8Array(analyser.frequencyBinCount) : null;
+    const draw = (t: number) => {
+      const w = canvas.width, h = canvas.height, bars = 28, gap = 3, bw = (w - gap * (bars - 1)) / bars;
+      if (analyser && data) analyser.getByteFrequencyData(data);
+      g.clearRect(0, 0, w, h);
+      for (let i = 0; i < bars; i++) {
+        const v = analyser && data
+          ? data[Math.floor((i / bars) * data.length * 0.6)] / 255
+          : 0.25 + 0.2 * Math.sin(t / 260 + i * 0.7) + 0.1 * Math.sin(t / 90 + i * 1.9);
+        const bh = Math.max(3, v * h);
+        g.fillStyle = "#C8A96E";
+        g.globalAlpha = 0.45 + v * 0.55;
+        const x = i * (bw + gap), y = (h - bh) / 2;
+        g.beginPath();
+        g.roundRect(x, y, bw, bh, bw / 2);
+        g.fill();
+      }
+      rafRef.current = requestAnimationFrame(draw);
+    };
+    rafRef.current = requestAnimationFrame(draw);
+  }, []);
+
+  /** Gesture-only: build the analyser graph once and keep the context running. */
+  const ensureAnalyser = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
     try {
       if (!audioCtxRef.current) {
         const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -128,151 +180,225 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
       }
       void audioCtxRef.current.resume();
     } catch {
-      analyserRef.current = null; // fall back to the CSS-animated bars
+      analyserRef.current = null;
     }
-    const analyser = analyserRef.current;
-    const g = canvas.getContext("2d");
-    if (!analyser || !g) return;
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    const draw = () => {
-      analyser.getByteFrequencyData(data);
-      const w = canvas.width, h = canvas.height, bars = 28, gap = 3, bw = (w - gap * (bars - 1)) / bars;
-      g.clearRect(0, 0, w, h);
-      for (let i = 0; i < bars; i++) {
-        const v = data[Math.floor((i / bars) * data.length * 0.6)] / 255;
-        const bh = Math.max(3, v * h);
-        g.fillStyle = "#C8A96E";
-        g.globalAlpha = 0.45 + v * 0.55;
-        const x = i * (bw + gap), y = (h - bh) / 2;
-        g.beginPath();
-        g.roundRect(x, y, bw, bh, bw / 2);
-        g.fill();
-      }
-      rafRef.current = requestAnimationFrame(draw);
-    };
-    draw();
-  };
-
-  const stopWaveform = () => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-    const canvas = canvasRef.current;
-    canvas?.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
-  };
-
-  const deactivate = useCallback(() => {
-    const audio = audioRef.current;
-    setMode("original");
-    if (audio && !audio.paused) fadeTo(0, () => audio.pause());
-    stopWaveform();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const activate = () => {
+  /** Start the track in step with the video (the video must already be playing or about to). */
+  const startTrack = useCallback(() => {
     const video = videoRef.current, audio = audioRef.current;
     if (!video || !audio) return;
-    window.dispatchEvent(new CustomEvent(ACTIVATE_EVENT, { detail: clip.id }));
-    setMode("backbeat");
-    setStarted(true);
-    // Everything that needs a user gesture happens synchronously here.
-    video.muted = false;
-    video.volume = 1;
-    if (video.paused) video.play().catch(() => {});
-    audio.currentTime = video.currentTime % (audio.duration || 15);
-    audio.volume = 0;
-    audio.play().then(() => fadeTo(MUSIC_LEVEL)).catch(() => {});
+    if (fadeRef.current) cancelAnimationFrame(fadeRef.current);
+    const dur = audio.duration || video.duration || 15;
+    audio.currentTime = video.currentTime % dur;
+    gainRef.current = 0;
+    applyVolume();
+    audio.play().then(() => fadeTo(1)).catch(() => {});
     startWaveform();
-  };
+  }, [applyVolume, fadeTo, startWaveform]);
 
-  const toOriginal = () => {
+  /** Fade the track out and pause it; the video is untouched. */
+  const stopTrack = useCallback((immediate = false) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (immediate || audio.paused) {
+      if (fadeRef.current) cancelAnimationFrame(fadeRef.current);
+      fadeRef.current = null;
+      gainRef.current = 0;
+      applyVolume();
+      audio.pause();
+    } else {
+      fadeTo(0, () => audio.pause());
+    }
+    stopWaveform();
+  }, [applyVolume, fadeTo, stopWaveform]);
+
+  const announce = useCallback(() => {
+    window.dispatchEvent(new CustomEvent(ACTIVATE_EVENT, { detail: clip.id }));
+  }, [clip.id]);
+
+  // Video events drive everything: native controls, overlay taps and the
+  // scroll-away pause all arrive here.
+  useEffect(() => {
+    const video = videoRef.current, audio = audioRef.current;
+    if (!video || !audio) return;
+    const onPlay = () => {
+      pausedByViewRef.current = false;
+      setPlaying(true);
+      if (trackOnRef.current) startTrack();
+      if (!isHero || !video.muted) announce();
+    };
+    const onPause = () => {
+      setPlaying(false);
+      stopTrack(true);
+    };
+    const onVolume = () => {
+      setMuted(video.muted);
+      applyVolume();
+      if (!video.muted && !video.paused) announce();
+    };
+    const onTime = () => {
+      if (audio.paused) return;
+      if (video.currentTime < 0.35 && audio.currentTime > 1) audio.currentTime = 0;
+      else if (Math.abs(audio.currentTime - video.currentTime) > 0.5) audio.currentTime = video.currentTime;
+    };
+    const onSeeked = () => {
+      if (!audio.paused) audio.currentTime = video.currentTime % (audio.duration || video.duration || 15);
+    };
+    video.addEventListener("play", onPlay);
+    video.addEventListener("pause", onPause);
+    video.addEventListener("volumechange", onVolume);
+    video.addEventListener("timeupdate", onTime);
+    video.addEventListener("seeked", onSeeked);
+    return () => {
+      video.removeEventListener("play", onPlay);
+      video.removeEventListener("pause", onPause);
+      video.removeEventListener("volumechange", onVolume);
+      video.removeEventListener("timeupdate", onTime);
+      video.removeEventListener("seeked", onSeeked);
+    };
+  }, [isHero, announce, applyVolume, startTrack, stopTrack]);
+
+  // Another player took the sound: rows pause, the hero drops back to muted.
+  useEffect(() => {
+    const onActivate = (e: Event) => {
+      if ((e as CustomEvent<string>).detail === clip.id) return;
+      const video = videoRef.current;
+      if (!video) return;
+      if (isHero) {
+        if (trackOnRef.current) { trackOnRef.current = false; setTrackOn(false); stopTrack(); }
+        video.muted = true;
+      } else if (!video.paused) {
+        video.pause();
+      }
+    };
+    window.addEventListener(ACTIVATE_EVENT, onActivate);
+    return () => window.removeEventListener(ACTIVATE_EVENT, onActivate);
+  }, [clip.id, isHero, stopTrack]);
+
+  // Pause when scrolled out of view. A muted hero resumes on its own when it
+  // comes back (muted playback needs no gesture); anything with sound waits
+  // for a tap.
+  useEffect(() => {
+    const el = wrapRef.current, video = videoRef.current;
+    if (!el || !video || !("IntersectionObserver" in window)) return;
+    const io = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) {
+        if (!video.paused) { pausedByViewRef.current = true; video.pause(); }
+      } else if (pausedByViewRef.current && isHero && video.muted) {
+        pausedByViewRef.current = false;
+        video.play().catch(() => {});
+      }
+    }, { threshold: 0.2 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [isHero]);
+
+  useEffect(() => () => {
+    stopWaveform();
+    if (fadeRef.current) cancelAnimationFrame(fadeRef.current);
+    void audioCtxRef.current?.close().catch(() => {});
+  }, [stopWaveform]);
+
+  // ── Gesture handlers ──────────────────────────────────────────────────────
+
+  /** Hero: unmute the clip alone. */
+  const chooseOriginal = () => {
     const video = videoRef.current;
-    if (video) { video.muted = false; if (video.paused) video.play().catch(() => {}); }
-    setStarted(true);
-    deactivate();
+    if (!video) return;
+    if (trackOnRef.current) { trackOnRef.current = false; setTrackOn(false); stopTrack(); }
+    video.muted = false;
+    if (video.paused) video.play().catch(() => {});
+    announce();
   };
 
-  const onToggle = (next: DemoMode) => (next === "backbeat" ? activate() : toOriginal());
-
-  // Single-button variant: second press pauses the clip and fades the track
-  // out, returning to the poster-and-play-icon state.
-  const pause = () => {
-    videoRef.current?.pause();
-    setStarted(false);
-    deactivate();
+  /** Hero: unmute the clip and mix the track in. Row: start the clip with its track. */
+  const chooseBackbeat = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    ensureAnalyser();
+    trackOnRef.current = true;
+    setTrackOn(true);
+    video.muted = false;
+    announce();
+    if (video.paused) video.play().catch(() => {}); // `play` event starts the track
+    else startTrack();
   };
+
+  const pauseClip = () => videoRef.current?.pause();
 
   const label = clip.label;
-  const playing = mode === "backbeat";
+  const mode: DemoMode | null = muted ? null : trackOn ? "backbeat" : "original";
+  const trackAudible = playing && trackOn && !muted;
 
   return (
-    <div className={`flex flex-col ${className}`}>
+    <div ref={wrapRef} className={`flex flex-col ${className}`}>
       <div className="relative rounded-2xl overflow-hidden bg-[#141414] border border-[#2A2A2A] aspect-[9/16]">
         <video
           ref={videoRef}
           src={clip.src}
           poster={clip.poster}
-          muted
+          muted={isHero}
           loop
           playsInline
+          controls
+          controlsList="nodownload noplaybackrate noremoteplayback"
+          disablePictureInPicture
           autoPlay={autoplay}
-          preload={variant === "hero" ? "auto" : "metadata"}
+          preload={isHero ? "auto" : "metadata"}
           className="absolute inset-0 w-full h-full object-cover"
           aria-label={`${label} demo clip`}
         />
-        {/* Poster-only state: nothing is playing until the first tap. */}
-        {!autoplay && !started && (
+        {/* Row: centered play overlay on the poster; a tap on the playing
+            clip pauses it. Both leave the native control bar uncovered. */}
+        {!isHero && !playing && (
           <button
             type="button"
-            onClick={activate}
-            className="absolute inset-0 flex items-center justify-center bg-black/30"
-            aria-label={`Play ${label} demo`}
+            onClick={chooseBackbeat}
+            className="absolute inset-x-0 top-0 bottom-16 flex items-center justify-center"
+            aria-label={`Play ${label} demo with Backbeat`}
           >
             <span className="w-14 h-14 rounded-full bg-[#C8A96E] flex items-center justify-center shadow-lg">
               <svg className="w-6 h-6 text-[#0a0a0f] ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
             </span>
           </button>
         )}
-        {/* Waveform (bottom edge) — canvas when the track is playing */}
-        <div className={`absolute left-0 right-0 bottom-0 h-14 px-4 pb-3 flex items-end bg-gradient-to-t from-black/60 to-transparent transition-opacity ${mode === "backbeat" ? "opacity-100" : "opacity-0"}`}>
+        {!isHero && playing && (
+          <button
+            type="button"
+            onClick={pauseClip}
+            className="absolute inset-x-0 top-0 bottom-16"
+            aria-label={`Pause ${label} demo`}
+          />
+        )}
+        {/* Waveform, above the control bar, while the track is audible */}
+        <div className={`pointer-events-none absolute left-0 right-0 bottom-14 h-12 px-4 flex items-end bg-gradient-to-t from-black/50 to-transparent transition-opacity ${trackAudible ? "opacity-100" : "opacity-0"}`}>
           <canvas ref={canvasRef} width={280} height={36} className="w-full h-9" aria-hidden="true" />
         </div>
-        <span className="absolute top-3 left-3 text-[10px] font-semibold tracking-widest uppercase text-white/80 bg-black/40 rounded-full px-2.5 py-1">
+        <span className="pointer-events-none absolute top-3 left-3 text-[10px] font-semibold tracking-widest uppercase text-white/80 bg-black/40 rounded-full px-2.5 py-1">
           {label}
         </span>
       </div>
 
-      <div className="mt-3">
-        {clip.hasOriginalAudio ? (
+      {isHero && (
+        <div className="mt-3">
           <div role="group" aria-label={`${label}: original or with Backbeat`} className="grid grid-cols-2 p-1 rounded-xl bg-[#141414] border border-[#2A2A2A] text-sm font-medium">
             {(["original", "backbeat"] as const).map((m) => (
               <button
                 key={m}
                 type="button"
                 aria-pressed={mode === m}
-                onClick={() => onToggle(m)}
+                onClick={m === "backbeat" ? chooseBackbeat : chooseOriginal}
                 className={`py-2 rounded-lg transition-colors ${mode === m ? "bg-[#C8A96E] text-[#0a0a0f] font-semibold" : "text-[#a0a0b8] hover:text-white"}`}
               >
                 {m === "original" ? "Original" : "With Backbeat"}
               </button>
             ))}
           </div>
-        ) : (
-          <button
-            type="button"
-            aria-pressed={playing}
-            onClick={playing ? pause : activate}
-            className={`w-full py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
-              playing
-                ? "bg-[#141414] border-[#C8A96E] text-[#C8A96E] hover:text-white"
-                : "bg-[#C8A96E] border-[#C8A96E] text-[#0a0a0f] hover:bg-[#d4b87a]"
-            }`}
-          >
-            {playing ? "Pause" : "Play with Backbeat"}
-          </button>
-        )}
-      </div>
+        </div>
+      )}
 
-      <audio ref={audioRef} src={clip.track} preload={variant === "hero" ? "auto" : "none"} loop crossOrigin="anonymous" />
+      <audio ref={audioRef} src={clip.track} preload={isHero ? "auto" : "none"} loop crossOrigin="anonymous" />
     </div>
   );
 }

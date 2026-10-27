@@ -54,13 +54,13 @@ export function Navbar() {
             priority
             className="h-9 w-auto self-center -translate-y-0.5"
           />
-          {/* Navbar wordmark only (the hero has its own). TAN Pearl's hairline
-              strokes read thin at this size: +2px, a 1px same-colour text-shadow
-              to thicken strokes without changing letterforms, 0.03em tracking. */}
+          {/* The site's only wordmark (the hero has none). TAN Pearl's hairline
+              strokes read thin at this size: a 1px same-colour text-shadow
+              thickens strokes without changing letterforms, 0.03em tracking. */}
           <span
             style={{
               color: "#C8A96E",
-              fontSize: "24px",
+              fontSize: "28px",
               fontWeight: 400,
               lineHeight: 1,
               letterSpacing: "0.03em",
