@@ -543,13 +543,18 @@ export default function AnalysisResultsPage() {
             </p>
           )}
           {previewCapped && (
-            <p className="text-[#a0a0b8] text-sm mb-6">
-              Free previews cover the first {analysis.cappedSec} seconds.{" "}
-              <Link href="/pricing" className="text-[#C8A96E] hover:text-white underline transition-colors">
-                Upgrade
-              </Link>{" "}
-              for the full video.
-            </p>
+            <>
+              <p className="text-[#a0a0b8] text-sm mb-1">
+                Free previews cover the first {analysis.cappedSec} seconds.{" "}
+                <Link href="/pricing" className="text-[#C8A96E] hover:text-white underline transition-colors">
+                  Upgrade
+                </Link>{" "}
+                for the full video.
+              </p>
+              <p className="text-[#a0a0b8] text-sm mb-6">
+                Free previews are deleted 30 days after your last activity. Download anything you want to keep.
+              </p>
+            </>
           )}
 
           {/* Options grouped by round */}
