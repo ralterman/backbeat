@@ -8,6 +8,7 @@ import {
   sendPlanChangeEmail,
   sendPaymentFailedEmail,
 } from "@/lib/email";
+import { notifyAdmin, subscriptionCancellationAlert } from "@/lib/alerts";
 
 type SubscriptionPlan = "FREE" | "CREATOR" | "TEAM";
 type SubscriptionStatus = "ACTIVE" | "PAST_DUE" | "CANCELED" | "TRIALING";
@@ -262,6 +263,15 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
         // cancellation email would only go out weeks later on .deleted.
         console.log(`[webhook] ${subscription.id} scheduled to cancel at ${periodEnd?.toISOString() ?? "period end"}`);
         await notify("scheduled-cancellation", email, () => sendCancellationEmail(email, periodEnd ?? null));
+        await notifyAdmin("admin-cancellation-scheduled", subscriptionCancellationAlert({
+          kind: "scheduled",
+          email,
+          plan: oldPlan,
+          subscribedAt: toDate(subscription.created) ?? existing.createdAt,
+          endsAt: toDate(subscription.cancel_at) ?? periodEnd ?? null,
+          stripeSubscriptionId: subscription.id,
+          stripeCustomerId: typeof subscription.customer === "string" ? subscription.customer : existing.stripeCustomerId,
+        }));
       } else if (newPlan !== oldPlan) {
         await notify("plan-change", email, () => sendPlanChangeEmail(email, oldPlan, newPlan));
       }
@@ -287,6 +297,21 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
       const email = existing?.user?.email;
       if (email && !existing?.cancelAtPeriodEnd) {
         await notify("cancellation", email, () => sendCancellationEmail(email, null));
+      }
+      // Admin alert on every ended subscription, scheduled earlier or not;
+      // existing.plan is read before the updateMany above set it to FREE.
+      if (existing) {
+        await notifyAdmin("admin-subscription-ended", subscriptionCancellationAlert({
+          kind: "ended",
+          email: email ?? `user ${existing.userId} (no email)`,
+          plan: existing.plan,
+          subscribedAt: toDate(subscription.created) ?? existing.createdAt,
+          endsAt: toDate(subscription.ended_at) ?? toDate(subscription.canceled_at) ?? new Date(),
+          stripeSubscriptionId: subscription.id,
+          stripeCustomerId: typeof subscription.customer === "string" ? subscription.customer : existing.stripeCustomerId,
+        }));
+      } else {
+        console.warn(`[webhook] subscription.deleted for unknown subscription ${subscription.id}`);
       }
       break;
     }
