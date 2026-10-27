@@ -109,12 +109,16 @@ export default function LandingPage() {
               HeroLockup then keeps it hidden until the lockup scrolls past. */}
           <style>{`html:not([data-hero-lockup]) .nav-brand{opacity:0}`}</style>
           {/* Copy left, live demo right; stacked on phones with the demo under the CTAs. */}
-          {/* Top-aligned from lg so the lockup's icon top meets the top edge
-              of the demo card; centered stack on phones. */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-12 lg:gap-16 items-center lg:items-start">
-            <div className="text-center lg:text-left">
+          {/* From lg both columns are stretched to the row, whose height comes
+              from the demo column (card + toggle + caption). The text column
+              is a flex column with its slack between the lockup and the
+              eyebrow, so the lockup icon's top meets the card's top and the
+              "No credit card required" line's bottom meets the caption's
+              bottom. Centered stack on phones. */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-12 lg:gap-16 items-center lg:items-stretch">
+            <div className="text-center lg:text-left lg:flex lg:flex-col">
               <HeroLockup />
-              <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">
+              <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5 lg:mt-auto">
                 The simplest way to score a video
               </p>
 
