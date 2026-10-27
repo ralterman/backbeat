@@ -62,12 +62,16 @@ type FullscreenVideo = HTMLVideoElement & { webkitEnterFullscreen?: () => void }
  * custom fullscreen button and lightbox are the same in every browser; if
  * Safari also shows its own fullscreen button in the native bar, both work.
  */
+function detectIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
 function detectSafari(): boolean {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent;
-  const iOS = /iP(hone|ad|od)/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const safariDesktop = /Safari\//.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg|OPR|Android/.test(ua);
-  return iOS || safariDesktop;
+  return detectIOS() || safariDesktop;
 }
 
 /**
@@ -164,17 +168,34 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
     const g = canvas.getContext("2d");
     if (!g) return;
     let data: Uint8Array<ArrayBuffer> | null = null;
+    // An analyser that only ever reports silence while the clip is playing
+    // unmuted (iOS does this for video elements) would draw a flat line, so
+    // after ~45 such frames the bars switch to the synthetic motion.
+    let silentFrames = 0;
+    // Auto-gain: bars are drawn relative to a slowly decaying peak, so a
+    // quiet track (the hero mix sits the music -8 dB under the clip) still
+    // fills the strip instead of hugging the floor.
+    let peak = 40;
     const draw = (t: number) => {
       const analyser = analysersRef.current[activeRef.current] ?? null;
+      const v0 = videoRefs.current[activeRef.current];
       if (analyser && (!data || data.length !== analyser.frequencyBinCount)) data = new Uint8Array(analyser.frequencyBinCount);
-      if (analyser && data) analyser.getByteFrequencyData(data);
+      if (analyser && data) {
+        analyser.getByteFrequencyData(data);
+        let max = 0;
+        for (let i = 0; i < data.length; i++) if (data[i] > max) max = data[i];
+        if (max === 0 && v0 && !v0.paused && !v0.muted) silentFrames++;
+        else if (max > 0) silentFrames = 0;
+        peak = Math.max(peak * 0.992, max, 40);
+      }
+      const live = !!(analyser && data) && silentFrames < 45;
       const w = canvas.width, h = canvas.height, bars = 28, gap = 3, bw = (w - gap * (bars - 1)) / bars;
       g.clearRect(0, 0, w, h);
       for (let i = 0; i < bars; i++) {
-        const v = analyser && data
-          ? data[Math.floor((i / bars) * data.length * 0.6)] / 255
+        const v = live && data
+          ? Math.min(1, Math.pow(data[Math.floor((i / bars) * data.length * 0.6)] / peak, 0.8))
           : 0.25 + 0.2 * Math.sin(t / 260 + i * 0.7) + 0.1 * Math.sin(t / 90 + i * 1.9);
-        const bh = Math.max(3, v * h);
+        const bh = Math.max(4, v * h);
         g.fillStyle = "#C8A96E";
         g.globalAlpha = 0.45 + v * 0.55;
         const x = i * (bw + gap), y = (h - bh) / 2;
@@ -187,8 +208,14 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
     rafRef.current = requestAnimationFrame(draw);
   }, []);
 
-  /** Gesture-only: route every video element through one AudioContext, once. */
+  /**
+   * Gesture-only: route every video element through one AudioContext, once.
+   * Skipped on iOS: there a video element piped through WebAudio tends to
+   * feed the analyser silence and, worse, starts obeying the ring/silent
+   * switch, so the waveform there uses the synthetic motion instead.
+   */
   const ensureAnalysers = useCallback(() => {
+    if (detectIOS()) return;
     try {
       if (!audioCtxRef.current) {
         const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
