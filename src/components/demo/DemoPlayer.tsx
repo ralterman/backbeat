@@ -53,6 +53,34 @@ function constrainedNetwork(): boolean {
 
 type FullscreenVideo = HTMLVideoElement & { webkitEnterFullscreen?: () => void };
 
+/**
+ * Safari (macOS and iOS, including every iOS browser, which is WebKit) draws
+ * its own controls along the top of an inline video and does not honour
+ * controlsList, so on Safari we keep its native fullscreen button, hide
+ * ours, and push the badge and the waveform below its top bar. The result
+ * is also mirrored to <html data-safari> for the CSS in globals.css.
+ */
+function detectSafari(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  const iOS = /iP(hone|ad|od)/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const safariDesktop = /Safari\//.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg|OPR|Android/.test(ua);
+  return iOS || safariDesktop;
+}
+
+function useSafari(): boolean {
+  const [safari, setSafari] = useState(false);
+  useEffect(() => {
+    const s = detectSafari();
+    setSafari(s);
+    if (s) document.documentElement.dataset.safari = "1";
+  }, []);
+  return safari;
+}
+
+/** Height of Safari's top control bar on an inline video, roughly. */
+const SAFARI_TOP_BAR = "top-[52px]";
+
 interface Props {
   clip: DemoClip;
   /** Hero: preload everything and autoplay muted. Row: poster until a tap. */
@@ -81,6 +109,7 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
   const [muted, setMuted] = useState(isHero);
   const [autoplay, setAutoplay] = useState(isHero);
   const [lightbox, setLightbox] = useState<{ height: number } | null>(null);
+  const safari = useSafari();
 
   const activeVideo = () => videoRefs.current[activeRef.current] ?? null;
 
@@ -330,11 +359,16 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
   const label = clip.label;
   const mode: DemoMode | null = muted ? null : sources[active].mode;
   const waveVisible = playing && !muted && (!isHero || mode === "backbeat");
+  // Safari paints a translucent start-playback overlay on any paused video
+  // with controls, under our gold button. Rows there get controls only once
+  // they are playing; the gold button is the only way to start them anyway.
+  const showControls = !safari || isHero || playing;
+  const topInset = safari ? SAFARI_TOP_BAR : "top-3";
 
   return (
     <div ref={wrapRef} className={`flex flex-col ${className}`}>
       {/* Keeps the page from reflowing while the card is in the lightbox. */}
-      {lightbox && <div className="aspect-[9/16] rounded-2xl" aria-hidden="true" />}
+      {lightbox && <div className={`aspect-[9/16] rounded-2xl w-full ${isHero ? "lg:w-auto lg:flex-1 lg:min-h-0 lg:mx-auto" : ""}`} aria-hidden="true" />}
 
       <div
         className={lightbox
@@ -356,7 +390,7 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
         <div
           ref={cardRef}
           onClick={lightbox ? (e) => e.stopPropagation() : undefined}
-          className="relative rounded-2xl overflow-hidden bg-[#141414] border border-[#2A2A2A] aspect-[9/16] w-full"
+          className={`relative rounded-2xl overflow-hidden bg-[#141414] border border-[#2A2A2A] aspect-[9/16] w-full ${isHero && !lightbox ? "lg:w-auto lg:flex-1 lg:min-h-0 lg:mx-auto" : ""}`}
           style={lightbox ? { height: lightbox.height, width: "auto", maxWidth: "calc(100vw - 48px)" } : undefined}
         >
           {sources.map((s, i) => (
@@ -368,8 +402,8 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
               muted={isHero}
               loop
               playsInline
-              controls
-              controlsList="nodownload noplaybackrate noremoteplayback nofullscreen"
+              controls={showControls}
+              controlsList={safari ? "nodownload noplaybackrate noremoteplayback" : "nodownload noplaybackrate noremoteplayback nofullscreen"}
               disablePictureInPicture
               autoPlay={autoplay && i === 0}
               preload={isHero ? "auto" : "metadata"}
@@ -397,16 +431,17 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
             <button type="button" onClick={pauseClip} className="absolute inset-x-0 top-0 bottom-16" aria-label={`Pause ${label} demo`} />
           )}
 
-          {/* Waveform, above the control bar, while the track is audible */}
-          <div className={`pointer-events-none absolute left-0 right-0 bottom-14 h-12 px-4 flex items-end bg-gradient-to-t from-black/50 to-transparent transition-opacity ${waveVisible ? "opacity-100" : "opacity-0"}`}>
-            <canvas ref={canvasRef} width={280} height={36} className="w-full h-9" aria-hidden="true" />
+          {/* Waveform in the upper third, just under the badge row, clear of
+              every control bar; 70% wide and a little dimmer. */}
+          <div className={`pointer-events-none absolute left-0 right-0 ${safari ? "top-[92px]" : "top-12"} flex justify-center transition-opacity ${waveVisible ? "opacity-70" : "opacity-0"}`}>
+            <canvas ref={canvasRef} width={280} height={36} className="w-[70%] h-8" aria-hidden="true" />
           </div>
 
-          <span className="pointer-events-none absolute top-3 left-3 text-[10px] font-semibold tracking-widest uppercase text-white/80 bg-black/40 rounded-full px-2.5 py-1">
+          <span className={`pointer-events-none absolute ${topInset} left-3 text-[10px] font-semibold tracking-widest uppercase text-white/80 bg-black/40 rounded-full px-2.5 py-1`}>
             {label}
           </span>
 
-          {!lightbox && (
+          {!lightbox && !safari && (
             <button
               type="button"
               onClick={openFullscreen}
