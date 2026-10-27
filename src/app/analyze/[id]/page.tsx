@@ -41,6 +41,9 @@ interface AnalysisResponse {
   videoDurationSec?: number | null;
   /** One-time $5 Video Pass bought for this video. */
   hasPass?: boolean;
+  /** The retention cron removed this video's files; nothing can be played, generated or exported. */
+  expired?: boolean;
+  expiredAt?: string | null;
   analysis?: AnalysisData;
 }
 
@@ -74,6 +77,10 @@ export default function AnalysisResultsPage() {
       }
       const json = (await res.json()) as AnalysisResponse;
       setData(json);
+      if (json.expired) {
+        setLoading(false);
+        return;
+      }
       if (json.status === "completed") {
         setTimeout(() => setLoading(false), 1500);
         // Auto-select first option if nothing is selected yet
@@ -237,6 +244,23 @@ export default function AnalysisResultsPage() {
       setRegenerating(false);
     }
   };
+
+  if (data?.expired) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-24 text-center">
+        <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-10">
+          <p className="text-white text-lg font-medium mb-2">This video has expired</p>
+          <p className="text-[#a0a0b8] text-sm mb-6">
+            Its video file, soundtracks and exports were removed at the end of their retention period.
+            Upload it again to generate a new soundtrack.
+          </p>
+          <Link href="/dashboard" className="text-[#C8A96E] hover:text-white transition-colors text-sm">
+            ← Back to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (

@@ -175,6 +175,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Video not found" }, { status: 404 });
   }
 
+  // Files removed by the retention cron: nothing left to analyze or regenerate.
+  if (video.expiredAt) {
+    return NextResponse.json({ error: "This video has expired" }, { status: 410 });
+  }
+
   if (video.status === "ANALYZING" || video.status === "GENERATING") {
     return NextResponse.json({ error: "Analysis already in progress" }, { status: 409 });
   }

@@ -31,6 +31,8 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   FAILED: { label: "Failed", color: "text-red-400 bg-red-900/20" },
   // Music generation paused on our side (ElevenLabs credits), retryable.
   PAUSED: { label: "Paused — retry soon", color: "text-amber-300 bg-amber-900/20" },
+  // Files removed by the retention cron (src/lib/retention.ts); row kept.
+  EXPIRED: { label: "Expired", color: "text-[#8a8aa0] bg-[#1E1E1E]" },
 };
 
 export default async function DashboardPage({
@@ -185,8 +187,9 @@ export default async function DashboardPage({
         ) : (
           <div className="space-y-3">
             {videos.map((video) => {
-              const statusInfo = STATUS_LABELS[video.status] ?? STATUS_LABELS.PENDING;
-              const clickable = video.status === "ANALYZED";
+              const expired = video.expiredAt !== null;
+              const statusInfo = expired ? STATUS_LABELS.EXPIRED : (STATUS_LABELS[video.status] ?? STATUS_LABELS.PENDING);
+              const clickable = video.status === "ANALYZED" && !expired;
 
               // Shared card body: min-w-0 at every level a text node needs to
               // truncate inside (flex items default to min-width:auto, which
@@ -205,7 +208,9 @@ export default async function DashboardPage({
                         {video.originalName}
                       </p>
                       <p className="text-[#6a6a8a] text-xs mt-0.5">
-                        {formatFileSize(video.fileSize)} · {formatDate(video.createdAt)}
+                        {expired
+                          ? `This video has expired · uploaded ${formatDate(video.createdAt)}`
+                          : `${formatFileSize(video.fileSize)} · ${formatDate(video.createdAt)}`}
                       </p>
                     </div>
                   </div>

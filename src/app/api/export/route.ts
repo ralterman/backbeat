@@ -348,6 +348,10 @@ export async function POST(req: NextRequest) {
   if (!video) {
     return NextResponse.json({ error: "Video not found" }, { status: 404 });
   }
+  // Files removed by the retention cron: the source and tracks are gone.
+  if (video.expiredAt) {
+    return NextResponse.json({ error: "This video has expired" }, { status: 410 });
+  }
 
   const analysis = await prisma.analysis.findUnique({ where: { videoId } });
   if (!analysis) {

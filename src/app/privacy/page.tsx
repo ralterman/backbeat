@@ -7,7 +7,7 @@ export default function PrivacyPage() {
     <div className="min-h-screen bg-[#0a0a0f] px-6 py-16">
       <div className="max-w-[800px] mx-auto">
         <h1 className="text-3xl font-bold mb-1" style={{ color: "#C8A96E" }}>Privacy Policy</h1>
-        <p className="text-sm text-[#9090aa] mb-10">Effective Date: March 25, 2026</p>
+        <p className="text-sm text-[#9090aa] mb-10">Effective Date: October 27, 2026</p>
 
         <Section title="1. Introduction">
           <p>Backbeat (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) operates the website backbeat.video and provides an AI-powered video music generation service (&ldquo;Service&rdquo;). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Service. Please read this carefully. If you disagree with its terms, please discontinue use of the Service.</p>
@@ -51,7 +51,13 @@ export default function PrivacyPage() {
 
         <Section title="4. How We Store Your Information">
           <p>Your videos are stored temporarily on Amazon Web Services (AWS) S3 in the United States. Uploaded videos are used solely to perform AI analysis and generate music recommendations. We do not use your video content to train AI models. Your account data is stored in a Supabase PostgreSQL database hosted in the United States.</p>
-          <p>We retain your data for as long as your account is active. If you delete your account, we will delete your personal data within 30 days, except where retention is required by law.</p>
+          <p>Uploaded videos, the soundtracks generated for them and any exports are kept for a limited time and then permanently removed from storage:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li><strong>Free previews</strong> are kept for 30 days after the video was last used (uploaded, generated or exported).</li>
+            <li><strong>Subscriber videos</strong> are kept for as long as the subscription is active, and for 90 days after it ends.</li>
+            <li><strong>Video Pass videos</strong> are kept for 90 days after the pass is purchased.</li>
+          </ul>
+          <p>After a video is removed, its entry remains in your dashboard marked as expired; you can upload the video again at any time. We retain your account data for as long as your account is active. If you delete your account, we will delete your personal data within 30 days, except where retention is required by law.</p>
         </Section>
 
         <Section title="5. Sharing Your Information">

@@ -49,7 +49,7 @@ const faqs = [
   },
   {
     q: "What is the watermark on free exports?",
-    a: "Free tier exports cover the first 60 seconds of your video and include a subtle Backbeat text overlay. Upgrade to Creator or Pro to export the full video without any watermark.",
+    a: "Free tier exports cover the first 60 seconds of your video and include a subtle Backbeat text overlay. Upgrade to Creator or Pro to export the full video without any watermark. Free previews are kept for 30 days.",
   },
   {
     q: "Can I pay for just one video?",

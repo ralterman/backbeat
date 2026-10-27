@@ -25,6 +25,12 @@ export async function GET(
     return NextResponse.json({ error: "Video not found" }, { status: 404 });
   }
 
+  // Removed from S3 by the retention cron (src/lib/retention.ts). Nothing to
+  // presign; the page shows "This video has expired".
+  if (video.expiredAt) {
+    return NextResponse.json({ status: "expired", expired: true, expiredAt: video.expiredAt, videoId });
+  }
+
   // Generate a presigned URL for the original video (synced preview player).
   let videoUrl: string | null = null;
   try {
