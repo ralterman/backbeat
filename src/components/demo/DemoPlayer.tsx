@@ -4,12 +4,15 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { MUSIC_GAIN_LINEAR } from "@/lib/audioMix";
 
 /**
- * A looping clip with a single control: Original / With Backbeat.
+ * A looping clip with one control.
  *
- * "Original" plays the clip's own audio (or silence, for clips that have
- * none). "With Backbeat" crossfades the generated track in underneath at
- * the Balanced level — the same gain the export uses — and animates a
- * waveform driven by the track's actual signal.
+ * A clip with its own audio (the hero) gets an Original / With Backbeat
+ * toggle: "Original" plays the clip's recorded sound, "With Backbeat"
+ * crossfades the generated track in underneath at the Balanced level — the
+ * same gain the export uses — and animates a waveform driven by the track's
+ * actual signal. A clip with no audio of its own (the genre row) has nothing
+ * to toggle against, so it gets a single "Play with Backbeat" button that
+ * starts the clip with the track, and pauses it on a second press.
  *
  * Mobile rules: the video autoplays muted and inline; nothing is unmuted
  * and no audio element plays until the user taps, and both happen inside
@@ -190,7 +193,16 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
 
   const onToggle = (next: DemoMode) => (next === "backbeat" ? activate() : toOriginal());
 
+  // Single-button variant: second press pauses the clip and fades the track
+  // out, returning to the poster-and-play-icon state.
+  const pause = () => {
+    videoRef.current?.pause();
+    setStarted(false);
+    deactivate();
+  };
+
   const label = clip.label;
+  const playing = mode === "backbeat";
 
   return (
     <div className={`flex flex-col ${className}`}>
@@ -230,21 +242,33 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
       </div>
 
       <div className="mt-3">
-        <div role="group" aria-label={`${label}: original or with Backbeat`} className="grid grid-cols-2 p-1 rounded-xl bg-[#141414] border border-[#2A2A2A] text-sm font-medium">
-          {(["original", "backbeat"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              aria-pressed={mode === m}
-              onClick={() => onToggle(m)}
-              className={`py-2 rounded-lg transition-colors ${mode === m ? "bg-[#C8A96E] text-[#0a0a0f] font-semibold" : "text-[#a0a0b8] hover:text-white"}`}
-            >
-              {m === "original" ? "Original" : "With Backbeat"}
-            </button>
-          ))}
-        </div>
-        {!clip.hasOriginalAudio && (
-          <p className="text-[#6a6a8a] text-[11px] mt-1.5 text-center">This clip has no sound of its own.</p>
+        {clip.hasOriginalAudio ? (
+          <div role="group" aria-label={`${label}: original or with Backbeat`} className="grid grid-cols-2 p-1 rounded-xl bg-[#141414] border border-[#2A2A2A] text-sm font-medium">
+            {(["original", "backbeat"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={mode === m}
+                onClick={() => onToggle(m)}
+                className={`py-2 rounded-lg transition-colors ${mode === m ? "bg-[#C8A96E] text-[#0a0a0f] font-semibold" : "text-[#a0a0b8] hover:text-white"}`}
+              >
+                {m === "original" ? "Original" : "With Backbeat"}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <button
+            type="button"
+            aria-pressed={playing}
+            onClick={playing ? pause : activate}
+            className={`w-full py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
+              playing
+                ? "bg-[#141414] border-[#C8A96E] text-[#C8A96E] hover:text-white"
+                : "bg-[#C8A96E] border-[#C8A96E] text-[#0a0a0f] hover:bg-[#d4b87a]"
+            }`}
+          >
+            {playing ? "Pause" : "Play with Backbeat"}
+          </button>
         )}
       </div>
 
