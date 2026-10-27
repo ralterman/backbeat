@@ -209,6 +209,12 @@ model Analysis {
   // Free tier: the soundtrack was generated from only the first N seconds
   // of the video (see FREE_PREVIEW_SECONDS). Null = full length.
   cappedSec        Int?
+  // When an analysis slot (or a Video Pass) paid for this analysis. Set at
+  // creation for paid-plan, pass and admin analyses; null for a free-tier
+  // analysis. A subscriber's first regeneration or clean export on a still
+  // unpaid analysis charges one slot and sets this, so a paid month never
+  // reads 0 of N with full use of an analysis made while free.
+  slotChargedAt    DateTime?
   createdAt          DateTime @default(now())
 
   video        Video        @relation(fields: [videoId], references: [id], onDelete: Cascade)

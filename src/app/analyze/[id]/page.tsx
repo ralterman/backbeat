@@ -18,6 +18,8 @@ interface AnalysisData {
   hasOriginalAudio: boolean;
   /** Free tier: the soundtrack covers only the first N seconds. Null = full length. */
   cappedSec?: number | null;
+  /** False while a free-tier analysis has not been paid for by a slot or pass. */
+  slotCharged?: boolean;
   // Legacy fields (backward compat for pre-migration rows)
   musicDescription: string | null;
   musicTags: string[];
@@ -583,7 +585,9 @@ export default function AnalysisResultsPage() {
                   ? "Two full-length tracks for the whole video. Counts as one analysis."
                   : uncapAvailable
                     ? "Two full-length tracks for the whole video."
-                    : "Keeps your video analysis — skips re-analyzing with Claude"}
+                    : !hasPass && analysis.slotCharged === false
+                      ? "Keeps your video analysis. Counts as one analysis, since this video was analyzed on the free plan."
+                      : "Keeps your video analysis — skips re-analyzing with Claude"}
               </p>
             )}
           </div>

@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { s3Client, OUTPUT_BUCKET, generateDownloadPresignedUrl } from "@/lib/s3";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { getUserPlan, FREE_PREVIEW_SECONDS } from "@/lib/usage";
+import { getUserPlan, FREE_PREVIEW_SECONDS, incrementUsage } from "@/lib/usage";
 import { isAdminEmail } from "@/lib/admin";
 import { getVideoPass } from "@/lib/videoPass";
 import ffmpeg from "fluent-ffmpeg";
@@ -438,6 +438,21 @@ export async function POST(req: NextRequest) {
       data: { status: "COMPLETED", s3OutputKey: outputKey, downloadUrl, expiresAt },
     });
     console.log(`[export][${exportId}] complete`);
+
+    // A subscriber's first clean (watermark-free) export of an analysis that
+    // was made on the free tier and never paid for counts as one analysis.
+    // Charged after the export succeeds, never blocks it, and only once:
+    // slotChargedAt is set so neither a later export nor a regeneration
+    // charges again. Pass videos are paid for by the pass.
+    if (!admin && plan !== "FREE" && !hasWatermark && analysis.slotChargedAt == null) {
+      try {
+        await incrementUsage(userId, "analysis");
+        await prisma.analysis.update({ where: { id: analysis.id }, data: { slotChargedAt: new Date() } });
+        console.log(`[export][${exportId}] first clean export of a free-tier analysis: counted one analysis for user ${userId}`);
+      } catch (err) {
+        console.error(`[export][${exportId}] failed to charge analysis slot (ignored):`, err);
+      }
+    }
 
     // effectiveAudioMode lets the results page hide the "keep my audio"
     // toggle immediately when a mix request fell back to replace, instead of

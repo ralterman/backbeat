@@ -241,6 +241,7 @@ export async function POST(req: NextRequest) {
   // input is trimmed. Null = full length.
   const capSec: number | null = freeLimited ? FREE_PREVIEW_SECONDS : null;
 
+  let regenRoom = 2;
   if (regenerate) {
     const opts = existingAnalysis
       ? ((existingAnalysis.generatedOptions as unknown as GeneratedOption[]) ?? [])
@@ -254,6 +255,11 @@ export async function POST(req: NextRequest) {
     if (freeLimited) {
       return NextResponse.json({ error: "Upgrade to generate more options." }, { status: 403 });
     }
+
+    // Room left under the cap decides whether this round adds two tracks
+    // or one: a video at 3 of 4 (one free track plus a pair) gets one, never
+    // five.
+    regenRoom = cap - opts.length;
 
     if (opts.length >= cap) {
       const label = pass ? PASS_LABEL : PLAN_LABELS[plan] ?? plan;
@@ -273,14 +279,16 @@ export async function POST(req: NextRequest) {
   // while remaining > 0, then analyze each). Reserving here, before any
   // work starts and under a per-user lock, also closes the race where two
   // analyses started back-to-back both passed a check-only gate. Applies to
-  // first-run analyses, plus one case of regeneration: a subscriber turning
-  // a 60 s free-tier analysis into full-length tracks ("uncapping") pays one
-  // analysis for it, like any paid analysis. Ordinary regeneration is part
-  // of the analysis already paid for and is bounded by the option cap above;
-  // a Video Pass uncapping is paid for by the pass.
+  // first-run analyses, plus one case of regeneration: a subscriber's first
+  // regeneration on an analysis that was made on the free tier and never
+  // paid for (slotChargedAt null) charges one analysis, like any paid
+  // analysis. Regeneration on an analysis already paid for is included in
+  // it and is bounded by the option cap above; a Video Pass pays for its
+  // video's analysis.
   const uncapping = regenerate && existingAnalysis?.cappedSec != null && capSec === null;
+  const chargeOnRegenerate = regenerate && !admin && !pass && !!existingAnalysis && existingAnalysis.slotChargedAt == null;
   let reserved = false;
-  if (!admin && (!regenerate || (uncapping && !pass))) {
+  if (!admin && (!regenerate || chargeOnRegenerate)) {
     reserved = await reserveAnalysisSlot(userId);
     if (!reserved) {
       return NextResponse.json(
@@ -293,7 +301,7 @@ export async function POST(req: NextRequest) {
   // How many tracks this run generates. First analysis: 1 on the free tier,
   // 2 on paid (and for admins). Regeneration is paid-only (gated above) and
   // always adds a pair.
-  const trackCount: 1 | 2 = regenerate ? 2 : initialOptionCount(plan, admin || !!pass);
+  const trackCount: 1 | 2 = regenerate ? (regenRoom >= 2 ? 2 : 1) : initialOptionCount(plan, admin || !!pass);
 
   await prisma.video.update({
     where: { id: videoId },
@@ -447,12 +455,15 @@ export async function POST(req: NextRequest) {
       ];
 
       // A regeneration is paid, passed or admin, so it is full-length: clear
-      // a cap left by an earlier free-tier run of the same video.
+      // a cap left by an earlier free-tier run of the same video. If this
+      // round charged a slot (or a pass paid), record that the analysis is
+      // now paid for so it is never charged again.
       const updated = await prisma.analysis.update({
         where: { id: existingAnalysis.id },
         data: {
           generatedOptions: JSON.parse(JSON.stringify([...existing, ...newOpts])),
           ...(result.cappedSec === null && existingAnalysis.cappedSec !== null ? { cappedSec: null } : {}),
+          ...(existingAnalysis.slotChargedAt == null ? { slotChargedAt: new Date() } : {}),
         },
       });
 
@@ -513,6 +524,9 @@ export async function POST(req: NextRequest) {
           // Only a positive "no audio stream" result stores false.
           hasOriginalAudio: result.hasAudioStream ?? true,
           cappedSec: result.cappedSec,
+          // Paid for now unless this is a free-tier analysis (charged later,
+          // on the first regeneration or clean export after an upgrade).
+          slotChargedAt: freeLimited ? null : new Date(),
       };
       // On the cached path the audio probe doesn't run (hasAudioStream is
       // null); don't let the default clobber a value the first run stored.

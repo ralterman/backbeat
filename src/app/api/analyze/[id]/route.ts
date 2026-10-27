@@ -93,6 +93,9 @@ export async function GET(
       id:                analysis.id,
       // Free tier: soundtrack covers only the first N seconds (null = full)
       cappedSec:         analysis.cappedSec,
+      // False for a free-tier analysis not yet paid for: a subscriber's first
+      // regeneration or clean export on it counts as one analysis.
+      slotCharged:       analysis.slotChargedAt != null,
       moodTags:          analysis.moodTags,
       bpmRange:          analysis.bpmRange,
       energyScore:       analysis.energyScore,
