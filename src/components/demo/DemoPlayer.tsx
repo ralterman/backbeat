@@ -70,6 +70,24 @@ function detectSafari(): boolean {
   return iOS || safariDesktop;
 }
 
+/**
+ * Below lg the native controls are off and the card carries a minimal set
+ * of its own: tap the video to play or pause, a 2 px progress line along
+ * the bottom edge, a small mute button bottom-right and the custom
+ * fullscreen button top-right. Desktop keeps the native bar.
+ */
+function usePhone(): boolean {
+  const [phone, setPhone] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const update = () => setPhone(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return phone;
+}
+
 function useSafari(): boolean {
   const [safari, setSafari] = useState(false);
   useEffect(() => {
@@ -109,7 +127,9 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
   const [muted, setMuted] = useState(isHero);
   const [autoplay, setAutoplay] = useState(isHero);
   const [lightbox, setLightbox] = useState<{ height: number } | null>(null);
+  const [progress, setProgress] = useState(0);
   const safari = useSafari();
+  const phone = usePhone();
 
   const activeVideo = () => videoRefs.current[activeRef.current] ?? null;
 
@@ -235,13 +255,19 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
         setMuted(v.muted);
         if (!v.muted && !v.paused) announce();
       };
+      const onTime = () => {
+        if (!mine()) return;
+        setProgress(v.duration ? v.currentTime / v.duration : 0);
+      };
       v.addEventListener("play", onPlay);
       v.addEventListener("pause", onPause);
       v.addEventListener("volumechange", onVolume);
+      v.addEventListener("timeupdate", onTime);
       cleanups.push(() => {
         v.removeEventListener("play", onPlay);
         v.removeEventListener("pause", onPause);
         v.removeEventListener("volumechange", onVolume);
+        v.removeEventListener("timeupdate", onTime);
       });
     });
     return () => cleanups.forEach((c) => c());
@@ -325,6 +351,24 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
 
   const pauseClip = () => activeVideo()?.pause();
 
+  /** Phone: a tap on the video plays or pauses it (rows start with sound). */
+  const tapToggle = () => {
+    const v = activeVideo();
+    if (!v) return;
+    if (!v.paused) { v.pause(); return; }
+    if (!isHero) { playRow(); return; }
+    ensureAnalysers();
+    v.play().catch(() => {});
+  };
+
+  /** Phone: the small mute button bottom-right. Unmuting is a gesture, so the analyser can be built here. */
+  const toggleMute = () => {
+    const v = activeVideo();
+    if (!v) return;
+    v.muted = !v.muted;
+    if (!v.muted) { ensureAnalysers(); announce(); }
+  };
+
   // ── Fullscreen / lightbox ─────────────────────────────────────────────────
 
   const openFullscreen = () => {
@@ -362,12 +406,12 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
   // Safari paints a translucent start-playback overlay on any paused video
   // with controls, under our gold button. Rows there get controls only once
   // they are playing; the gold button is the only way to start them anyway.
-  const showControls = !safari || isHero || playing;
+  const showControls = !phone && (!safari || isHero || playing);
 
   return (
     <div ref={wrapRef} className={`flex flex-col ${className}`}>
       {/* Keeps the page from reflowing while the card is in the lightbox. */}
-      {lightbox && <div className={`aspect-[9/16] rounded-2xl w-full ${isHero ? "lg:w-auto lg:flex-1 lg:min-h-[498px] lg:mx-auto" : ""}`} aria-hidden="true" />}
+      {lightbox && <div className="aspect-[9/16] rounded-2xl w-full" aria-hidden="true" />}
 
       <div
         className={lightbox
@@ -389,7 +433,7 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
         <div
           ref={cardRef}
           onClick={lightbox ? (e) => e.stopPropagation() : undefined}
-          className={`relative rounded-2xl overflow-hidden bg-[#141414] border border-[#2A2A2A] aspect-[9/16] w-full ${isHero && !lightbox ? "lg:w-auto lg:flex-1 lg:min-h-[498px] lg:mx-auto" : ""}`}
+          className="relative rounded-2xl overflow-hidden bg-[#141414] border border-[#2A2A2A] aspect-[9/16] w-full"
           style={lightbox ? { height: lightbox.height, width: "auto", maxWidth: "calc(100vw - 48px)" } : undefined}
         >
           {sources.map((s, i) => (
@@ -402,6 +446,7 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
               loop
               playsInline
               controls={showControls}
+              onClick={phone ? tapToggle : undefined}
               controlsList="nodownload noplaybackrate noremoteplayback nofullscreen"
               disablePictureInPicture
               autoPlay={autoplay && i === 0}
@@ -413,12 +458,13 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
           ))}
 
           {/* Row: centered play overlay on the poster; a tap on the playing
-              clip pauses it. Both leave the native control bar uncovered. */}
+              clip pauses it. On desktop both leave the native control bar
+              uncovered; on phones they cover the whole video. */}
           {!isHero && !playing && (
             <button
               type="button"
               onClick={playRow}
-              className="absolute inset-x-0 top-0 bottom-16 flex items-center justify-center"
+              className={`absolute inset-x-0 top-0 ${phone ? "bottom-0" : "bottom-16"} flex items-center justify-center`}
               aria-label={`Play ${label} demo with Backbeat`}
             >
               <span className="w-14 h-14 rounded-full bg-[#C8A96E] flex items-center justify-center shadow-lg">
@@ -427,16 +473,43 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
             </button>
           )}
           {!isHero && playing && (
-            <button type="button" onClick={pauseClip} className="absolute inset-x-0 top-0 bottom-16" aria-label={`Pause ${label} demo`} />
+            <button type="button" onClick={pauseClip} className={`absolute inset-x-0 top-0 ${phone ? "bottom-0" : "bottom-16"}`} aria-label={`Pause ${label} demo`} />
+          )}
+          {/* Hero on phones: the whole video is the play/pause tap target. */}
+          {isHero && phone && (
+            <button type="button" onClick={tapToggle} className="absolute inset-0" aria-label={playing ? `Pause ${label} demo` : `Play ${label} demo`} />
           )}
 
           {/* Waveform along the bottom: directly above the native control bar
-              while playing, at the bottom edge in the poster state. */}
-          <div className={`pointer-events-none absolute left-3 right-3 ${playing ? "bottom-14" : "bottom-3"} transition-opacity ${waveVisible ? "opacity-70" : "opacity-0"}`}>
+              while playing on desktop, at the bottom edge otherwise (clear of
+              the phone mute button). */}
+          <div className={`pointer-events-none absolute left-3 ${phone ? "right-12 bottom-3" : playing ? "right-3 bottom-14" : "right-3 bottom-3"} transition-opacity ${waveVisible ? "opacity-70" : "opacity-0"}`}>
             <canvas ref={canvasRef} width={280} height={36} className="w-full h-8" aria-hidden="true" />
           </div>
 
-          <span className="pointer-events-none absolute top-3 left-3 text-[10px] font-semibold tracking-widest uppercase text-white/80 bg-black/40 rounded-full px-2.5 py-1">
+          {/* Phone controls: progress line and mute button. */}
+          {phone && (
+            <>
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-white/20" aria-hidden="true">
+                <div className="h-full bg-[#C8A96E]" style={{ width: `${Math.round(progress * 1000) / 10}%` }} />
+              </div>
+              <button
+                type="button"
+                onClick={toggleMute}
+                className="absolute bottom-2 right-2 z-10 w-9 h-9 rounded-full bg-black/40 text-white/90 flex items-center justify-center"
+                aria-label={muted ? `Unmute ${label} demo` : `Mute ${label} demo`}
+                aria-pressed={muted}
+              >
+                {muted ? (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5L6 9H3v6h3l5 4V5zM17 9l4 6M21 9l-4 6" /></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5L6 9H3v6h3l5 4V5zM15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13" /></svg>
+                )}
+              </button>
+            </>
+          )}
+
+          <span className="pointer-events-none absolute top-3 left-3 z-10 text-[10px] font-semibold tracking-widest uppercase text-white/80 bg-black/40 rounded-full px-2.5 py-1">
             {label}
           </span>
 
@@ -444,7 +517,7 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
             <button
               type="button"
               onClick={openFullscreen}
-              className="absolute top-2 right-2 w-9 h-9 rounded-full bg-black/40 hover:bg-black/60 text-white/90 flex items-center justify-center transition-colors"
+              className="absolute top-2 right-2 z-10 w-9 h-9 rounded-full bg-black/40 hover:bg-black/60 text-white/90 flex items-center justify-center transition-colors"
               aria-label={`View ${label} demo fullscreen`}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

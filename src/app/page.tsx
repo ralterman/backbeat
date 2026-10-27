@@ -108,7 +108,9 @@ export default function LandingPage() {
           excluded). The demo card's height is derived from what is left
           after the toggle, caption and padding; its width follows 9:16. */}
       <section className="relative overflow-hidden lg:h-[calc(100svh-4rem)]">
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-16 lg:h-full lg:py-6">
+        {/* From lg the two columns sit in a centered 1200 px container so the
+            text and the card stay close together on wide screens. */}
+        <div className="relative max-w-7xl lg:max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-16 lg:h-full lg:py-6">
           {/* Before hydration the navbar logo is hidden on this page only;
               HeroLockup then keeps it hidden until the lockup scrolls past. */}
           <style>{`html:not([data-hero-lockup]) .nav-brand{opacity:0}`}</style>
@@ -166,8 +168,9 @@ export default function LandingPage() {
 
       {/* ── Hear it on more kinds of video ─────────────────────────────── */}
       {/* Visual gap from the hero caption: 64 px on phones (the hero's own
-          bottom padding), 96 px from lg (24 px hero padding + 72 px here). */}
-      <section className="pb-16 lg:pt-[72px]">
+          bottom padding), 96 px from lg and 128 px from xl (24 px hero
+          padding + 72 / 104 px here). */}
+      <section className="pb-16 lg:pt-[72px] xl:pt-[104px]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
             <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-3">Real output</p>
@@ -267,7 +270,7 @@ export default function LandingPage() {
             Be one of our first creators.
           </h2>
           <p className="text-gray-400 text-lg mb-8 leading-relaxed">
-            Try Backbeat free — no credit card required.
+            Try Backbeat free. No credit card required.
           </p>
           <Link
             href="/auth/signup"
