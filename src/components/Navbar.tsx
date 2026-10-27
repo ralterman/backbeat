@@ -44,8 +44,10 @@ export function Navbar() {
       }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-[14px] flex-shrink-0" onClick={() => setMenuOpen(false)}>
+        {/* Logo. On the landing page it stays hidden (nav-brand, see
+            globals.css) until the hero's own lockup has scrolled past, so the
+            mark is never on screen twice. */}
+        <Link href="/" className="nav-brand flex items-center gap-[14px] flex-shrink-0" onClick={() => setMenuOpen(false)}>
           <Image
             src="/brand/logo-icon.png"
             alt="Backbeat icon"
@@ -54,9 +56,9 @@ export function Navbar() {
             priority
             className="h-9 w-auto self-center -translate-y-0.5"
           />
-          {/* The site's only wordmark (the hero has none). TAN Pearl's hairline
-              strokes read thin at this size: a 1px same-colour text-shadow
-              thickens strokes without changing letterforms, 0.03em tracking. */}
+          {/* TAN Pearl's hairline strokes read thin at this size: a 1px
+              same-colour text-shadow thickens strokes without changing
+              letterforms, 0.03em tracking. */}
           <span
             style={{
               color: "#C8A96E",

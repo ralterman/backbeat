@@ -4,19 +4,35 @@ Stock footage used in the home-page demo (`public/demo/`). All five are from
 Pexels under the [Pexels License](https://www.pexels.com/license/) (free for
 commercial use, no attribution required — recorded here anyway). Each was
 trimmed to ≤15 s, center-cropped to 1080×1920, and re-encoded to H.264 at
-~2 Mbps with AAC audio where the source had any. The hero and product clips
-have recorded audio; the others were uploaded silent and any empty audio
-track was dropped.
+~2 Mbps. The hero and product clips have recorded audio; the others were
+uploaded silent and any empty audio track was dropped.
 
-The tracks (`public/demo/*.mp3`) are genuine Backbeat output: each clip was run
-through the app's own frame extraction (one frame per 3 s at 512 px), Claude
-analysis and ElevenLabs generation (`music_v2_5`). The four row tracks were
-generated on 2026-10-21 (802 ElevenLabs credits in total); the hero track on
-2026-10-27 (about 150 credits).
+The tracks are genuine Backbeat output: each clip was run through the app's
+own frame extraction (one frame per 3 s at 512 px), Claude analysis and
+ElevenLabs generation (`music_v2_5`). The four row tracks were generated on
+2026-10-21 (802 ElevenLabs credits in total); the hero track on 2026-10-27
+(about 150 credits).
+
+**Audio is baked into the files** (2026-10-27), so the page plays plain
+`<video>` elements with no separate audio element:
+
+- `travel.mp4`, `sports.mp4`, `gameplay.mp4` (silent sources): the generated
+  track is the audio stream, AAC 128 kbps, trimmed to the clip, 2 s fade in,
+  1 s fade out, at the export route's music-only level (0.85).
+- `product.mp4` (source has its own sound): the track is mixed under the
+  clip's audio with the export route's Balanced chain (below).
+- `hero-original.mp4`: the chopping clip with only its own sound.
+- `hero-backbeat.mp4`: the same clip with the track mixed under it through
+  the export route's Balanced chain: music fades 2 s in and 2 s out, is
+  dropped to -14 dB, amix with normalize=0, alimiter at 0.8, atrim to the
+  clip length. The hero toggle swaps between these two files.
+
+The generated MP3s are no longer shipped; they are in git history
+(`git show d3f01ce:public/demo/chop.mp3` and so on) if a remix is needed.
 
 | slot | file | Pexels ID | source URL | creator | original | used |
 |---|---|---|---|---|---|---|
-| hero (food) | `chop.*` | 13152669 | https://www.pexels.com/video/cutting-potato-on-board-13152669/ | see note | 10.8 s, 1080×1920, with audio | 10.8 s |
+| hero (food) | `hero-original.mp4`, `hero-backbeat.mp4`, `hero.jpg` | 13152669 | https://www.pexels.com/video/cutting-potato-on-board-13152669/ | see note | 10.8 s, 1080×1920, with audio | 10.8 s |
 | travel | `travel.*` | 36621255 | https://www.pexels.com/video/stunning-aerial-view-of-rugged-coastal-cliffs-36621255/ | see note | 15.6 s, 1080×1920 | 15.0 s |
 | product (row, Food slot) | `product.*` | 6150664 | https://www.pexels.com/video/person-popping-a-bubble-wrap-6150664/ | see note | 17.0 s, 1080×2048, with audio | 15.0 s |
 | sports | `sports.*` | 33670184 | https://www.pexels.com/video/dynamic-skateboarding-tricks-at-sunset-33670184/ | see note | 12.0 s, 1080×1920 | 12.0 s |

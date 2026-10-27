@@ -10,7 +10,7 @@ export function HeroDemo() {
       <DemoPlayer clip={HERO_CLIP} variant="hero" />
       <p className="text-[#6a6a8a] text-xs text-center mt-3">
         <span className="text-[#a0a0b8]">Original</span> is the clip&rsquo;s own sound.{" "}
-        <span className="text-[#a0a0b8]">With Backbeat</span> mixes the generated track in. The volume control adjusts both.
+        <span className="text-[#a0a0b8]">With Backbeat</span> adds the generated track underneath it.
       </p>
     </div>
   );

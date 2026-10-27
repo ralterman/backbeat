@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PricingCard } from "@/components/PricingCard";
 import { HeroDemo } from "@/components/demo/HeroDemo";
+import { HeroLockup } from "@/components/demo/HeroLockup";
 import { GenreRow } from "@/components/demo/GenreRow";
 import ScrollToTop from "@/components/ScrollToTop";
 
@@ -104,11 +105,13 @@ export default function LandingPage() {
       {/* ── Hero ──────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 lg:pt-20 pb-16">
-          {/* The hero starts at the eyebrow line: the navbar carries the only
-              logo and wordmark. Copy left, live demo right; stacked on phones
-              with the demo under the CTAs. */}
+          {/* Before hydration the navbar logo is hidden on this page only;
+              HeroLockup then keeps it hidden until the lockup scrolls past. */}
+          <style>{`html:not([data-hero-lockup]) .nav-brand{opacity:0}`}</style>
+          {/* Copy left, live demo right; stacked on phones with the demo under the CTAs. */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-12 lg:gap-16 items-center">
             <div className="text-center lg:text-left">
+              <HeroLockup />
               <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">
                 The simplest way to score a video
               </p>
