@@ -74,11 +74,12 @@ body::after {
 .nav-brand { transition: opacity 0.35s ease; }
 html[data-hero-lockup="visible"] .nav-brand { opacity: 0; pointer-events: none; }
 
-/* Demo clips. Everywhere but Safari the custom top-right button is the only
-   fullscreen control (controlsList="nofullscreen" plus this rule). Safari
-   keeps its native fullscreen button instead (DemoPlayer hides the custom
-   one there), and its translucent start-playback overlay is hidden so only
-   the gold play button shows. <html data-safari> is set by DemoPlayer. */
-html:not([data-safari]) video.demo-video::-webkit-media-controls-fullscreen-button { display: none !important; }
+/* Demo clips. The custom top-right button (lightbox on desktop, native
+   fullscreen on phones) is the fullscreen control in every browser; the
+   native button is hidden where the engine allows (controlsList=
+   "nofullscreen" plus this rule), and left alone where it does not. On
+   Safari the translucent start-playback overlay is hidden so only the gold
+   play button shows. <html data-safari> is set by DemoPlayer. */
+video.demo-video::-webkit-media-controls-fullscreen-button { display: none !important; }
 html[data-safari] video.demo-video::-webkit-media-controls-start-playback-button,
 html[data-safari] video.demo-video::-webkit-media-controls-overlay-play-button { display: none !important; }
