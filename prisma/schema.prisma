@@ -89,6 +89,45 @@ model EmailChangeRequest {
   @@index([userId])
 }
 
+/// First-touch attribution captured server-side when a magic link is
+/// requested, keyed by the normalized email. Consumed once, when the User row
+/// is created. Needed because the link is often opened in a different browser
+/// (a mail app's in-app browser) than the one that requested it, so the
+/// bb_attr cookie is absent there. Rows live as long as the link (24 h).
+model MagicLinkAttribution {
+  email       String   @id
+  referrer    String?  @db.Text
+  landingPath String?  @db.Text
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+  capturedAt  DateTime
+  expires     DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([expires])
+}
+
+/// A paid one-time unlock for a single video (Stripe Checkout in payment
+/// mode, see /api/stripe/checkout?video=). Per-video entitlement, not a
+/// plan change: the user stays on FREE for every other video.
+model VideoPass {
+  id                      String   @id @default(cuid())
+  videoId                 String   @unique
+  userId                  String
+  stripeCheckoutSessionId String   @unique
+  stripePaymentIntentId   String?
+  amountCents             Int
+  currency                String
+  createdAt               DateTime @default(now())
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 /// Processed Stripe webhook event IDs, for idempotency (Stripe delivers at-least-once).
 model StripeEvent {
   id          String   @id // Stripe event id (evt_…)
@@ -112,6 +151,17 @@ model Video {
   // field existed; the player falls back to preload="metadata" for those.
   thumbnailKey String?
   thumbnailUrl String?     @db.Text
+  // Probed at first analysis (ffprobe); null for videos analyzed before
+  // this existed or when the probe failed. Drives the free-tier 60 s note.
+  durationSec  Float?
+  // One-time $5 "Video Pass": unlocks this one video (full-length tracks,
+  // two options, watermark-free export) without changing the user's plan.
+  pass         VideoPass?
+  // Storage retention (src/lib/retention.ts): set when the daily cron removed
+  // this video's source, generated tracks and exports from S3. The row is
+  // kept so the dashboard and results page can say "This video has expired"
+  // instead of erroring; nothing can be generated or exported from it again.
+  expiredAt    DateTime?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -161,6 +211,18 @@ model Analysis {
   // available rather than silently losing it; a genuinely silent video just
   // mixes in silence, which is harmless.
   hasOriginalAudio   Boolean  @default(true)
+  // Free tier: the soundtrack was generated from only the first N seconds
+  // of the video (see FREE_PREVIEW_SECONDS). Null = full length.
+  cappedSec        Int?
+  // When an analysis slot (or a Video Pass) paid for this analysis. Set at
+  // creation for paid-plan, pass and admin analyses; null for a free-tier
+  // analysis. A subscriber's first regeneration or clean export on a still
+  // unpaid analysis charges one slot and sets this, so a paid month never
+  // reads 0 of N with full use of an analysis made while free.
+  slotChargedAt    DateTime?
+  // Mirrors Video.expiredAt: the generated tracks this row points at were
+  // removed from S3 by the retention cron.
+  expiredAt        DateTime?
   createdAt          DateTime @default(now())
 
   video        Video        @relation(fields: [videoId], references: [id], onDelete: Cascade)

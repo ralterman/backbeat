@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
+import { resetMonthlyAnalysisCount } from "@/lib/usage";
 import {
   sendUpgradeEmail,
   sendCancellationEmail,
   sendPlanChangeEmail,
   sendPaymentFailedEmail,
 } from "@/lib/email";
+import { notifyAdmin, subscriptionCancellationAlert } from "@/lib/alerts";
 
 type SubscriptionPlan = "FREE" | "CREATOR" | "TEAM";
 type SubscriptionStatus = "ACTIVE" | "PAST_DUE" | "CANCELED" | "TRIALING";
@@ -101,10 +103,55 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ received: true });
 }
 
+/**
+ * One-time Video Pass paid: record the per-video entitlement. The user's
+ * plan is untouched. Idempotent two ways: the StripeEvent claim in POST
+ * stops a redelivery, and the upsert on videoId makes a second session for
+ * the same video a no-op (logged loudly so it can be refunded by hand).
+ */
+async function handleVideoPassCheckout(session: Stripe.Checkout.Session): Promise<void> {
+  const userId = session.metadata?.userId;
+  const videoId = session.metadata?.videoId;
+  if (!userId || !videoId) {
+    console.error(`[webhook] video_pass session ${session.id} missing userId/videoId metadata`);
+    return;
+  }
+  if (session.payment_status !== "paid") {
+    console.warn(`[webhook] video_pass session ${session.id} completed but payment_status=${session.payment_status}; not unlocking`);
+    return;
+  }
+  const video = await prisma.video.findFirst({ where: { id: videoId, userId }, select: { id: true } });
+  if (!video) {
+    console.error(`[webhook] video_pass session ${session.id}: video ${videoId} not found for user ${userId}`);
+    return;
+  }
+  const existing = await prisma.videoPass.findUnique({ where: { videoId } });
+  if (existing) {
+    console.error(`[webhook][REFUND?] video ${videoId} already has pass ${existing.id} (session ${existing.stripeCheckoutSessionId}); new session ${session.id} paid ${session.amount_total} ${session.currency} — duplicate purchase`);
+    return;
+  }
+  const paymentIntent = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null;
+  await prisma.videoPass.create({
+    data: {
+      videoId,
+      userId,
+      stripeCheckoutSessionId: session.id,
+      stripePaymentIntentId: paymentIntent,
+      amountCents: session.amount_total ?? 0,
+      currency: session.currency ?? "usd",
+    },
+  });
+  console.log(`[webhook] video pass: user ${userId} unlocked video ${videoId} (${session.amount_total} ${session.currency}, session ${session.id})`);
+}
+
 async function handleEvent(event: Stripe.Event): Promise<void> {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+      if (session.metadata?.kind === "video_pass") {
+        await handleVideoPassCheckout(session);
+        break;
+      }
       const userId = session.metadata?.userId;
       const plan = session.metadata?.plan;
       if (!userId || !plan) break;
@@ -115,6 +162,15 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
         break;
       }
       const stripePlan = upper as SubscriptionPlan;
+
+      // Was this user on the free tier until now? (No row, FREE, or a
+      // canceled paid plan all read as FREE in getUserPlan.) Decided before
+      // the upsert below overwrites the row.
+      const previous = await prisma.subscription.findUnique({
+        where: { userId },
+        select: { plan: true, status: true },
+      });
+      const upgradingFromFree = !previous || previous.plan === "FREE" || previous.status === "CANCELED";
 
       await prisma.subscription.upsert({
         where: { userId },
@@ -133,6 +189,13 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
           status: "ACTIVE",
         },
       });
+
+      // The free-tier analysis run before upgrading must not count against
+      // the first paid month. Idempotent, so a webhook retry is harmless.
+      if (upgradingFromFree) {
+        const touched = await resetMonthlyAnalysisCount(userId);
+        console.log(`[webhook] ${userId} upgraded FREE → ${stripePlan}; monthly analysis count reset (${touched} record${touched === 1 ? "" : "s"})`);
+      }
 
       const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
       if (user?.email) {
@@ -200,6 +263,15 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
         // cancellation email would only go out weeks later on .deleted.
         console.log(`[webhook] ${subscription.id} scheduled to cancel at ${periodEnd?.toISOString() ?? "period end"}`);
         await notify("scheduled-cancellation", email, () => sendCancellationEmail(email, periodEnd ?? null));
+        await notifyAdmin("admin-cancellation-scheduled", subscriptionCancellationAlert({
+          kind: "scheduled",
+          email,
+          plan: oldPlan,
+          subscribedAt: toDate(subscription.created) ?? existing.createdAt,
+          endsAt: toDate(subscription.cancel_at) ?? periodEnd ?? null,
+          stripeSubscriptionId: subscription.id,
+          stripeCustomerId: typeof subscription.customer === "string" ? subscription.customer : existing.stripeCustomerId,
+        }));
       } else if (newPlan !== oldPlan) {
         await notify("plan-change", email, () => sendPlanChangeEmail(email, oldPlan, newPlan));
       }
@@ -225,6 +297,21 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
       const email = existing?.user?.email;
       if (email && !existing?.cancelAtPeriodEnd) {
         await notify("cancellation", email, () => sendCancellationEmail(email, null));
+      }
+      // Admin alert on every ended subscription, scheduled earlier or not;
+      // existing.plan is read before the updateMany above set it to FREE.
+      if (existing) {
+        await notifyAdmin("admin-subscription-ended", subscriptionCancellationAlert({
+          kind: "ended",
+          email: email ?? `user ${existing.userId} (no email)`,
+          plan: existing.plan,
+          subscribedAt: toDate(subscription.created) ?? existing.createdAt,
+          endsAt: toDate(subscription.ended_at) ?? toDate(subscription.canceled_at) ?? new Date(),
+          stripeSubscriptionId: subscription.id,
+          stripeCustomerId: typeof subscription.customer === "string" ? subscription.customer : existing.stripeCustomerId,
+        }));
+      } else {
+        console.warn(`[webhook] subscription.deleted for unknown subscription ${subscription.id}`);
       }
       break;
     }

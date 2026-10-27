@@ -31,6 +31,8 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   FAILED: { label: "Failed", color: "text-red-400 bg-red-900/20" },
   // Music generation paused on our side (ElevenLabs credits), retryable.
   PAUSED: { label: "Paused — retry soon", color: "text-amber-300 bg-amber-900/20" },
+  // Files removed by the retention cron (src/lib/retention.ts); row kept.
+  EXPIRED: { label: "Expired", color: "text-[#8a8aa0] bg-[#1E1E1E]" },
 };
 
 export default async function DashboardPage({
@@ -69,6 +71,10 @@ export default async function DashboardPage({
   // Only admins are unlimited. Every plan (including Pro/TEAM = 40/mo) has a
   // real monthly cap now, so paid users see the normal counter.
   const unlimited = admin;
+  // Plain-text heads-up once a paid user is at 80% of the monthly cap. Free
+  // users have a lifetime count and their own upgrade prompt; admins are
+  // uncapped.
+  const nearCap = !admin && plan !== "FREE" && limit > 0 && used / limit >= 0.8;
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -130,6 +136,10 @@ export default async function DashboardPage({
               ) : (
                 <Link
                   href="/api/stripe/portal"
+                  // Side-effecting GET: it creates a Stripe billing-portal
+                  // session. Without this, Next prefetched it on every
+                  // dashboard view (same issue as the checkout CTA).
+                  prefetch={false}
                   className="border border-[#2A2A2A] hover:border-[#9090aa] text-[#a0a0b8] hover:text-white text-sm px-4 py-2.5 rounded-xl transition-colors font-medium whitespace-nowrap"
                 >
                   Manage billing
@@ -138,6 +148,11 @@ export default async function DashboardPage({
             </>
           )}
         </div>
+        {nearCap && (
+          <p className="text-sm text-[#a0a0b8]">
+            You&rsquo;ve used {used} of {limit} analyses this month.
+          </p>
+        )}
       </div>
 
       {/* Upload zone */}
@@ -172,8 +187,9 @@ export default async function DashboardPage({
         ) : (
           <div className="space-y-3">
             {videos.map((video) => {
-              const statusInfo = STATUS_LABELS[video.status] ?? STATUS_LABELS.PENDING;
-              const clickable = video.status === "ANALYZED";
+              const expired = video.expiredAt !== null;
+              const statusInfo = expired ? STATUS_LABELS.EXPIRED : (STATUS_LABELS[video.status] ?? STATUS_LABELS.PENDING);
+              const clickable = video.status === "ANALYZED" && !expired;
 
               // Shared card body: min-w-0 at every level a text node needs to
               // truncate inside (flex items default to min-width:auto, which
@@ -192,7 +208,9 @@ export default async function DashboardPage({
                         {video.originalName}
                       </p>
                       <p className="text-[#6a6a8a] text-xs mt-0.5">
-                        {formatFileSize(video.fileSize)} · {formatDate(video.createdAt)}
+                        {expired
+                          ? `This video has expired · uploaded ${formatDate(video.createdAt)}`
+                          : `${formatFileSize(video.fileSize)} · ${formatDate(video.createdAt)}`}
                       </p>
                     </div>
                   </div>

@@ -14,7 +14,7 @@ const FROM = process.env.EMAIL_FROM ?? "hello@backbeat.video";
 const PLAN_LIMITS: Record<string, string> = {
   CREATOR: "15 video analyses per month and up to 4 soundtrack options per video",
   TEAM: "40 video analyses per month and up to 6 soundtrack options per video",
-  FREE: "1 lifetime analysis",
+  FREE: "1 lifetime analysis: one track for the first 60 seconds, watermarked export",
 };
 
 /**

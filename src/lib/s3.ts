@@ -71,6 +71,53 @@ export async function deleteS3Prefix(bucket: string, prefix: string): Promise<nu
   return deleted;
 }
 
+export interface S3ObjectInfo {
+  key: string;
+  size: number;
+}
+
+/**
+ * List every object under a prefix with its size. A prefix that is an exact
+ * key returns that one object (plus anything sharing the prefix).
+ */
+export async function listS3Prefix(bucket: string, prefix: string): Promise<S3ObjectInfo[]> {
+  if (!prefix || prefix === "/") throw new Error("Refusing to list with an empty prefix");
+  const out: S3ObjectInfo[] = [];
+  let continuationToken: string | undefined;
+  do {
+    const page = await s3Client.send(
+      new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: continuationToken })
+    );
+    for (const o of page.Contents ?? []) {
+      if (o.Key) out.push({ key: o.Key, size: o.Size ?? 0 });
+    }
+    continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (continuationToken);
+  return out;
+}
+
+/**
+ * Delete specific keys (batches of 1000). Throws on the first failed batch.
+ */
+export async function deleteS3Keys(bucket: string, keys: string[]): Promise<number> {
+  let deleted = 0;
+  for (let i = 0; i < keys.length; i += 1000) {
+    const batch = keys.slice(i, i + 1000);
+    const res = await s3Client.send(
+      new DeleteObjectsCommand({
+        Bucket: bucket,
+        Delete: { Objects: batch.map((Key) => ({ Key })), Quiet: true },
+      })
+    );
+    if (res.Errors && res.Errors.length > 0) {
+      const first = res.Errors[0];
+      throw new Error(`S3 batch delete failed for ${res.Errors.length} key(s) in ${bucket}: ${first.Key} — ${first.Code} ${first.Message}`);
+    }
+    deleted += batch.length;
+  }
+  return deleted;
+}
+
 /**
  * Generate a presigned URL for downloading a file from S3.
  */

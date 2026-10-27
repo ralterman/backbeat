@@ -18,11 +18,17 @@ export async function GET(
 
   const video = await prisma.video.findFirst({
     where: { id: videoId, userId: session.user.id },
-    include: { analysis: true },
+    include: { analysis: true, pass: { select: { id: true } } },
   });
 
   if (!video) {
     return NextResponse.json({ error: "Video not found" }, { status: 404 });
+  }
+
+  // Removed from S3 by the retention cron (src/lib/retention.ts). Nothing to
+  // presign; the page shows "This video has expired".
+  if (video.expiredAt) {
+    return NextResponse.json({ status: "expired", expired: true, expiredAt: video.expiredAt, videoId });
   }
 
   // Generate a presigned URL for the original video (synced preview player).
@@ -45,7 +51,7 @@ export async function GET(
   }
 
   if (!video.analysis) {
-    return NextResponse.json({ status: video.status, videoId, videoUrl, thumbnailUrl });
+    return NextResponse.json({ status: video.status, videoId, videoUrl, thumbnailUrl, videoDurationSec: video.durationSec, hasPass: !!video.pass });
   }
 
   const analysis = video.analysis;
@@ -86,8 +92,16 @@ export async function GET(
     videoId,
     videoUrl,
     thumbnailUrl,
+    videoDurationSec: video.durationSec,
+    // One-time Video Pass bought for this video (see src/lib/videoPass.ts)
+    hasPass: !!video.pass,
     analysis: {
       id:                analysis.id,
+      // Free tier: soundtrack covers only the first N seconds (null = full)
+      cappedSec:         analysis.cappedSec,
+      // False for a free-tier analysis not yet paid for: a subscriber's first
+      // regeneration or clean export on it counts as one analysis.
+      slotCharged:       analysis.slotChargedAt != null,
       moodTags:          analysis.moodTags,
       bpmRange:          analysis.bpmRange,
       energyScore:       analysis.energyScore,

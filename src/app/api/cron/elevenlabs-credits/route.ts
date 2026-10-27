@@ -12,16 +12,21 @@ import { notifyAdminThrottled } from "@/lib/alerts";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-// Daily ElevenLabs credit check, scheduled in vercel.json. Vercel invokes
-// it with `Authorization: Bearer <CRON_SECRET>`; anything else is refused,
-// so the route can't be used to make us email ourselves.
+// Daily ElevenLabs credit check (vercel.json; Vercel Hobby allows one cron
+// run per day, so the schedule cannot be tighter). Vercel invokes it with
+// `Authorization: Bearer <CRON_SECRET>`; anything else is refused, so the
+// route can't be used to make us email ourselves.
 //
-// Emails the admin (via the hourly-throttled alert helper, keyed per
-// condition with a ~20 h window so a manual re-run the same day doesn't
-// double-send) when credits are under 50 % or under 7 days of runway at
-// the 7-day average burn. If the key can't read the balance (missing
-// user_read scope), that's reported the same way instead of failing silently.
-const RESEND_WINDOW_MS = 20 * 60 * 60 * 1000;
+// Emails the admin via the throttled alert helper when credits are under
+// 50 % or under 7 days of runway at the 7-day average burn: at most once a
+// day (a ~20 h window, so a manual re-run the same day doesn't double-send).
+// Under 2 days of runway the alert is critical and uses its own key with a
+// short window, so it is never suppressed by an earlier "low" email and
+// repeats on every run (daily on Hobby; every run if the cron is ever made
+// more frequent). If the key can't read the balance (missing user_read
+// scope), that's reported the same way instead of failing silently.
+const DAILY_WINDOW_MS = 20 * 60 * 60 * 1000;
+const CRITICAL_WINDOW_MS = 5.5 * 60 * 60 * 1000;
 
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -40,12 +45,15 @@ export async function GET(req: NextRequest) {
     const snapshot = await fetchCreditSnapshot(apiKey);
     const verdict = evaluateSnapshot(snapshot, DEFAULT_THRESHOLDS);
     let emailed = false;
-    if (verdict.alert) {
-      emailed = await notifyAdminThrottled("elevenlabs-credits-low", RESEND_WINDOW_MS, creditAlertEmail(snapshot, verdict));
+    if (verdict.critical) {
+      emailed = await notifyAdminThrottled("elevenlabs-credits-critical", CRITICAL_WINDOW_MS, creditAlertEmail(snapshot, verdict));
+    } else if (verdict.alert) {
+      emailed = await notifyAdminThrottled("elevenlabs-credits-low", DAILY_WINDOW_MS, creditAlertEmail(snapshot, verdict));
     }
     console.log(
       `[cron:elevenlabs-credits] remaining=${snapshot.remaining}/${snapshot.limit} (${Math.round(snapshot.remainingFraction * 100)}%) ` +
-      `burn=${Math.round(snapshot.avgDailyBurn)}/day runway=${snapshot.runwayDays?.toFixed(1) ?? "∞"}d alert=${verdict.alert} emailed=${emailed}`
+      `yesterday=${Math.round(snapshot.yesterdayBurn)} avg=${Math.round(snapshot.avgDailyBurn)}/day runway=${snapshot.runwayDays?.toFixed(1) ?? "∞"}d ` +
+      `alert=${verdict.alert} critical=${verdict.critical} emailed=${emailed}`
     );
     return NextResponse.json({
       ok: true,
@@ -53,18 +61,20 @@ export async function GET(req: NextRequest) {
       limit: snapshot.limit,
       remainingPercent: Math.round(snapshot.remainingFraction * 100),
       avgDailyBurn: Math.round(snapshot.avgDailyBurn),
+      yesterdayBurn: Math.round(snapshot.yesterdayBurn),
       runwayDays: snapshot.runwayDays === null ? null : Number(snapshot.runwayDays.toFixed(1)),
       resetAt: snapshot.resetAt?.toISOString() ?? null,
       tier: snapshot.tier,
       overageEnabled: snapshot.overageEnabled,
       dailyBurn: snapshot.dailyBurn,
       alert: verdict.alert,
+      critical: verdict.critical,
       reasons: verdict.reasons,
       emailed,
     });
   } catch (err) {
     if (err instanceof ElevenLabsScopeError) {
-      const emailed = await notifyAdminThrottled("elevenlabs-credits-scope", RESEND_WINDOW_MS, scopeMissingEmail(err.message));
+      const emailed = await notifyAdminThrottled("elevenlabs-credits-scope", DAILY_WINDOW_MS, scopeMissingEmail(err.message));
       console.error(`[cron:elevenlabs-credits] key lacks user_read: ${err.message} (emailed=${emailed})`);
       return NextResponse.json({ ok: false, error: "api-key-missing-user_read", detail: err.message, emailed }, { status: 200 });
     }

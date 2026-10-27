@@ -76,10 +76,10 @@ const features = [
 
 const FREE_FEATURES = [
   { text: "1 free video analysis, lifetime", included: true },
-  { text: "1 AI-generated soundtrack per analysis", included: true },
-  { text: "Full preview synced to your video", included: true },
-  { text: "Export with watermark", included: true },
-  { text: "No-watermark exports", included: false },
+  { text: "1 AI-generated soundtrack, first 60 seconds of your video", included: true },
+  { text: "Preview synced to your video (first 60 seconds)", included: true },
+  { text: "Watermarked export of the first 60 seconds", included: true },
+  { text: "Full-length, no-watermark exports", included: false },
 ];
 
 const CREATOR_FEATURES = [
@@ -295,7 +295,7 @@ export default function LandingPage() {
               name="Try it free"
               price={0}
               priceSuffix=""
-              description="One free analysis, no card needed"
+              description="One free analysis, first 60 seconds, no card needed"
               features={FREE_FEATURES}
               cta="Try it free"
               ctaHref="/auth/signup"

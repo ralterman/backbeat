@@ -76,8 +76,8 @@ export default function SignUpPage() {
           <div className="flex gap-2 mb-6 flex-wrap sm:flex-nowrap">
             {[
               { icon: "🎬", text: "1 free analysis" },
-              { icon: "🎵", text: "Top 3 tracks" },
-              { icon: "⚡", text: "Instant results" },
+              { icon: "🎵", text: "1 track, first 60 s" },
+              { icon: "⚡", text: "Watermarked export" },
             ].map((item) => (
               <div key={item.text} className="flex-1 text-center bg-[#1E1E1E] rounded-lg py-2 px-1">
                 <p className="text-lg mb-0.5">{item.icon}</p>

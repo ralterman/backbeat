@@ -29,6 +29,14 @@ export const OPTION_CAPS: Record<SubscriptionPlan, number> = {
   TEAM: 6,
 };
 
+/**
+ * Free tier: music is generated for, and exports cover, only the first
+ * N seconds of the video. The analysis itself still reads the whole video.
+ * ElevenLabs' video-to-music has no length parameter (the track follows the
+ * video), so the analyze route trims the upload to this before sending it.
+ */
+export const FREE_PREVIEW_SECONDS = 60;
+
 /** Absolute ceiling regardless of plan (admins, and the size of the A–F label set). */
 export const HARD_MAX_OPTIONS = 6;
 
@@ -128,6 +136,22 @@ export async function releaseAnalysisSlot(userId: string): Promise<void> {
   if (latest) {
     await prisma.usageRecord.update({ where: { id: latest.id }, data: { count: { decrement: 1 } } });
   }
+}
+
+/**
+ * Zero this month's analysis count. Called when a user moves from FREE to a
+ * paid plan: the free-tier analysis they ran before upgrading would otherwise
+ * count against their first paid month (paid plans read the current month's
+ * record, and the free analysis lives in it). Earlier months are left alone;
+ * paid usage never reads them.
+ */
+export async function resetMonthlyAnalysisCount(userId: string): Promise<number> {
+  const month = currentMonth();
+  const r = await prisma.usageRecord.updateMany({
+    where: { userId, action: "analysis", month },
+    data: { count: 0 },
+  });
+  return r.count;
 }
 
 export async function getUsageLimit(userId: string): Promise<number> {

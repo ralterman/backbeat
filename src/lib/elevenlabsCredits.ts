@@ -31,6 +31,8 @@ export interface CreditSnapshot {
   dailyBurn: number[];
   lookbackDays: number;
   avgDailyBurn: number;
+  /** Credits used on the last complete UTC day. */
+  yesterdayBurn: number;
   /** Days until credits run out at the average burn; null when burn is 0. */
   runwayDays: number | null;
   fetchedAt: Date;
@@ -41,9 +43,12 @@ export interface Thresholds {
   minRemainingFraction: number;
   /** Alert when runway is below this many days. */
   minRunwayDays: number;
+  /** Below this many days of runway the alert is "critical": it bypasses the
+   *  once-a-day throttle and repeats on every 6-hourly run. */
+  criticalRunwayDays: number;
 }
 
-export const DEFAULT_THRESHOLDS: Thresholds = { minRemainingFraction: 0.5, minRunwayDays: 7 };
+export const DEFAULT_THRESHOLDS: Thresholds = { minRemainingFraction: 0.5, minRunwayDays: 7, criticalRunwayDays: 2 };
 
 export async function fetchCreditSnapshot(apiKey: string, lookbackDays = 7, now = new Date()): Promise<CreditSnapshot> {
   const headers = { "xi-api-key": apiKey };
@@ -72,6 +77,15 @@ export async function fetchCreditSnapshot(apiKey: string, lookbackDays = 7, now 
   const dayCount = usage.time?.length ?? 0;
   const dailyBurn = Array.from({ length: dayCount }, (_, i) => seriesList.reduce((s, series) => s + (series[i] ?? 0), 0));
 
+  // Yesterday = the bucket starting at the previous UTC midnight. Bucket
+  // timestamps are ms like the query; if they don't line up (API change),
+  // fall back to the second-to-last bucket, since the last one is today so far.
+  const todayStart = new Date(now); todayStart.setUTCHours(0, 0, 0, 0);
+  const yesterdayStart = todayStart.getTime() - 24 * 60 * 60 * 1000;
+  let yesterdayIdx = (usage.time ?? []).findIndex((t) => t === yesterdayStart);
+  if (yesterdayIdx < 0) yesterdayIdx = dailyBurn.length - 2;
+  const yesterdayBurn = yesterdayIdx >= 0 ? dailyBurn[yesterdayIdx] ?? 0 : 0;
+
   return computeSnapshot({
     tier: String(sub.tier ?? "unknown"),
     status: String(sub.status ?? "unknown"),
@@ -80,6 +94,7 @@ export async function fetchCreditSnapshot(apiKey: string, lookbackDays = 7, now 
     resetUnix: typeof sub.next_character_count_reset_unix === "number" ? sub.next_character_count_reset_unix : null,
     overageEnabled: sub.can_extend_character_limit === true || (sub.max_credit_limit_extension !== 0 && sub.max_credit_limit_extension != null),
     dailyBurn,
+    yesterdayBurn,
     lookbackDays,
     now,
   });
@@ -88,7 +103,7 @@ export async function fetchCreditSnapshot(apiKey: string, lookbackDays = 7, now 
 /** Pure: everything derived from raw numbers lives here so it can be tested. */
 export function computeSnapshot(input: {
   tier: string; status: string; used: number; limit: number; resetUnix: number | null;
-  overageEnabled: boolean; dailyBurn: number[]; lookbackDays: number; now: Date;
+  overageEnabled: boolean; dailyBurn: number[]; yesterdayBurn: number; lookbackDays: number; now: Date;
 }): CreditSnapshot {
   const remaining = Math.max(0, input.limit - input.used);
   const remainingFraction = input.limit > 0 ? remaining / input.limit : 0;
@@ -109,6 +124,7 @@ export function computeSnapshot(input: {
     dailyBurn: input.dailyBurn,
     lookbackDays: input.lookbackDays,
     avgDailyBurn,
+    yesterdayBurn: input.yesterdayBurn,
     runwayDays,
     fetchedAt: input.now,
   };
@@ -116,6 +132,8 @@ export function computeSnapshot(input: {
 
 export interface Verdict {
   alert: boolean;
+  /** Runway under the critical threshold: email on every run, not once a day. */
+  critical: boolean;
   reasons: string[];
 }
 
@@ -124,10 +142,13 @@ export function evaluateSnapshot(s: CreditSnapshot, t: Thresholds = DEFAULT_THRE
   if (s.remainingFraction < t.minRemainingFraction) {
     reasons.push(`${Math.round(s.remainingFraction * 100)}% of credits remaining (threshold ${Math.round(t.minRemainingFraction * 100)}%)`);
   }
-  if (s.runwayDays !== null && s.runwayDays < t.minRunwayDays) {
+  const critical = s.runwayDays !== null && s.runwayDays < t.criticalRunwayDays;
+  if (critical) {
+    reasons.push(`under ${t.criticalRunwayDays} days of runway (about ${s.runwayDays!.toFixed(1)}) at the current burn`);
+  } else if (s.runwayDays !== null && s.runwayDays < t.minRunwayDays) {
     reasons.push(`about ${s.runwayDays.toFixed(1)} days of runway at the current burn (threshold ${t.minRunwayDays} days)`);
   }
-  return { alert: reasons.length > 0, reasons };
+  return { alert: reasons.length > 0, critical, reasons };
 }
 
 const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
@@ -136,11 +157,17 @@ const fmtDate = (d: Date | null) =>
 
 export function creditAlertEmail(s: CreditSnapshot, v: Verdict): { subject: string; text: string; html: string } {
   const runway = s.runwayDays === null ? "no usage in the last 7 days" : `~${s.runwayDays.toFixed(1)} days`;
-  const subject = `Backbeat: ElevenLabs credits low — ${fmt(s.remaining)} left (${Math.round(s.remainingFraction * 100)}%), ${runway} of runway`;
+  const cadence = v.critical
+    ? "Runway is under 2 days, so this repeats on every check until it recovers."
+    : "Sent at most once a day.";
+  const subject =
+    `Backbeat: ElevenLabs credits ${v.critical ? "critical" : "low"} — ` +
+    `${fmt(s.remaining)} left, yesterday ${fmt(s.yesterdayBurn)}, 7d avg ${fmt(s.avgDailyBurn)}`;
   const lines = [
     `Credits remaining: ${fmt(s.remaining)} of ${fmt(s.limit)} (${Math.round(s.remainingFraction * 100)}%)`,
+    `Yesterday's burn: ${fmt(s.yesterdayBurn)} credits`,
     `Average daily burn (last ${s.lookbackDays} days): ${fmt(s.avgDailyBurn)} credits/day`,
-    `Runway at that burn: ${runway}`,
+    `Runway at the average burn: ${runway}`,
     `Credits reset: ${fmtDate(s.resetAt)}`,
     `Plan: ${s.tier} (${s.status}); usage-based billing / overage: ${s.overageEnabled ? "enabled" : "not enabled — generation stops at 0"}`,
     ``,
@@ -148,23 +175,24 @@ export function creditAlertEmail(s: CreditSnapshot, v: Verdict): { subject: stri
     `Daily burn, oldest → newest: ${s.dailyBurn.map(fmt).join(", ")}`,
     ``,
     `Top up: https://elevenlabs.io/app/subscription`,
-    `Checked ${s.fetchedAt.toISOString()}. Sent at most once a day.`,
+    `Checked ${s.fetchedAt.toISOString()}. ${cadence}`,
   ];
   const rows = [
     ["Credits remaining", `${fmt(s.remaining)} of ${fmt(s.limit)} (<strong>${Math.round(s.remainingFraction * 100)}%</strong>)`],
+    ["Yesterday's burn", `${fmt(s.yesterdayBurn)} credits`],
     [`Average daily burn (${s.lookbackDays}d)`, `${fmt(s.avgDailyBurn)} credits/day`],
-    ["Runway at that burn", `<strong>${runway}</strong>`],
+    ["Runway at the average burn", `<strong>${runway}</strong>`],
     ["Credits reset", fmtDate(s.resetAt)],
     ["Plan", `${s.tier} (${s.status}) — overage ${s.overageEnabled ? "enabled" : "not enabled: generation stops at 0"}`],
   ].map(([k, val]) => `<tr><td style="padding:6px 12px 6px 0;color:#666;white-space:nowrap">${k}</td><td style="padding:6px 0">${val}</td></tr>`).join("");
   const html =
     `<div style="font-family:sans-serif;max-width:600px;color:#1a1a1a">` +
-    `<h2 style="margin-bottom:4px">ElevenLabs credits are running low</h2>` +
+    `<h2 style="margin-bottom:4px">ElevenLabs credits are ${v.critical ? "critically low" : "running low"}</h2>` +
     `<p style="color:#666;margin-top:0">${v.reasons.join("; ")}.</p>` +
     `<table style="border-collapse:collapse">${rows}</table>` +
     `<p style="font-size:13px;color:#666">Daily burn, oldest → newest: ${s.dailyBurn.map(fmt).join(", ")}</p>` +
     `<p><a href="https://elevenlabs.io/app/subscription" style="color:#C8A96E;font-weight:600">Top up credits →</a></p>` +
-    `<p style="color:#9090aa;font-size:12px">Checked ${s.fetchedAt.toISOString()}. Sent at most once a day.</p></div>`;
+    `<p style="color:#9090aa;font-size:12px">Checked ${s.fetchedAt.toISOString()}. ${cadence}</p></div>`;
   return { subject, text: lines.join("\n"), html };
 }
 
