@@ -111,16 +111,20 @@ export default function LandingPage() {
           {/* Copy left, live demo right; stacked on phones with the demo under the CTAs. */}
           {/* From lg both columns are stretched to the row, whose height comes
               from the demo column (card + toggle + caption). The text column
-              is a flex column with its slack between the lockup and the
-              eyebrow, so the lockup icon's top meets the card's top and the
-              "No credit card required" line's bottom meets the caption's
-              bottom. Centered stack on phones. */}
+              is a flex column whose slack goes into five spacers: the one
+              under the lockup is capped so that gap never exceeds 56 px
+              (32 px margin + 24 px), and the other four grow equally, so the
+              lockup icon's top meets the card's top and the "No credit card
+              required" line's bottom meets the caption's bottom. Centered
+              stack on phones, where the spacers are hidden. */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-12 lg:gap-16 items-center lg:items-stretch">
             <div className="text-center lg:text-left lg:flex lg:flex-col">
               <HeroLockup />
-              <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5 lg:mt-auto">
+              <div className="hidden lg:block lg:flex-1 lg:max-h-6" aria-hidden="true" />
+              <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">
                 The simplest way to score a video
               </p>
+              <div className="hidden lg:block lg:flex-1" aria-hidden="true" />
 
               <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight tracking-tight mb-6">
                 Upload your video.
@@ -129,10 +133,12 @@ export default function LandingPage() {
                   Get your music.
                 </span>
               </h1>
+              <div className="hidden lg:block lg:flex-1" aria-hidden="true" />
 
               <p className="text-lg text-gray-400 max-w-2xl mx-auto lg:mx-0 mb-10 leading-relaxed">
                 No prompts to write, no credits to manage. Upload a clip, Backbeat reads it and writes the soundtrack, you export. A few minutes start to finish.
               </p>
+              <div className="hidden lg:block lg:flex-1" aria-hidden="true" />
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Link
@@ -151,6 +157,7 @@ export default function LandingPage() {
                   See pricing
                 </Link>
               </div>
+              <div className="hidden lg:block lg:flex-1" aria-hidden="true" />
 
               <p className="text-[#9090aa] text-sm mt-5">No credit card required — analyze your first video free</p>
             </div>

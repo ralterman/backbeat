@@ -40,6 +40,11 @@ export function HeroLockup() {
   return (
     // About twice the navbar's 36 px icon / 28 px wordmark from the sm
     // breakpoint up; a step smaller on phones so the lockup fits 375 px.
+    // The wordmark is centered on the icon the same way as in the navbar,
+    // where the icon sits 2 px above the wordmark's center at 28 px type:
+    // the wordmark is nudged down by the same 1/14 of its size (3 px at
+    // 40 px, 4 px at 56 px) and the icon stays put, so its top still meets
+    // the top of the hero card.
     <div ref={ref} className="flex items-center justify-center lg:justify-start gap-4 sm:gap-5 mb-8">
       <Image
         src="/brand/logo-icon.png"
@@ -47,10 +52,10 @@ export function HeroLockup() {
         width={72}
         height={72}
         priority
-        className="h-[52px] sm:h-[72px] w-auto -translate-y-1 lg:translate-y-0"
+        className="h-[52px] sm:h-[72px] w-auto"
       />
       <span
-        className="text-[40px] sm:text-[56px]"
+        className="text-[40px] sm:text-[56px] translate-y-[3px] sm:translate-y-1"
         style={{
           color: "#C8A96E",
           fontWeight: 400,
