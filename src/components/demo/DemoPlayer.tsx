@@ -373,7 +373,7 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
               disablePictureInPicture
               autoPlay={autoplay && i === 0}
               preload={isHero ? "auto" : "metadata"}
-              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-150 ${i === active ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+              className={`demo-video absolute inset-0 w-full h-full object-cover transition-opacity duration-150 ${i === active ? "opacity-100" : "opacity-0 pointer-events-none"}`}
               aria-hidden={i !== active}
               aria-label={`${label} demo clip${s.mode === "backbeat" ? " with Backbeat" : ""}`}
             />

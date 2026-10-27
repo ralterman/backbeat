@@ -109,7 +109,9 @@ export default function LandingPage() {
               HeroLockup then keeps it hidden until the lockup scrolls past. */}
           <style>{`html:not([data-hero-lockup]) .nav-brand{opacity:0}`}</style>
           {/* Copy left, live demo right; stacked on phones with the demo under the CTAs. */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-12 lg:gap-16 items-center">
+          {/* Top-aligned from lg so the lockup's icon top meets the top edge
+              of the demo card; centered stack on phones. */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-12 lg:gap-16 items-center lg:items-start">
             <div className="text-center lg:text-left">
               <HeroLockup />
               <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">

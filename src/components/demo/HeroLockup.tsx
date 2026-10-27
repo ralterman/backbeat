@@ -47,7 +47,7 @@ export function HeroLockup() {
         width={72}
         height={72}
         priority
-        className="h-[52px] sm:h-[72px] w-auto -translate-y-1"
+        className="h-[52px] sm:h-[72px] w-auto -translate-y-1 lg:translate-y-0"
       />
       <span
         className="text-[40px] sm:text-[56px]"

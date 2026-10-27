@@ -9,26 +9,51 @@ uploaded silent and any empty audio track was dropped.
 
 The tracks are genuine Backbeat output: each clip was run through the app's
 own frame extraction (one frame per 3 s at 512 px), Claude analysis and
-ElevenLabs generation (`music_v2_5`). The four row tracks were generated on
-2026-10-21 (802 ElevenLabs credits in total); the hero track on 2026-10-27
-(about 150 credits).
+ElevenLabs generation (`music_v2_5`). The hero track was generated on
+2026-10-27 (about 150 credits). The four row tracks were regenerated on
+2026-10-27 (about 1,000 credits): the 2026-10-21 tracks matched the clips'
+length on paper but the model wrote a musical ending into each one, so the
+music had faded out by 7-10 s. The regeneration fed the clip looped twice
+(so the ending lands past the clip's end) and kept the first clip-length of
+the result; analysis still ran on the real clip's frames.
 
 **Audio is baked into the files** (2026-10-27), so the page plays plain
 `<video>` elements with no separate audio element:
 
 - `travel.mp4`, `sports.mp4`, `gameplay.mp4` (silent sources): the generated
-  track is the audio stream, AAC 128 kbps, trimmed to the clip, 2 s fade in,
-  1 s fade out, at the export route's music-only level (0.85).
+  track is the audio stream, trimmed to the clip with a 1 s fade out and any
+  leading silence removed (travel starts 5 s into its track, past a long
+  cinematic build).
 - `product.mp4` (source has its own sound): the track is mixed under the
-  clip's audio with the export route's Balanced chain (below).
+  clip's audio through the export route's chain at the Loud gain (-8 dB;
+  bubble wrap, no dialogue to protect).
 - `hero-original.mp4`: the chopping clip with only its own sound.
 - `hero-backbeat.mp4`: the same clip with the track mixed under it through
-  the export route's Balanced chain: music fades 2 s in and 2 s out, is
-  dropped to -14 dB, amix with normalize=0, alimiter at 0.8, atrim to the
-  clip length. The hero toggle swaps between these two files.
+  the export route's chain at the Loud gain: music fades 2 s in and 2 s out,
+  drops to -8 dB, amix with normalize=0, alimiter at 0.8, atrim to the clip
+  length. The hero toggle swaps between these two files. Both hero files
+  run the clip audio through the same compressor + limiter first (knife hits
+  peak at 0 dBFS in the source and would otherwise block normalisation).
 
-The generated MP3s are no longer shipped; they are in git history
-(`git show d3f01ce:public/demo/chop.mp3` and so on) if a remix is needed.
+Every file is then normalised with two-pass ffmpeg loudnorm to -16 LUFS
+integrated, pre-encode true peak -2 dBTP (-3 for the hero pair) so the AAC
+overshoot still lands under -1.5 dBTP. Measured after encoding (2026-10-27):
+
+| file | video s | audio s | I LUFS | TP dBTP |
+|---|---|---|---|---|
+| hero-original.mp4 | 10.800 | 10.800 | -16.47 | -1.92 |
+| hero-backbeat.mp4 | 10.800 | 10.800 | -16.22 | -2.41 |
+| travel.mp4 | 15.000 | 15.000 | -16.27 | -2.01 |
+| product.mp4 | 15.000 | 15.000 | -16.27 | -1.96 |
+| sports.mp4 | 11.967 | 11.966 | -16.04 | -1.90 |
+| gameplay.mp4 | 9.967 | 9.966 | -16.06 | -1.63 |
+
+(The 0.7 ms on sports and gameplay is AAC frame granularity, 1024 samples
+at 48 kHz, against a 30 fps video length that is not a whole frame count.)
+
+The generated MP3s are not shipped; the 2026-10-21 set is in git history
+(`git show d3f01ce:public/demo/travel.mp3` and so on) and the 2026-10-27
+regenerations were kept only in the session scratch directory.
 
 | slot | file | Pexels ID | source URL | creator | original | used |
 |---|---|---|---|---|---|---|
