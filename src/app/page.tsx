@@ -103,42 +103,39 @@ export default function LandingPage() {
       <ScrollToTop />
 
       {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden">
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 lg:pt-20 pb-16">
+      {/* From lg the hero is exactly one laptop screen: the viewport height
+          minus the 4rem navbar (100svh so mobile-style browser chrome is
+          excluded). The demo card's height is derived from what is left
+          after the toggle, caption and padding; its width follows 9:16. */}
+      <section className="relative overflow-hidden lg:h-[calc(100svh-4rem)]">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-16 lg:h-full lg:py-6">
           {/* Before hydration the navbar logo is hidden on this page only;
               HeroLockup then keeps it hidden until the lockup scrolls past. */}
           <style>{`html:not([data-hero-lockup]) .nav-brand{opacity:0}`}</style>
-          {/* Copy left, live demo right; stacked on phones with the demo under the CTAs. */}
-          {/* From lg both columns are stretched to the row, whose height comes
-              from the demo column (card + toggle + caption). The text column
-              is a flex column whose slack goes into five spacers: the one
-              under the lockup is capped so that gap never exceeds 56 px
-              (32 px margin + 24 px), and the other four grow equally, so the
-              lockup icon's top meets the card's top and the "No credit card
-              required" line's bottom meets the caption's bottom. Centered
-              stack on phones, where the spacers are hidden. */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-12 lg:gap-16 items-center lg:items-stretch">
-            <div className="text-center lg:text-left lg:flex lg:flex-col">
+          {/* Copy left, live demo right, the text block vertically centered
+              against the card; stacked on phones with the demo under the CTAs. */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-12 lg:gap-16 items-center lg:h-full">
+            {/* The grid centers this block against the whole demo column; the
+                bottom padding equals the toggle + caption block (102 px) so
+                the text is centered on the card itself. */}
+            <div className="text-center lg:text-left lg:pb-[102px]">
               <HeroLockup />
-              <div className="hidden lg:block lg:flex-1 lg:max-h-6" aria-hidden="true" />
               <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">
                 The simplest way to score a video
               </p>
-              <div className="hidden lg:block lg:flex-1" aria-hidden="true" />
 
-              <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight tracking-tight mb-6">
+              {/* hero-headline: one step smaller on laptop screens under 800 px tall (globals.css). */}
+              <h1 className="hero-headline text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight tracking-tight mb-6">
                 Upload your video.
                 <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C8A96E] to-[#E8C87A]">
                   Get your music.
                 </span>
               </h1>
-              <div className="hidden lg:block lg:flex-1" aria-hidden="true" />
 
               <p className="text-lg text-gray-400 max-w-2xl mx-auto lg:mx-0 mb-10 leading-relaxed">
                 No prompts to write, no credits to manage. Upload a clip, Backbeat reads it and writes the soundtrack, you export. A few minutes start to finish.
               </p>
-              <div className="hidden lg:block lg:flex-1" aria-hidden="true" />
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Link
@@ -157,9 +154,8 @@ export default function LandingPage() {
                   See pricing
                 </Link>
               </div>
-              <div className="hidden lg:block lg:flex-1" aria-hidden="true" />
 
-              <p className="text-[#9090aa] text-sm mt-5">No credit card required — analyze your first video free</p>
+              <p className="text-[#9090aa] text-sm mt-3">No credit card required. Analyze your first video free.</p>
             </div>
 
             <HeroDemo />

@@ -367,7 +367,7 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
   return (
     <div ref={wrapRef} className={`flex flex-col ${className}`}>
       {/* Keeps the page from reflowing while the card is in the lightbox. */}
-      {lightbox && <div className="aspect-[9/16] rounded-2xl w-full" aria-hidden="true" />}
+      {lightbox && <div className={`aspect-[9/16] rounded-2xl w-full ${isHero ? "lg:w-auto lg:flex-1 lg:min-h-[498px] lg:mx-auto" : ""}`} aria-hidden="true" />}
 
       <div
         className={lightbox
@@ -389,7 +389,7 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
         <div
           ref={cardRef}
           onClick={lightbox ? (e) => e.stopPropagation() : undefined}
-          className="relative rounded-2xl overflow-hidden bg-[#141414] border border-[#2A2A2A] aspect-[9/16] w-full"
+          className={`relative rounded-2xl overflow-hidden bg-[#141414] border border-[#2A2A2A] aspect-[9/16] w-full ${isHero && !lightbox ? "lg:w-auto lg:flex-1 lg:min-h-[498px] lg:mx-auto" : ""}`}
           style={lightbox ? { height: lightbox.height, width: "auto", maxWidth: "calc(100vw - 48px)" } : undefined}
         >
           {sources.map((s, i) => (
