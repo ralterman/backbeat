@@ -47,14 +47,13 @@ export function Navbar() {
     }
   }, [menuOpen]);
 
-  // "Scrolled" means past the hero on the landing page (the #hero section's
-  // bottom edge, minus the nav's own height); 60 px on every other page.
+  // "Scrolled" (background, blur, border) means the page has moved more than
+  // 24 px, on every page and at every width. Read once on mount too, so a
+  // reload that restores a scroll position starts in the right state. The
+  // logo's fade-in is separate: it follows the hero lockup (HeroLockup).
   useEffect(() => {
-    const handleScroll = () => {
-      const hero = document.getElementById("hero");
-      const threshold = hero ? hero.offsetTop + hero.offsetHeight - 64 : 60;
-      setScrolled(window.scrollY > threshold);
-    };
+    const handleScroll = () => setScrolled(window.scrollY > 24);
+    handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);

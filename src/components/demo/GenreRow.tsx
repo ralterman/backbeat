@@ -36,7 +36,7 @@ export function GenreRow() {
     >
       {ROW_CLIPS.map((clip, i) =>
         mounted ? (
-          <Reveal key={clip.id} delay={i * 0.06} className="shrink-0 w-[75vw] snap-start lg:w-auto lg:shrink">
+          <Reveal key={clip.id} step={i} className="shrink-0 w-[75vw] snap-start lg:w-auto lg:shrink">
             <DemoPlayer clip={clip} variant="row" />
           </Reveal>
         ) : (

@@ -116,10 +116,12 @@ button:not(:disabled), [role="button"]:not([aria-disabled="true"]), summary { cu
 
 /* Scroll reveals (components/motion/Reveal): hidden until in view, once,
    400 ms; only when motion is allowed, so reduced-motion users never see the
-   hidden state. is-visible ends with transform: none, so a revealed wrapper
-   never acts as a containing block for fixed descendants (the lightbox). */
+   hidden state. The hidden state is opacity and transform only, with
+   will-change so the layer is ready before the reveal starts. is-visible ends
+   with transform: none, so a revealed wrapper never acts as a containing
+   block for fixed descendants (the lightbox). */
 @media (prefers-reduced-motion: no-preference) {
-  .reveal { opacity: 0; transform: translateY(16px); transition: opacity 400ms cubic-bezier(0.22, 1, 0.36, 1), transform 400ms cubic-bezier(0.22, 1, 0.36, 1); }
+  .reveal { opacity: 0; transform: translateY(16px); will-change: opacity, transform; transition: opacity 400ms cubic-bezier(0.22, 1, 0.36, 1), transform 400ms cubic-bezier(0.22, 1, 0.36, 1); }
   .reveal.is-visible { opacity: 1; transform: none; }
 }
 

@@ -5,7 +5,7 @@ import { HeroLockup } from "@/components/demo/HeroLockup";
 import { GenreRow } from "@/components/demo/GenreRow";
 import ScrollToTop from "@/components/ScrollToTop";
 import { Reveal } from "@/components/motion/Reveal";
-import { RotatingWord } from "@/components/RotatingWord";
+import { RotatingHeadline } from "@/components/RotatingHeadline";
 import { preload } from "react-dom";
 import { HERO_CLIP } from "@/components/demo/clips";
 
@@ -137,10 +137,12 @@ export default function LandingPage() {
               </p>
 
               {/* hero-headline: one step smaller on laptop screens under 800 px tall (globals.css).
-                  The noun rotates (RotatingWord) in a layout-animated cell whose width eases to
-                  each word; the cell stays one line tall, so the second line never moves. */}
+                  The first line is RotatingHeadline: below lg a centered box as wide as the
+                  widest phrase with the text left-aligned in it, so "Upload your" never moves;
+                  from lg a layout-animated word cell. One line tall either way, so the second
+                  line never moves. */}
               <h1 className="hero-in hero-headline text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight tracking-tight mb-5 lg:mb-[30px]" style={{ animationDelay: "120ms" }}>
-                <span className="whitespace-nowrap">Upload your</span> <RotatingWord />
+                <RotatingHeadline lead="Upload your" />
                 <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C8A96E] to-[#E8C87A]">
                   Get your music.
@@ -211,7 +213,7 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {features.map((feature, i) => (
-              <Reveal key={i} delay={i * 0.06}>
+              <Reveal key={i} step={i}>
               <div
                 className="h-full rounded-2xl p-6 transition-all duration-150 hover:-translate-y-1 border border-white/[0.06] hover:border-[#C8A96E]/45 hover:shadow-[0_0_20px_rgba(200,169,110,0.08)]"
                 style={{
@@ -245,7 +247,7 @@ export default function LandingPage() {
             <p className="text-gray-400 text-lg">Three steps to a perfectly scored video</p>
           </Reveal>
 
-          <Reveal className="grid grid-cols-1 md:grid-cols-3 gap-10" delay={0.06}>
+          <Reveal className="grid grid-cols-1 md:grid-cols-3 gap-10" step={1}>
             {[
               {
                 step: "01",
@@ -311,7 +313,7 @@ export default function LandingPage() {
           </Reveal>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
-            <Reveal delay={0}>
+            <Reveal>
             <PricingCard
               name="Try it free"
               price={0}
@@ -322,7 +324,7 @@ export default function LandingPage() {
               ctaHref="/auth/signup"
             />
             </Reveal>
-            <Reveal delay={0.06}>
+            <Reveal step={1}>
             <PricingCard
               name="Creator"
               price={15}
@@ -336,7 +338,7 @@ export default function LandingPage() {
               priceNote="Introductory price — lock it in now."
             />
             </Reveal>
-            <Reveal delay={0.12}>
+            <Reveal step={2}>
             <PricingCard
               name="Pro"
               price={39}
