@@ -92,9 +92,26 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
     select: { videoId: true },
   });
+  // A free user whose analysis was NOT capped (clip under 60 s) already has
+  // one full-length track; land them on it with a "generate your second
+  // track" prompt so they don't re-upload. Regenerating on that analysis
+  // charges one slot (see slotChargedAt in /api/analyze).
+  const uncappedSingle = capped
+    ? null
+    : await prisma.analysis.findFirst({
+        where: { cappedSec: null, slotChargedAt: null, video: { userId, status: "ANALYZED" } },
+        orderBy: { createdAt: "desc" },
+        select: { videoId: true, generatedOptions: true },
+      });
+  const uncappedSingleTrack =
+    uncappedSingle && Array.isArray(uncappedSingle.generatedOptions) && uncappedSingle.generatedOptions.length < 2
+      ? uncappedSingle
+      : null;
   const successUrl = capped
     ? `${base}/analyze/${capped.videoId}?unlocked=true&upgraded=true`
-    : `${base}/dashboard?upgraded=true`;
+    : uncappedSingleTrack
+      ? `${base}/analyze/${uncappedSingleTrack.videoId}?upgraded=true&second=true`
+      : `${base}/dashboard?upgraded=true`;
 
   const checkoutSession = await getStripe().checkout.sessions.create({
     customer: customerId,

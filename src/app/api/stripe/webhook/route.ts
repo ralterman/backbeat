@@ -204,6 +204,46 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
       break;
     }
 
+    case "customer.subscription.created": {
+      // Fired by Stripe about a second before checkout.session.completed.
+      // Fill in the fields that only the subscription object carries (price
+      // id, period dates, subscription id) so the row is complete from day
+      // one instead of waiting for the first subscription.updated at renewal.
+      // Plan and status are deliberately left alone: checkout.session.completed
+      // sets them and decides the free-to-paid reset from the previous plan.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const subscription = event.data.object as any;
+      const priceId: string | undefined = subscription.items?.data?.[0]?.price?.id;
+      const { start: periodStart, end: periodEnd } = periodFromSubscription(subscription);
+      const customerId: string | null =
+        typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id ?? null;
+
+      const existing = await prisma.subscription.findFirst({
+        where: {
+          OR: [
+            { stripeSubscriptionId: subscription.id },
+            ...(customerId ? [{ stripeCustomerId: customerId }] : []),
+          ],
+        },
+      });
+      if (!existing) {
+        console.warn(`[webhook] subscription.created for unknown customer ${customerId ?? "?"} / ${subscription.id}`);
+        break;
+      }
+      await prisma.subscription.update({
+        where: { id: existing.id },
+        data: {
+          stripeSubscriptionId: subscription.id,
+          stripePriceId: priceId ?? existing.stripePriceId,
+          currentPeriodStart: periodStart,
+          currentPeriodEnd: periodEnd,
+          cancelAtPeriodEnd: subscription.cancel_at_period_end === true,
+        },
+      });
+      console.log(`[webhook] subscription.created ${subscription.id} for user ${existing.userId}: price=${priceId ?? "?"} period=${periodStart?.toISOString() ?? "?"}..${periodEnd?.toISOString() ?? "?"}`);
+      break;
+    }
+
     case "customer.subscription.updated": {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const subscription = event.data.object as any;

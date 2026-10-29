@@ -113,6 +113,10 @@ export default function AnalysisResultsPage() {
   // as paid.
   const unlockedParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("unlocked") === "true";
   const upgradedParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("upgraded") === "true";
+  // Plan upgrade from a free analysis that was never capped (clip under
+  // 60 s): the checkout route sends the user back here to generate a second
+  // track on the existing analysis instead of re-uploading.
+  const secondParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("second") === "true";
   const autoRegenRef = React.useRef(false);
   useEffect(() => {
     if (!unlockedParam || autoRegenRef.current || regenerating) return;
@@ -157,8 +161,9 @@ export default function AnalysisResultsPage() {
   // user is redirected here. Poll the plan for up to a minute so the
   // full-length generation above can start as soon as it lands.
   useEffect(() => {
-    if (!unlockedParam || !upgradedParam || !isFreeUser || data?.hasPass) return;
-    if (typeof data?.analysis?.cappedSec !== "number") return;
+    if (!upgradedParam || !isFreeUser || data?.hasPass) return;
+    const capFlow = unlockedParam && typeof data?.analysis?.cappedSec === "number";
+    if (!capFlow && !secondParam) return;
     let tries = 0;
     const id = setInterval(async () => {
       tries += 1;
@@ -166,7 +171,7 @@ export default function AnalysisResultsPage() {
       if ((json && json.plan !== "FREE") || tries >= 30) clearInterval(id);
     }, 2000);
     return () => clearInterval(id);
-  }, [unlockedParam, upgradedParam, isFreeUser, data?.hasPass, data?.analysis?.cappedSec, loadUsage]);
+  }, [unlockedParam, upgradedParam, secondParam, isFreeUser, data?.hasPass, data?.analysis?.cappedSec, loadUsage]);
 
   const handleExport = async (
     optionId: string,
@@ -385,6 +390,10 @@ export default function AnalysisResultsPage() {
   // free-tier analysis: the next regeneration replaces it with full-length
   // tracks. For a subscriber that costs one analysis, like any paid one.
   const uncapAvailable = !freeLimited && typeof analysis.cappedSec === "number" && analysis.cappedSec > 0;
+  // Just upgraded, with one full-length free-tier track on this video: offer
+  // the second track here. Stays true while the webhook is still landing
+  // (isFreeUser), when the button waits for the plan to read as paid.
+  const secondTrackOffer = secondParam && upgradedParam && !hasPass && analysis.cappedSec == null && analysis.slotCharged === false && single;
 
   const RegenButton = () => {
     if (atMax && !freeLimited) {
@@ -407,6 +416,20 @@ export default function AnalysisResultsPage() {
           </Link>
           .
         </p>
+      );
+    }
+    if (freeLimited && secondTrackOffer) {
+      // Upgraded a moment ago; the plan is not yet visible to the server.
+      return (
+        <button
+          disabled
+          className="inline-flex items-center gap-2 px-6 py-3 bg-[#1E1E1E] opacity-60 text-white rounded-xl text-sm font-medium border border-[#2A2A2A] cursor-wait"
+        >
+          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Generate your second track
+        </button>
       );
     }
     if (freeLimited) {
@@ -453,7 +476,7 @@ export default function AnalysisResultsPage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            {uncapAvailable ? "Generate full-length tracks" : `Generate New Options (${optionCount}/${effectiveOptionCap})`}
+            {uncapAvailable ? "Generate full-length tracks" : secondTrackOffer ? "Generate your second track" : `Generate New Options (${optionCount}/${effectiveOptionCap})`}
           </>
         )}
       </button>
@@ -527,12 +550,19 @@ export default function AnalysisResultsPage() {
       {allOptions.length > 0 ? (
         <>
           <h2 className="text-xl font-bold text-white mb-1">{single ? "Your Track" : "Choose Your Track"}</h2>
-          <p className={`text-[#9090aa] text-sm ${previewCapped || (isFreeUser && hasPass) || (upgradedParam && !hasPass && typeof analysis.cappedSec === "number") ? "mb-2" : "mb-6"}`}>
+          <p className={`text-[#9090aa] text-sm ${previewCapped || (isFreeUser && hasPass) || (upgradedParam && !hasPass && typeof analysis.cappedSec === "number") || secondTrackOffer ? "mb-2" : "mb-6"}`}>
             {single ? "Preview it synced to your video, then export." : "Click a card to select it, then export."}
           </p>
           {isFreeUser && hasPass && (
             <p className="text-[#a0a0b8] text-sm mb-6">
               Video Pass active: full-length tracks and a watermark-free export for this video.
+            </p>
+          )}
+          {secondTrackOffer && (
+            <p className="text-[#a0a0b8] text-sm mb-6">
+              {isFreeUser
+                ? "Your plan is upgraded. This video already has a full-length track; your second one unlocks as soon as the payment is confirmed, usually within a few seconds."
+                : "Your plan is upgraded. This video already has a full-length track, so there's nothing to re-upload: generate a second one to choose from. It counts as one analysis."}
             </p>
           )}
           {upgradedParam && !hasPass && typeof analysis.cappedSec === "number" && (
