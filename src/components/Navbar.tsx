@@ -27,6 +27,13 @@ export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
+  // Opening the menu pauses every demo clip on the page (the hero's muted
+  // autoplay included). Nothing is resumed on close; the user taps again.
+  useEffect(() => {
+    if (!menuOpen) return;
+    document.querySelectorAll<HTMLVideoElement>("video.demo-video").forEach((v) => { if (!v.paused) v.pause(); });
+  }, [menuOpen]);
+
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 60);
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -35,7 +42,9 @@ export function Navbar() {
 
   return (
     <nav
-      className="fixed top-0 left-0 right-0 w-full z-[9999] transition-all duration-500"
+      // No background transition while the menu is open: the header must be
+      // solid on the same frame the panel appears.
+      className={`fixed top-0 left-0 right-0 w-full z-[9999] ${menuOpen ? "" : "transition-all duration-500"}`}
       style={{
         background: menuOpen ? "#0a0a0f" : scrolled ? "rgba(10, 10, 15, 0.50)" : "transparent",
         backdropFilter: scrolled && !menuOpen ? "blur(12px)" : "none",
@@ -136,9 +145,12 @@ export function Navbar() {
       </div>
 
       {/* Mobile dropdown */}
-      {/* Mobile menu: opaque, full height below the header, so nothing shows through. */}
+      {/* Mobile menu: opaque, full height below the header, so nothing shows
+          through. The panel itself has no transition (it is fully formed on
+          its first frame); only the links fade in (menu-links, globals.css). */}
       {menuOpen && (
-        <div className="sm:hidden fixed inset-x-0 top-[calc(4rem+env(safe-area-inset-top))] bottom-0 border-t border-[#C8A96E]/20 bg-[#0a0a0f] px-4 py-4 flex flex-col gap-4 overflow-y-auto">
+        <div className="sm:hidden fixed inset-x-0 top-[calc(4rem+env(safe-area-inset-top))] bottom-0 border-t border-[#C8A96E]/20 bg-[#0a0a0f] px-4 py-4 overflow-y-auto">
+        <div className="menu-links flex flex-col gap-4">
           {status === "authenticated" && session?.user ? (
             <>
               {session.user.image && (
@@ -170,6 +182,7 @@ export function Navbar() {
               </Link>
             </>
           ) : null}
+        </div>
         </div>
       )}
     </nav>
