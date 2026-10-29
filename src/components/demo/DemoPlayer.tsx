@@ -271,6 +271,11 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
         setPlaying(true);
         startWaveform();
         if (!isHero || !v.muted) announce();
+        // Phone row: a card tapped while only peeking in from the edge
+        // snaps fully into view, so the one that plays is the one in view.
+        if (!isHero && window.matchMedia("(max-width: 1023px)").matches) {
+          wrapRef.current?.scrollIntoView({ block: "nearest", inline: "start", behavior: "smooth" });
+        }
       };
       const onPause = () => {
         if (!mine()) return;
@@ -302,20 +307,24 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
 
   // Pause when scrolled out of view. A muted hero resumes on its own when it
   // comes back (muted playback needs no gesture); anything with sound waits
-  // for a tap.
+  // for a tap. Row cards count as out of view once less than half is
+  // visible, so a card swiped aside in the phone strip pauses even while it
+  // still peeks in from the edge.
   useEffect(() => {
     const el = wrapRef.current;
     if (!el || !("IntersectionObserver" in window)) return;
+    const minVisible = isHero ? 0.2 : 0.5;
     const io = new IntersectionObserver(([entry]) => {
       const v = activeVideo();
       if (!v) return;
-      if (!entry.isIntersecting) {
+      const inView = entry.isIntersecting && entry.intersectionRatio >= minVisible;
+      if (!inView) {
         if (!v.paused) { pausedByViewRef.current = true; v.pause(); }
       } else if (pausedByViewRef.current && isHero && v.muted) {
         pausedByViewRef.current = false;
         v.play().catch(() => {});
       }
-    }, { threshold: 0.2 });
+    }, { threshold: [0, minVisible] });
     io.observe(el);
     return () => io.disconnect();
   }, [isHero]);

@@ -5,7 +5,10 @@ import { DemoPlayer } from "./DemoPlayer";
 import { ROW_CLIPS } from "./clips";
 
 /**
- * Four more clips, two-up on phones, four-up from md. Nothing here is
+ * Four more clips. Below lg they sit in one horizontally scrolling line:
+ * each card is 75% of the viewport wide and snaps into place, with the next
+ * card peeking in from the right so the row reads as swipeable; the
+ * scrollbar is hidden. From lg it is the four-up grid. Nothing here is
  * fetched until the row is about to scroll into view (IntersectionObserver),
  * and even then the videos preload metadata only and start on tap.
  */
@@ -26,12 +29,15 @@ export function GenreRow() {
   }, []);
 
   return (
-    <div ref={ref} className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+    <div
+      ref={ref}
+      className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-none -mx-4 px-4 scroll-px-4 sm:-mx-6 sm:px-6 sm:scroll-px-6 lg:grid lg:grid-cols-4 lg:gap-6 lg:overflow-visible lg:mx-0 lg:px-0"
+    >
       {ROW_CLIPS.map((clip) =>
         mounted ? (
-          <DemoPlayer key={clip.id} clip={clip} variant="row" />
+          <DemoPlayer key={clip.id} clip={clip} variant="row" className="shrink-0 w-[75vw] snap-start lg:w-auto lg:shrink" />
         ) : (
-          <div key={clip.id} className="aspect-[9/16] rounded-2xl bg-[#141414] border border-[#2A2A2A]" aria-hidden="true" />
+          <div key={clip.id} className="shrink-0 w-[75vw] snap-start lg:w-auto lg:shrink aspect-[9/16] rounded-2xl bg-[#141414] border border-[#2A2A2A]" aria-hidden="true" />
         )
       )}
     </div>

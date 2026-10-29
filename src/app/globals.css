@@ -89,3 +89,8 @@ html[data-safari] video.demo-video::-webkit-media-controls-overlay-play-button {
 @media (min-width: 1024px) and (max-height: 799px) {
   html .hero-headline { font-size: 3.75rem; line-height: 1.1; }
 }
+
+/* Horizontal strips (the phone genre row): scroll without a visible bar. */
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
