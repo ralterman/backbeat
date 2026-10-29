@@ -153,14 +153,31 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
     if (constrainedNetwork()) setAutoplay(false);
   }, []);
 
-  // React does not render the `muted` attribute on the server, so an
-  // autoplaying hero could be blocked as "unmuted" before hydration. Set it
-  // explicitly on mount and (re)start muted playback, which needs no gesture.
+  // The hero starts after the window load event rather than through the
+  // autoplay attribute. The poster (preloaded, 12 KB) is then the first
+  // thing painted in the card, which makes it the page's LCP; with the file
+  // loading from the first byte, the first video frame could win that race
+  // and tie the LCP to a 2 MB download. Muted programmatic play needs no
+  // gesture. `muted` is also set here because React does not render it on
+  // the server.
+  const [heroReady, setHeroReady] = useState(false);
   useEffect(() => {
     if (!isHero) return;
     videoRefs.current.forEach((v) => { if (v) { v.muted = true; v.defaultMuted = true; } });
-    const v = videoRefs.current[0];
-    if (v && autoplay && v.paused) v.play().catch(() => {});
+    if (!autoplay) return;
+    let cancelled = false;
+    const start = () => {
+      if (cancelled) return;
+      setHeroReady(true);
+      const v = videoRefs.current[0];
+      if (!v) return;
+      v.muted = true;
+      if (v.readyState === 0) v.load();
+      v.play().catch(() => {});
+    };
+    if (document.readyState === "complete") start();
+    else window.addEventListener("load", start, { once: true });
+    return () => { cancelled = true; window.removeEventListener("load", start); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoplay]);
 
@@ -498,8 +515,7 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
               onClick={phone ? tapToggle : undefined}
               controlsList="nodownload noplaybackrate noremoteplayback nofullscreen"
               disablePictureInPicture
-              autoPlay={autoplay && i === 0}
-              preload={isHero ? (i === 0 || twinReady ? "auto" : "none") : "metadata"}
+              preload={isHero ? ((i === 0 ? heroReady : twinReady) ? "auto" : "none") : "metadata"}
               className={`demo-video absolute inset-0 w-full h-full object-cover transition-opacity duration-150 ${i === active ? "opacity-100" : "opacity-0 pointer-events-none"}`}
               aria-hidden={i !== active}
               aria-label={`${label} demo clip${s.mode === "backbeat" ? " with Backbeat" : ""}`}
