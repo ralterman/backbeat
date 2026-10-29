@@ -132,6 +132,15 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
   const [muted, setMuted] = useState(isHero);
   const [autoplay, setAutoplay] = useState(isHero);
   const [lightbox, setLightbox] = useState<{ height: number } | null>(null);
+  // The hero's hidden twin file starts downloading only once the showing
+  // file is playing, so the two 2.7 MB files do not split the connection
+  // while the first frame (the page's LCP) is still loading.
+  const [twinReady, setTwinReady] = useState(false);
+  useEffect(() => {
+    if (!twinReady) return;
+    // A preload change from "none" to "auto" is only a hint; kick the fetch.
+    videoRefs.current.forEach((v, i) => { if (v && i !== 0 && v.readyState === 0) v.load(); });
+  }, [twinReady]);
   const [progress, setProgress] = useState(0);
   const safari = useSafari();
   const phone = usePhone();
@@ -272,6 +281,7 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
         pausedByViewRef.current = false;
         setPlaying(true);
         startWaveform();
+        if (isHero) setTwinReady(true);
         if (!isHero || !v.muted) announce();
         // Phone row: a card tapped while only peeking in from the edge
         // snaps fully into view, so the one that plays is the one in view.
@@ -489,7 +499,7 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
               controlsList="nodownload noplaybackrate noremoteplayback nofullscreen"
               disablePictureInPicture
               autoPlay={autoplay && i === 0}
-              preload={isHero ? "auto" : "metadata"}
+              preload={isHero ? (i === 0 || twinReady ? "auto" : "none") : "metadata"}
               className={`demo-video absolute inset-0 w-full h-full object-cover transition-opacity duration-150 ${i === active ? "opacity-100" : "opacity-0 pointer-events-none"}`}
               aria-hidden={i !== active}
               aria-label={`${label} demo clip${s.mode === "backbeat" ? " with Backbeat" : ""}`}
