@@ -137,8 +137,8 @@ export default function LandingPage() {
               </p>
 
               {/* hero-headline: one step smaller on laptop screens under 800 px tall (globals.css).
-                  The noun rotates (RotatingWord) inside a cell reserved at the widest word's
-                  width, so this line never reflows and the second line never moves. */}
+                  The noun rotates (RotatingWord) in a layout-animated cell whose width eases to
+                  each word; the cell stays one line tall, so the second line never moves. */}
               <h1 className="hero-in hero-headline text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight tracking-tight mb-5 lg:mb-[30px]" style={{ animationDelay: "120ms" }}>
                 <span className="whitespace-nowrap">Upload your</span> <RotatingWord />
                 <br />

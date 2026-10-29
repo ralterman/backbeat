@@ -7,14 +7,16 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 // room at the phone headline size): "product video" (247 px), "highlight
 // tape" and "game clip" (175 px) did not, so the mobile headline stays two
 // lines with this set.
-export const ROTATING_WORDS = ["video", "reel", "ad", "vlog"] as const;
+export const ROTATING_WORDS = ["video", "reel", "ad", "demo", "vlog", "clip"] as const;
 
 /**
  * The rotating noun in the hero headline: "Upload your <word>." Holds each
  * word 2.2 s, swaps with a 250 ms vertical slide-and-fade, pauses while the
  * tab is hidden, and under prefers-reduced-motion shows "video" and never
- * rotates. Every word is laid out invisibly in the same grid cell, so the
- * cell is always as wide as the widest word and the line never reflows.
+ * rotates. The cell is a Framer layout-animated inline box, so its width
+ * eases to each word's own width over the same 250 ms and "Upload your ad."
+ * reads as one phrase with normal spacing. Only the width changes: the box
+ * is one line tall whatever the word, so the second headline line never moves.
  */
 export function RotatingWord({ className = "" }: { className?: string }) {
   const reduce = useReducedMotion();
@@ -34,24 +36,28 @@ export function RotatingWord({ className = "" }: { className?: string }) {
   const word = reduce ? ROTATING_WORDS[0] : ROTATING_WORDS[index];
 
   return (
-    <span className={`inline-grid align-top justify-items-center lg:justify-items-start ${className}`}>
-      {ROTATING_WORDS.map((w) => (
-        <span key={w} aria-hidden="true" className="invisible whitespace-nowrap [grid-area:1/1]">{w}.</span>
-      ))}
-      <span className="relative whitespace-nowrap [grid-area:1/1]">
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.span
-            key={word}
-            className="inline-block"
-            initial={{ y: 14, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -14, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
-          >
-            {word}.
-          </motion.span>
-        </AnimatePresence>
-      </span>
-    </span>
+    <motion.span
+      layout
+      transition={{ layout: { duration: 0.25, ease: "easeOut" } }}
+      className={`relative inline-flex align-top whitespace-nowrap ${className}`}
+    >
+      {/* popLayout lifts the leaving word out of flow, so the box is measured
+          at the new word's width and the layout animation eases to it. The
+          inner span carries `layout` too, so Framer counter-scales it and the
+          glyphs are never stretched while the box resizes. */}
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span
+          key={word}
+          layout
+          className="inline-block"
+          initial={{ y: 14, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -14, opacity: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+        >
+          {word}.
+        </motion.span>
+      </AnimatePresence>
+    </motion.span>
   );
 }
