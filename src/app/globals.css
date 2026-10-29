@@ -97,3 +97,29 @@ html[data-safari] video.demo-video::-webkit-media-controls-overlay-play-button {
 /* Mobile menu links fade in over 150 ms; the panel behind them does not animate. */
 @keyframes menu-links-in { from { opacity: 0; } to { opacity: 1; } }
 .menu-links { animation: menu-links-in 150ms ease-out; }
+
+/* ── Landing-page motion ──────────────────────────────────────────────────
+   Hero entrance runs as CSS so it starts on first paint, before hydration.
+   Opacity starts at 0.02 rather than 0: Chrome does not count an element at
+   opacity 0 as painted, so a true fade-from-zero would push the LCP back by
+   the stagger delay. Off entirely under prefers-reduced-motion. */
+@keyframes hero-in { from { opacity: 0.02; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes hero-in-card { from { opacity: 0.02; transform: scale(0.97); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .hero-in { animation: hero-in 400ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .hero-in-card { animation: hero-in-card 400ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+}
+
+/* Every interactive control shows the pointer. Tailwind v4's preflight
+   resets <button> to the default cursor, so this is set once here. */
+button:not(:disabled), [role="button"]:not([aria-disabled="true"]), summary { cursor: pointer; }
+
+/* Scroll reveals (components/motion/Reveal): hidden until in view, once,
+   400 ms; only when motion is allowed, so reduced-motion users never see the
+   hidden state. is-visible ends with transform: none, so a revealed wrapper
+   never acts as a containing block for fixed descendants (the lightbox). */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal { opacity: 0; transform: translateY(16px); transition: opacity 400ms cubic-bezier(0.22, 1, 0.36, 1), transform 400ms cubic-bezier(0.22, 1, 0.36, 1); }
+  .reveal.is-visible { opacity: 1; transform: none; }
+}
+

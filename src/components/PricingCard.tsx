@@ -35,10 +35,10 @@ export function PricingCard({
 }: PricingCardProps) {
   return (
     <div
-      className={`relative flex flex-col rounded-2xl p-6 sm:p-8 transition-all duration-300 ${
+      className={`relative flex flex-col h-full rounded-2xl p-6 sm:p-8 transition-all duration-150 hover:-translate-y-1 ${
         highlighted
-          ? "border border-[#C8A96E]/40 bg-[#0d0d1a]/60 shadow-[0_0_30px_rgba(200,169,110,0.15)] sm:scale-105"
-          : "border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent backdrop-blur-sm hover:border-white/[0.12] hover:shadow-[0_0_20px_rgba(200,169,110,0.06)]"
+          ? "border border-[#C8A96E]/40 hover:border-[#C8A96E]/70 bg-[#0d0d1a]/60 shadow-[0_0_30px_rgba(200,169,110,0.15)] sm:scale-105"
+          : "border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent backdrop-blur-sm hover:border-white/[0.2] hover:shadow-[0_0_20px_rgba(200,169,110,0.06)]"
       }`}
     >
       {badge && (
@@ -99,10 +99,10 @@ export function PricingCard({
       <Link
         href={ctaHref}
         prefetch={false}
-        className={`w-full text-center py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${
+        className={`w-full text-center py-3 rounded-xl font-semibold text-sm transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] ${
           highlighted
-            ? "bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] font-bold shadow-md"
-            : "bg-white/[0.06] hover:bg-white/[0.1] hover:-translate-y-0.5 text-white border border-white/10"
+            ? "bg-white hover:bg-[#f0f0f0] text-[#0a0a0f] font-bold shadow-md"
+            : "bg-white/[0.06] hover:bg-white/[0.1] text-white border border-white/10"
         }`}
       >
         {cta}

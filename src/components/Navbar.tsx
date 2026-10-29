@@ -47,8 +47,14 @@ export function Navbar() {
     }
   }, [menuOpen]);
 
+  // "Scrolled" means past the hero on the landing page (the #hero section's
+  // bottom edge, minus the nav's own height); 60 px on every other page.
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 60);
+    const handleScroll = () => {
+      const hero = document.getElementById("hero");
+      const threshold = hero ? hero.offsetTop + hero.offsetHeight - 64 : 60;
+      setScrolled(window.scrollY > threshold);
+    };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -57,9 +63,10 @@ export function Navbar() {
     <nav
       // No background transition while the menu is open: the header must be
       // solid on the same frame the panel appears.
-      className={`fixed top-0 left-0 right-0 w-full z-[9999] ${menuOpen ? "" : "transition-all duration-500"}`}
+      className={`fixed top-0 left-0 right-0 w-full z-[9999] ${menuOpen ? "" : "transition-[background-color,border-color,backdrop-filter] duration-200"}`}
       style={{
-        background: menuOpen ? "#0a0a0f" : scrolled ? "rgba(10, 10, 15, 0.50)" : "transparent",
+        background: menuOpen ? "#0a0a0f" : scrolled ? "rgba(10, 10, 15, 0.72)" : "transparent",
+        borderBottom: `1px solid ${scrolled && !menuOpen ? "rgba(200, 169, 110, 0.14)" : "transparent"}`,
         backdropFilter: scrolled && !menuOpen ? "blur(12px)" : "none",
         WebkitBackdropFilter: scrolled && !menuOpen ? "blur(12px)" : "none",
         paddingTop: "env(safe-area-inset-top)",
@@ -128,7 +135,7 @@ export function Navbar() {
               <NavLink href="/auth/signin">Sign in</NavLink>
               <Link
                 href="/auth/signup"
-                className="bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] text-sm px-4 py-2 rounded-lg transition-all font-bold shadow-sm"
+                className="bg-white hover:bg-[#f0f0f0] hover:scale-[1.02] active:scale-[0.98] text-[#0a0a0f] text-sm px-4 py-2 rounded-lg transition-all font-bold shadow-sm"
               >
                 Get started
               </Link>

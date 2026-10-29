@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DemoPlayer } from "./DemoPlayer";
 import { ROW_CLIPS } from "./clips";
+import { Reveal } from "@/components/motion/Reveal";
 
 /**
  * Four more clips. Below lg they sit in one horizontally scrolling line:
@@ -33,9 +34,11 @@ export function GenreRow() {
       ref={ref}
       className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-none -mx-4 px-4 scroll-px-4 sm:-mx-6 sm:px-6 sm:scroll-px-6 lg:grid lg:grid-cols-4 lg:gap-6 lg:overflow-visible lg:mx-0 lg:px-0"
     >
-      {ROW_CLIPS.map((clip) =>
+      {ROW_CLIPS.map((clip, i) =>
         mounted ? (
-          <DemoPlayer key={clip.id} clip={clip} variant="row" className="shrink-0 w-[75vw] snap-start lg:w-auto lg:shrink" />
+          <Reveal key={clip.id} delay={i * 0.06} className="shrink-0 w-[75vw] snap-start lg:w-auto lg:shrink">
+            <DemoPlayer clip={clip} variant="row" />
+          </Reveal>
         ) : (
           <div key={clip.id} className="shrink-0 w-[75vw] snap-start lg:w-auto lg:shrink aspect-[9/16] rounded-2xl bg-[#141414] border border-[#2A2A2A]" aria-hidden="true" />
         )

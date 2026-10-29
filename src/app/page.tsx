@@ -4,6 +4,8 @@ import { HeroDemo } from "@/components/demo/HeroDemo";
 import { HeroLockup } from "@/components/demo/HeroLockup";
 import { GenreRow } from "@/components/demo/GenreRow";
 import ScrollToTop from "@/components/ScrollToTop";
+import { Reveal } from "@/components/motion/Reveal";
+import { RotatingWord } from "@/components/RotatingWord";
 
 const features = [
   {
@@ -107,7 +109,7 @@ export default function LandingPage() {
           minus the 4rem navbar (100svh so mobile-style browser chrome is
           excluded). The demo card's height is derived from what is left
           after the toggle, caption and padding; its width follows 9:16. */}
-      <section className="relative overflow-hidden lg:h-[calc(100svh-4rem)]">
+      <section id="hero" className="relative overflow-hidden lg:h-[calc(100svh-4rem)]">
         {/* From lg the two columns sit in a centered 1200 px container so the
             text and the card stay close together on wide screens. */}
         <div className="relative max-w-7xl lg:max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-16 pb-16 lg:h-full lg:py-6">
@@ -123,34 +125,36 @@ export default function LandingPage() {
               block (51 px) so it is centered on the card itself. */}
           <div className="grid grid-cols-1 gap-y-8 lg:grid-cols-[1fr_auto] lg:grid-rows-[1fr_auto_auto_1fr] lg:gap-x-16 lg:gap-y-0 lg:h-full">
             <div className="text-center lg:text-left lg:col-start-1 lg:row-start-2 lg:-translate-y-[51px]">
-              <HeroLockup />
-              <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-4 lg:mb-[25px]">
+              <div className="hero-in"><HeroLockup /></div>
+              <p className="hero-in text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-4 lg:mb-[25px]" style={{ animationDelay: "60ms" }}>
                 The simplest way to score a video
               </p>
 
-              {/* hero-headline: one step smaller on laptop screens under 800 px tall (globals.css). */}
-              <h1 className="hero-headline text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight tracking-tight mb-5 lg:mb-[30px]">
-                Upload your video.
+              {/* hero-headline: one step smaller on laptop screens under 800 px tall (globals.css).
+                  The noun rotates (RotatingWord) inside a cell reserved at the widest word's
+                  width, so this line never reflows and the second line never moves. */}
+              <h1 className="hero-in hero-headline text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight tracking-tight mb-5 lg:mb-[30px]" style={{ animationDelay: "120ms" }}>
+                <span className="whitespace-nowrap">Upload your</span> <RotatingWord />
                 <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C8A96E] to-[#E8C87A]">
                   Get your music.
                 </span>
               </h1>
 
-              <p className="text-lg text-gray-400 max-w-2xl mx-auto lg:mx-0 mb-0 lg:mb-[50px] leading-relaxed">
+              <p className="hero-in text-lg text-gray-400 max-w-2xl mx-auto lg:mx-0 mb-0 lg:mb-[50px] leading-relaxed" style={{ animationDelay: "180ms" }}>
                 No prompts to write, no credits to manage. Upload a clip, Backbeat reads it and writes the soundtrack, you export. A few minutes start to finish.
               </p>
             </div>
 
-            <div className="lg:col-start-2 lg:row-start-1 lg:row-span-4 lg:h-full">
+            <div className="hero-in-card lg:col-start-2 lg:row-start-1 lg:row-span-4 lg:h-full" style={{ animationDelay: "120ms" }}>
               <HeroDemo />
             </div>
 
             <div className="text-center lg:text-left lg:col-start-1 lg:row-start-3 lg:-translate-y-[51px]">
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+              <div className="hero-in flex flex-col sm:flex-row gap-4 justify-center lg:justify-start" style={{ animationDelay: "240ms" }}>
                 <Link
                   href="/auth/signup"
-                  className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] font-bold text-base px-8 py-4 rounded-xl transition-all duration-200 shadow-lg"
+                  className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] hover:scale-[1.02] active:scale-[0.98] text-[#0a0a0f] font-bold text-base px-8 py-4 rounded-xl transition-all duration-150 shadow-lg"
                 >
                   Try it free
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -159,13 +163,13 @@ export default function LandingPage() {
                 </Link>
                 <Link
                   href="/pricing"
-                  className="inline-flex items-center justify-center gap-2 text-white border border-white/20 bg-white/[0.04] hover:bg-white/[0.08] hover:-translate-y-0.5 font-semibold text-base px-8 py-4 rounded-xl transition-all duration-200"
+                  className="inline-flex items-center justify-center gap-2 text-white border border-white/20 bg-white/[0.04] hover:bg-white/[0.08] hover:scale-[1.02] active:scale-[0.98] font-semibold text-base px-8 py-4 rounded-xl transition-all duration-150"
                 >
                   See pricing
                 </Link>
               </div>
 
-              <p className="text-[#9090aa] text-sm mt-3">No credit card required. Analyze your first video free.</p>
+              <p className="hero-in text-[#9090aa] text-sm mt-3" style={{ animationDelay: "300ms" }}>No credit card required. Analyze your first video free.</p>
             </div>
           </div>
         </div>
@@ -177,11 +181,11 @@ export default function LandingPage() {
           padding + 72 / 104 px here). */}
       <section className="pb-16 lg:pt-[72px] xl:pt-[104px]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-8">
+          <Reveal className="text-center mb-8">
             <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-3">Real output</p>
             <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Hear it on more kinds of video</h2>
             <p className="text-gray-400 mt-3 max-w-xl mx-auto">Every track below was generated by Backbeat from the clip you see. Tap one to listen.</p>
-          </div>
+          </Reveal>
           <GenreRow />
         </div>
       </section>
@@ -189,7 +193,7 @@ export default function LandingPage() {
       {/* ── Features ──────────────────────────────────────────────────── */}
       <section className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
+          <Reveal className="text-center mb-12">
             <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-4">Features</p>
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
               One job, done simply
@@ -197,13 +201,13 @@ export default function LandingPage() {
             <p className="text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
               Upload, get music, export. That&rsquo;s the whole workflow.
             </p>
-          </div>
+          </Reveal>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {features.map((feature, i) => (
+              <Reveal key={i} delay={i * 0.06}>
               <div
-                key={i}
-                className="rounded-2xl p-6 transition-all duration-300 hover:-translate-y-0.5 border border-white/[0.06] hover:border-[#C8A96E]/30 hover:shadow-[0_0_20px_rgba(200,169,110,0.08)]"
+                className="h-full rounded-2xl p-6 transition-all duration-150 hover:-translate-y-1 border border-white/[0.06] hover:border-[#C8A96E]/45 hover:shadow-[0_0_20px_rgba(200,169,110,0.08)]"
                 style={{
                   background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 100%)",
                 }}
@@ -220,6 +224,7 @@ export default function LandingPage() {
                 <h3 className="text-white font-semibold text-lg mb-2 tracking-tight">{feature.title}</h3>
                 <p className="text-gray-400 text-sm leading-relaxed">{feature.description}</p>
               </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -228,13 +233,13 @@ export default function LandingPage() {
       {/* ── How It Works ──────────────────────────────────────────────── */}
       <section className="py-16">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
+          <Reveal className="text-center mb-12">
             <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-4">Process</p>
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">How Backbeat works</h2>
             <p className="text-gray-400 text-lg">Three steps to a perfectly scored video</p>
-          </div>
+          </Reveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+          <Reveal className="grid grid-cols-1 md:grid-cols-3 gap-10" delay={0.06}>
             {[
               {
                 step: "01",
@@ -263,13 +268,13 @@ export default function LandingPage() {
                 <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
               </div>
             ))}
-          </div>
+          </Reveal>
         </div>
       </section>
 
       {/* ── Early Access CTA ──────────────────────────────────────────── */}
       <section className="py-16">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <Reveal className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5">Early access</p>
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
             Be one of our first creators.
@@ -279,7 +284,7 @@ export default function LandingPage() {
           </p>
           <Link
             href="/auth/signup"
-            className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] font-bold text-base px-8 py-4 rounded-xl transition-all duration-200 shadow-lg"
+            className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] hover:scale-[1.02] active:scale-[0.98] text-[#0a0a0f] font-bold text-base px-8 py-4 rounded-xl transition-all duration-150 shadow-lg"
             style={{ animation: "pulse-gold 3s ease-in-out infinite" }}
           >
             Try it free
@@ -287,19 +292,20 @@ export default function LandingPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
             </svg>
           </Link>
-        </div>
+        </Reveal>
       </section>
 
       {/* ── Pricing Preview ───────────────────────────────────────────── */}
       <section className="py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
+          <Reveal className="text-center mb-12">
             <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-4">Pricing</p>
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">Simple, transparent pricing</h2>
             <p className="text-gray-400 text-lg">Start free. Upgrade when you need more.</p>
-          </div>
+          </Reveal>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+            <Reveal delay={0}>
             <PricingCard
               name="Try it free"
               price={0}
@@ -309,6 +315,8 @@ export default function LandingPage() {
               cta="Try it free"
               ctaHref="/auth/signup"
             />
+            </Reveal>
+            <Reveal delay={0.06}>
             <PricingCard
               name="Creator"
               price={15}
@@ -321,6 +329,8 @@ export default function LandingPage() {
               badge="Most Popular"
               priceNote="Introductory price — lock it in now."
             />
+            </Reveal>
+            <Reveal delay={0.12}>
             <PricingCard
               name="Pro"
               price={39}
@@ -330,13 +340,14 @@ export default function LandingPage() {
               cta="Start Pro plan"
               ctaHref="/api/stripe/checkout?plan=team"
             />
+            </Reveal>
           </div>
         </div>
       </section>
 
       {/* ── Final CTA ─────────────────────────────────────────────────── */}
       <section className="py-16">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <Reveal className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div
             className="rounded-2xl py-12 px-8"
             style={{
@@ -353,7 +364,7 @@ export default function LandingPage() {
             </p>
             <Link
               href="/auth/signup"
-              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] hover:-translate-y-0.5 text-[#0a0a0f] font-bold text-base px-8 py-4 rounded-xl transition-all duration-200 shadow-lg"
+              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#f0f0f0] hover:scale-[1.02] active:scale-[0.98] text-[#0a0a0f] font-bold text-base px-8 py-4 rounded-xl transition-all duration-150 shadow-lg"
             >
               Upload your first video — free
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -361,7 +372,7 @@ export default function LandingPage() {
               </svg>
             </Link>
           </div>
-        </div>
+        </Reveal>
       </section>
     </div>
   );

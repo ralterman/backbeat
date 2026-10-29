@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 
 /**
  * A looping demo clip with the browser's native controls and its audio baked
@@ -134,6 +135,7 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
   const [progress, setProgress] = useState(0);
   const safari = useSafari();
   const phone = usePhone();
+  const reduceMotion = useReducedMotion();
 
   const activeVideo = () => videoRefs.current[activeRef.current] ?? null;
 
@@ -469,7 +471,7 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
         <div
           ref={cardRef}
           onClick={lightbox ? (e) => e.stopPropagation() : undefined}
-          className="relative rounded-2xl overflow-hidden bg-[#141414] border border-[#2A2A2A] aspect-[9/16] w-full"
+          className={`relative rounded-2xl overflow-hidden bg-[#141414] border border-[#2A2A2A] aspect-[9/16] w-full ${!isHero && !lightbox ? "transition-[transform,border-color] duration-150 hover:-translate-y-1 hover:border-white/25" : ""}`}
           style={lightbox ? { height: lightbox.height, width: "auto", maxWidth: "calc(100vw - 48px)" } : undefined}
         >
           {sources.map((s, i) => (
@@ -577,9 +579,19 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
                 type="button"
                 aria-pressed={mode === m}
                 onClick={() => choose(m)}
-                className={`py-2 rounded-lg transition-colors ${mode === m ? "bg-[#C8A96E] text-[#0a0a0f] font-semibold" : "text-[#a0a0b8] hover:text-white"}`}
+                className={`relative py-2 rounded-lg transition-colors duration-150 ${mode === m ? "text-[#0a0a0f] font-semibold" : "text-[#a0a0b8] hover:text-white"}`}
               >
-                {m === "original" ? "Original" : "With Backbeat"}
+                {/* The highlight is one shared element that slides between the
+                    two options (layoutId) instead of jumping. */}
+                {mode === m && (
+                  <motion.span
+                    layoutId={`demo-toggle-${clip.id}`}
+                    className="absolute inset-0 rounded-lg bg-[#C8A96E]"
+                    transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 520, damping: 42 }}
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="relative">{m === "original" ? "Original" : "With Backbeat"}</span>
               </button>
             ))}
           </div>
