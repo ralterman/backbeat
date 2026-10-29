@@ -45,7 +45,7 @@ export function HeroLockup() {
     // the wordmark is nudged down by the same 1/14 of its size (3 px at
     // 40 px, 4 px at 56 px) and the icon stays put, so its top still meets
     // the top of the hero card.
-    <div ref={ref} className="flex items-center justify-center lg:justify-start gap-4 sm:gap-5 mb-8 lg:mb-10">
+    <div ref={ref} className="flex items-center justify-center lg:justify-start gap-4 sm:gap-5 mb-[26px] lg:mb-10">
       <Image
         src="/brand/logo-icon.png"
         alt="Backbeat icon"

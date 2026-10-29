@@ -37,9 +37,9 @@ export function Navbar() {
     <nav
       className="fixed top-0 left-0 right-0 w-full z-[9999] transition-all duration-500"
       style={{
-        background: scrolled ? "rgba(10, 10, 15, 0.50)" : "transparent",
-        backdropFilter: scrolled ? "blur(12px)" : "none",
-        WebkitBackdropFilter: scrolled ? "blur(12px)" : "none",
+        background: menuOpen ? "#0a0a0f" : scrolled ? "rgba(10, 10, 15, 0.50)" : "transparent",
+        backdropFilter: scrolled && !menuOpen ? "blur(12px)" : "none",
+        WebkitBackdropFilter: scrolled && !menuOpen ? "blur(12px)" : "none",
         paddingTop: "env(safe-area-inset-top)",
       }}
     >
@@ -47,7 +47,7 @@ export function Navbar() {
         {/* Logo. On the landing page it stays hidden (nav-brand, see
             globals.css) until the hero's own lockup has scrolled past, so the
             mark is never on screen twice. */}
-        <Link href="/" className="nav-brand flex items-center gap-[14px] flex-shrink-0" onClick={() => setMenuOpen(false)}>
+        <Link href="/" className="nav-brand flex items-center gap-[14px] flex-shrink-0" data-menu-open={menuOpen ? "true" : undefined} onClick={() => setMenuOpen(false)}>
           <Image
             src="/brand/logo-icon.png"
             alt="Backbeat icon"
@@ -136,8 +136,9 @@ export function Navbar() {
       </div>
 
       {/* Mobile dropdown */}
+      {/* Mobile menu: opaque, full height below the header, so nothing shows through. */}
       {menuOpen && (
-        <div className="sm:hidden border-t border-[#C8A96E]/20 bg-[#0a0a0f] px-4 py-4 flex flex-col gap-4">
+        <div className="sm:hidden fixed inset-x-0 top-[calc(4rem+env(safe-area-inset-top))] bottom-0 border-t border-[#C8A96E]/20 bg-[#0a0a0f] px-4 py-4 flex flex-col gap-4 overflow-y-auto">
           {status === "authenticated" && session?.user ? (
             <>
               {session.user.image && (

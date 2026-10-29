@@ -110,25 +110,26 @@ export default function LandingPage() {
       <section className="relative overflow-hidden lg:h-[calc(100svh-4rem)]">
         {/* From lg the two columns sit in a centered 1200 px container so the
             text and the card stay close together on wide screens. */}
-        <div className="relative max-w-7xl lg:max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-16 lg:h-full lg:py-6">
+        <div className="relative max-w-7xl lg:max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-16 pb-16 lg:h-full lg:py-6">
           {/* Before hydration the navbar logo is hidden on this page only;
               HeroLockup then keeps it hidden until the lockup scrolls past. */}
           <style>{`html:not([data-hero-lockup]) .nav-brand{opacity:0}`}</style>
-          {/* Copy left, live demo right, the text block vertically centered
-              against the card; stacked on phones with the demo under the CTAs. */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-12 lg:gap-16 items-center lg:h-full">
-            {/* The grid centers this block against the whole demo column; the
-                transform lifts it by half the toggle + caption block (51 px)
-                so it is centered on the card itself, without adding to the
-                block's layout height. */}
-            <div className="text-center lg:text-left lg:-translate-y-[51px]">
+          {/* Below lg: one column, lockup / eyebrow / headline / subhead, then
+              the demo card, then the buttons and note, so the demo shows
+              within one short scroll. From lg: copy left in two blocks
+              (rows 2 and 3 of a 1fr/auto/auto/1fr grid, so the pair is
+              centered against the demo column), demo right spanning all four
+              rows. The transform lifts the text by half the toggle + caption
+              block (51 px) so it is centered on the card itself. */}
+          <div className="grid grid-cols-1 gap-y-8 lg:grid-cols-[1fr_auto] lg:grid-rows-[1fr_auto_auto_1fr] lg:gap-x-16 lg:gap-y-0 lg:h-full">
+            <div className="text-center lg:text-left lg:col-start-1 lg:row-start-2 lg:-translate-y-[51px]">
               <HeroLockup />
-              <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-5 lg:mb-[25px]">
+              <p className="text-xs font-semibold tracking-widest text-[#C8A96E] uppercase mb-4 lg:mb-[25px]">
                 The simplest way to score a video
               </p>
 
               {/* hero-headline: one step smaller on laptop screens under 800 px tall (globals.css). */}
-              <h1 className="hero-headline text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight tracking-tight mb-6 lg:mb-[30px]">
+              <h1 className="hero-headline text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight tracking-tight mb-5 lg:mb-[30px]">
                 Upload your video.
                 <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C8A96E] to-[#E8C87A]">
@@ -136,10 +137,16 @@ export default function LandingPage() {
                 </span>
               </h1>
 
-              <p className="text-lg text-gray-400 max-w-2xl mx-auto lg:mx-0 mb-10 lg:mb-[50px] leading-relaxed">
+              <p className="text-lg text-gray-400 max-w-2xl mx-auto lg:mx-0 mb-0 lg:mb-[50px] leading-relaxed">
                 No prompts to write, no credits to manage. Upload a clip, Backbeat reads it and writes the soundtrack, you export. A few minutes start to finish.
               </p>
+            </div>
 
+            <div className="lg:col-start-2 lg:row-start-1 lg:row-span-4 lg:h-full">
+              <HeroDemo />
+            </div>
+
+            <div className="text-center lg:text-left lg:col-start-1 lg:row-start-3 lg:-translate-y-[51px]">
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Link
                   href="/auth/signup"
@@ -160,8 +167,6 @@ export default function LandingPage() {
 
               <p className="text-[#9090aa] text-sm mt-3">No credit card required. Analyze your first video free.</p>
             </div>
-
-            <HeroDemo />
           </div>
         </div>
       </section>

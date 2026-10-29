@@ -72,7 +72,7 @@ body::after {
 /* Landing page: the navbar mark fades in once the hero's own lockup has
    scrolled out from under the nav (set by components/demo/HeroLockup). */
 .nav-brand { transition: opacity 0.35s ease; }
-html[data-hero-lockup="visible"] .nav-brand { opacity: 0; pointer-events: none; }
+html[data-hero-lockup="visible"] .nav-brand:not([data-menu-open="true"]) { opacity: 0; pointer-events: none; }
 
 /* Demo clips. The custom top-right button (lightbox on desktop, native
    fullscreen on phones) is the fullscreen control in every browser; the
