@@ -9,9 +9,9 @@ export const metadata: Metadata = {
 
 const FREE_FEATURES = [
   { text: "1 free video analysis, lifetime", included: true },
-  { text: "1 AI-generated soundtrack, first 60 seconds of your video", included: true },
-  { text: "Preview synced to your video (first 60 seconds)", included: true },
-  { text: "Watermarked export of the first 60 seconds", included: true },
+  { text: "1 AI-generated soundtrack, first 30 seconds of your video", included: true },
+  { text: "Preview synced to your video (first 30 seconds)", included: true },
+  { text: "Watermarked export of the first 30 seconds", included: true },
   { text: "Full-length, no-watermark exports", included: false },
 ];
 
@@ -41,7 +41,7 @@ const faqs = [
   },
   {
     q: "Are the tracks licensed for commercial use?",
-    a: "Free-tier exports cover the first 60 seconds and are watermarked. All exports, free and paid, are cleared for commercial use online and offline, including social media and advertising, except film, TV, radio and games, which need separate licensing. The music is produced by ElevenLabs' Music API; see elevenlabs.io/music-rights for the full terms.",
+    a: "Free-tier exports cover the first 30 seconds and are watermarked. All exports, free and paid, are cleared for commercial use online and offline, including social media and advertising, except film, TV, radio and games, which need separate licensing. The music is produced by ElevenLabs' Music API; see elevenlabs.io/music-rights for the full terms.",
   },
   {
     q: "What does the analysis count as?",
@@ -49,7 +49,7 @@ const faqs = [
   },
   {
     q: "What is the watermark on free exports?",
-    a: "Free tier exports cover the first 60 seconds of your video and include a subtle Backbeat text overlay. Upgrade to Creator or Pro to export the full video without any watermark. Free previews are kept for 30 days.",
+    a: "Free tier exports cover the first 30 seconds of your video and include a subtle Backbeat text overlay. Upgrade to Creator or Pro to export the full video without any watermark. Free previews are kept for 30 days.",
   },
   {
     q: "Can I pay for just one video?",
@@ -57,11 +57,15 @@ const faqs = [
   },
   {
     q: "How good is the AI-generated music?",
-    a: "Backbeat uses Claude to deeply analyze your video's mood, energy, pacing, and scene context, then generates a soundtrack via ElevenLabs. Each generation is unique to your video. The free tier gets one track per analysis, covering the first 60 seconds of the video. Paid plans get two distinct full-length options per analysis and, if neither fits, can regenerate two more without using another analysis — Creator up to 4 options per video, Pro up to 6.",
+    a: "Backbeat uses Claude to deeply analyze your video's mood, energy, pacing, and scene context, then generates a soundtrack via ElevenLabs. Each generation is unique to your video. The free tier gets one track per analysis, covering the first 30 seconds of the video. Paid plans get two distinct full-length options per analysis and, if neither fits, can regenerate two more without using another analysis — Creator up to 4 options per video, Pro up to 6.",
   },
 ];
 
-export default function PricingPage() {
+export default async function PricingPage({ searchParams }: { searchParams: Promise<{ video?: string }> }) {
+  // Reached from a results page: the plan checkouts carry the video id so a
+  // cancelled checkout returns there (see /api/stripe/checkout).
+  const { video } = await searchParams;
+  const from = video && /^[\w-]+$/.test(video) ? `&from=${encodeURIComponent(video)}` : "";
   return (
     <div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -81,7 +85,7 @@ export default function PricingPage() {
             name="Try it free"
             price={0}
             priceSuffix=""
-            description="One free analysis, first 60 seconds, no card needed"
+            description="One free analysis, first 30 seconds, no card needed"
             features={FREE_FEATURES}
             cta="Try it free"
             ctaHref="/auth/signup"
@@ -93,7 +97,7 @@ export default function PricingPage() {
             description="For active video creators"
             features={CREATOR_FEATURES}
             cta="Start Creator plan"
-            ctaHref="/api/stripe/checkout?plan=creator"
+            ctaHref={`/api/stripe/checkout?plan=creator${from}`}
             highlighted
             badge="Recommended"
             priceNote="Introductory price — lock it in now."
@@ -105,7 +109,7 @@ export default function PricingPage() {
             description="For high-volume creators"
             features={PRO_FEATURES}
             cta="Start Pro plan"
-            ctaHref="/api/stripe/checkout?plan=team"
+            ctaHref={`/api/stripe/checkout?plan=team${from}`}
           />
         </div>
 
@@ -127,7 +131,7 @@ export default function PricingPage() {
 
         {/* Licensing note — mirrors Terms §6 */}
         <p className="text-center text-[#9090aa] text-sm max-w-2xl mx-auto mb-3 leading-relaxed">
-          Free-tier exports cover the first 60 seconds and are watermarked. All exports, free and paid, are cleared for commercial use online and offline, including social media and advertising, except film, TV, radio and games, which need separate licensing.
+          Free-tier exports cover the first 30 seconds and are watermarked. All exports, free and paid, are cleared for commercial use online and offline, including social media and advertising, except film, TV, radio and games, which need separate licensing.
         </p>
         <p className="text-center text-[#9090aa] text-sm max-w-2xl mx-auto mb-20 leading-relaxed">
           Music is generated by ElevenLabs and licensed for commercial use under their{" "}
@@ -153,11 +157,11 @@ export default function PricingPage() {
                 {[
                   ["Analyses", "1 lifetime", "15/mo", "40/mo"],
                   ["Generated soundtrack options", "1 per analysis", "Up to 4 per analysis", "Up to 6 per analysis"],
-                  ["Soundtrack length", "First 60 seconds", "Full video", "Full video"],
+                  ["Soundtrack length", "First 30 seconds", "Full video", "Full video"],
                   ["Regenerate options", "—", "1× per video", "2× per video"],
                   ["AI video analysis", "✓", "✓", "✓"],
-                  ["Audio preview", "First 60 seconds", "Full", "Full"],
-                  ["Exports", "First 60 seconds, watermarked", "Full video, no watermark", "Full video, no watermark"],
+                  ["Audio preview", "First 30 seconds", "Full", "Full"],
+                  ["Exports", "First 30 seconds, watermarked", "Full video, no watermark", "Full video, no watermark"],
                 ].map(([feature, free, creator, team]) => (
                   <tr key={feature} className="border-b border-[#1E1E1E] hover:bg-[#141414]/60 transition-colors">
                     <td className="py-4 pr-8 text-white text-sm">{feature}</td>

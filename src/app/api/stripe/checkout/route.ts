@@ -39,6 +39,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const plan = searchParams.get("plan");
   const passVideoId = searchParams.get("video");
+  // Subscription checkout opened from a results page (/pricing?video=…):
+  // cancelling returns to that page, which then offers the Video Pass.
+  const fromVideoId = searchParams.get("from");
 
   const userId = session.user.id;
   const userEmail = session.user.email;
@@ -83,8 +86,11 @@ export async function GET(req: NextRequest) {
   }
 
   const customerId = await ensureCustomer(userId, userEmail);
+  const fromVideo = fromVideoId
+    ? await prisma.video.findFirst({ where: { id: fromVideoId, userId }, select: { id: true } })
+    : null;
 
-  // A free user upgrading with a 60 s-capped analysis lands back on that
+  // A free user upgrading with a 30 s-capped analysis lands back on that
   // video's results page, where the page generates the full-length pair
   // (see the ?unlocked effect in /analyze/[id]). Otherwise the dashboard.
   const capped = await prisma.analysis.findFirst({
@@ -92,7 +98,7 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
     select: { videoId: true },
   });
-  // A free user whose analysis was NOT capped (clip under 60 s) already has
+  // A free user whose analysis was NOT capped (clip under 30 s) already has
   // one full-length track; land them on it with a "generate your second
   // track" prompt so they don't re-upload. Regenerating on that analysis
   // charges one slot (see slotChargedAt in /api/analyze).
@@ -119,7 +125,7 @@ export async function GET(req: NextRequest) {
     payment_method_types: ["card"],
     line_items: [{ price: PRICE_IDS[plan], quantity: 1 }],
     success_url: successUrl,
-    cancel_url: `${base}/pricing`,
+    cancel_url: fromVideo ? `${base}/analyze/${fromVideo.id}?checkout=cancelled` : `${base}/pricing`,
     metadata: { userId, plan },
   });
 

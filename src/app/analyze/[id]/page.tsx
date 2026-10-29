@@ -105,7 +105,7 @@ export default function AnalysisResultsPage() {
 
   // ?unlocked=true: back from a successful checkout (a Video Pass for this
   // video, or a plan upgrade that sent the user here because this analysis
-  // was capped at 60 s). Kick off the full-length pair once, as soon as the
+  // was capped at 30 s). Kick off the full-length pair once, as soon as the
   // results have loaded and the entitlement is visible. The webhook only
   // records the purchase; generation is triggered from here so it runs in
   // the analyze route's own time budget. For a plan upgrade the webhook can
@@ -114,9 +114,22 @@ export default function AnalysisResultsPage() {
   const unlockedParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("unlocked") === "true";
   const upgradedParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("upgraded") === "true";
   // Plan upgrade from a free analysis that was never capped (clip under
-  // 60 s): the checkout route sends the user back here to generate a second
+  // 30 s): the checkout route sends the user back here to generate a second
   // track on the existing analysis instead of re-uploading.
   const secondParam = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("second") === "true";
+  // Backed out of a subscription checkout that was opened from this page
+  // (?checkout=cancelled, remembered for the tab so a reload keeps it): a
+  // free user then sees the Video Pass offered above the upgrade options.
+  const [checkoutCancelled, setCheckoutCancelled] = useState(false);
+  useEffect(() => {
+    const key = `bb-checkout-cancelled:${videoId}`;
+    let flagged = new URLSearchParams(window.location.search).get("checkout") === "cancelled";
+    try {
+      if (flagged) sessionStorage.setItem(key, "1");
+      else flagged = sessionStorage.getItem(key) === "1";
+    } catch { /* storage unavailable: the URL flag alone decides */ }
+    setCheckoutCancelled(flagged);
+  }, [videoId]);
   const autoRegenRef = React.useRef(false);
   useEffect(() => {
     if (!unlockedParam || autoRegenRef.current || regenerating) return;
@@ -386,7 +399,7 @@ export default function AnalysisResultsPage() {
   // Free tier: the track (and any export) covers only the first N seconds of
   // a longer video. Shown only when the server recorded an actual cap.
   const previewCapped = freeLimited && typeof analysis.cappedSec === "number" && analysis.cappedSec > 0;
-  // A paid user (subscriber, or this video's pass holder) looking at a 60 s
+  // A paid user (subscriber, or this video's pass holder) looking at a 30 s
   // free-tier analysis: the next regeneration replaces it with full-length
   // tracks. For a subscriber that costs one analysis, like any paid one.
   const uncapAvailable = !freeLimited && typeof analysis.cappedSec === "number" && analysis.cappedSec > 0;
@@ -403,7 +416,7 @@ export default function AnalysisResultsPage() {
           {isFreeUser && hasPass ? " — the Video Pass maximum" : planName ? ` — the ${planName} plan maximum` : ""}.{" "}
           {canUpgradeForMore ? (
             <>
-              <Link href="/pricing" className="text-[#C8A96E] hover:text-white underline transition-colors">
+              <Link href={`/pricing?video=${videoId}`} className="text-[#C8A96E] hover:text-white underline transition-colors">
                 {isFreeUser && hasPass ? "Upgrade to a plan" : "Upgrade to Pro"}
               </Link>{" "}
               for up to {DEFAULT_OPTION_CAP} per video, or{" "}
@@ -435,9 +448,17 @@ export default function AnalysisResultsPage() {
     if (freeLimited) {
       return (
         <div className="space-y-3">
+          {checkoutCancelled && (
+            <p className="text-[#C8A96E] text-sm">
+              Not ready for a subscription?{" "}
+              <a href={`/api/stripe/checkout?video=${videoId}`} className="underline hover:text-white transition-colors">
+                Score just this video for $5.
+              </a>
+            </p>
+          )}
           <p className="text-[#9090aa] text-sm">
             {single ? "Want a second option?" : "Want more options?"}{" "}
-            <Link href="/pricing" className="text-[#C8A96E] hover:text-white underline transition-colors">
+            <Link href={`/pricing?video=${videoId}`} className="text-[#C8A96E] hover:text-white underline transition-colors">
               Creator plan
             </Link>{" "}
             gives you two per video plus regeneration.
@@ -576,7 +597,7 @@ export default function AnalysisResultsPage() {
             <>
               <p className="text-[#a0a0b8] text-sm mb-1">
                 Free previews cover the first {analysis.cappedSec} seconds.{" "}
-                <Link href="/pricing" className="text-[#C8A96E] hover:text-white underline transition-colors">
+                <Link href={`/pricing?video=${videoId}`} className="text-[#C8A96E] hover:text-white underline transition-colors">
                   Upgrade
                 </Link>{" "}
                 for the full video.

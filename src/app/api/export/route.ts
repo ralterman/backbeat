@@ -381,14 +381,16 @@ export async function POST(req: NextRequest) {
   }
 
   // Admin accounts always get watermark-free, full-length exports regardless
-  // of plan. Free tier: watermarked and limited to the first 60 s (the
-  // generated track is that long too — see FREE_PREVIEW_SECONDS).
+  // of plan. Free tier: watermarked and limited to the analysis's own cap
+  // (cappedSec, the length its track was generated at: 60 s for analyses
+  // made before the cap dropped, FREE_PREVIEW_SECONDS since), so an older
+  // analysis keeps exporting what it was generated with.
   // A one-time Video Pass lifts both for this video only.
   const admin = isAdminEmail(session.user.email);
   const plan = admin ? "TEAM" : await getUserPlan(userId);
   const freeLimited = plan === "FREE" && !(await getVideoPass(videoId));
   const hasWatermark = freeLimited;
-  const exportCapSec: number | null = freeLimited ? FREE_PREVIEW_SECONDS : null;
+  const exportCapSec: number | null = freeLimited ? (analysis?.cappedSec ?? FREE_PREVIEW_SECONDS) : null;
 
   const exportId = randomUUID();
   await prisma.export.create({

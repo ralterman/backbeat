@@ -241,7 +241,7 @@ export async function POST(req: NextRequest) {
   const pass = !admin && plan === "FREE" ? await getVideoPass(videoId) : null;
   const freeLimited = !admin && plan === "FREE" && !pass;
 
-  // Free tier: generate music for the first 60 s only. The analysis
+  // Free tier: generate music for the first 30 s only. The analysis
   // (frames → Claude) still runs on the whole video; only the ElevenLabs
   // input is trimmed. Null = full length.
   const capSec: number | null = freeLimited ? FREE_PREVIEW_SECONDS : null;
