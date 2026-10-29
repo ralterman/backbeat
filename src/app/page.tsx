@@ -6,6 +6,8 @@ import { GenreRow } from "@/components/demo/GenreRow";
 import ScrollToTop from "@/components/ScrollToTop";
 import { Reveal } from "@/components/motion/Reveal";
 import { RotatingWord } from "@/components/RotatingWord";
+import { preload } from "react-dom";
+import { HERO_CLIP } from "@/components/demo/clips";
 
 const features = [
   {
@@ -100,6 +102,10 @@ const PRO_FEATURES = [
 ];
 
 export default function LandingPage() {
+  // The hero card's poster is the page's LCP element; preload it at high
+  // priority so it is not discovered only once the <video> is parsed and
+  // does not queue behind the two hero video files.
+  preload(HERO_CLIP.poster, { as: "image", fetchPriority: "high" });
   return (
     <div className="bg-transparent">
       <ScrollToTop />

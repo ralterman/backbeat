@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
-export const ROTATING_WORDS = ["video", "reel", "ad", "product video", "vlog", "highlight tape", "game clip"] as const;
+// Every word must fit beside "Upload your" on one line at 375 px (127 px of
+// room at the phone headline size): "product video" (247 px), "highlight
+// tape" and "game clip" (175 px) did not, so the mobile headline stays two
+// lines with this set.
+export const ROTATING_WORDS = ["video", "reel", "ad", "vlog"] as const;
 
 /**
  * The rotating noun in the hero headline: "Upload your <word>." Holds each
