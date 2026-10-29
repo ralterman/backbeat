@@ -475,6 +475,7 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
           {sources.map((s, i) => (
             <video
               key={s.mode}
+              data-demo-variant={variant}
               ref={(el) => { videoRefs.current[i] = el; }}
               src={s.src}
               poster={clip.poster}

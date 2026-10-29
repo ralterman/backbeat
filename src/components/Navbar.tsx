@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
@@ -27,11 +27,24 @@ export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  // Opening the menu pauses every demo clip on the page (the hero's muted
-  // autoplay included). Nothing is resumed on close; the user taps again.
+  // Opening the menu pauses every demo clip on the page. On close, only the
+  // hero's muted autoplay loop resumes (it needs no gesture and was not
+  // something the user started); a row clip, or a hero the user unmuted,
+  // stays paused until they tap it again.
+  const resumeHeroRef = useRef<HTMLVideoElement | null>(null);
   useEffect(() => {
-    if (!menuOpen) return;
-    document.querySelectorAll<HTMLVideoElement>("video.demo-video").forEach((v) => { if (!v.paused) v.pause(); });
+    if (menuOpen) {
+      resumeHeroRef.current = null;
+      document.querySelectorAll<HTMLVideoElement>("video.demo-video").forEach((v) => {
+        if (v.paused) return;
+        if (v.dataset.demoVariant === "hero" && v.muted) resumeHeroRef.current = v;
+        v.pause();
+      });
+    } else if (resumeHeroRef.current) {
+      const v = resumeHeroRef.current;
+      resumeHeroRef.current = null;
+      if (v.isConnected && v.muted) v.play().catch(() => {});
+    }
   }, [menuOpen]);
 
   useEffect(() => {
