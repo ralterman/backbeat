@@ -498,7 +498,10 @@ export function DemoPlayer({ clip, variant, className = "" }: Props) {
         <div
           ref={cardRef}
           onClick={lightbox ? (e) => e.stopPropagation() : undefined}
-          className={`relative rounded-2xl overflow-hidden bg-[#141414] border border-[#2A2A2A] aspect-[9/16] w-full ${!isHero && !lightbox ? "transition-[transform,border-color] duration-150 hover:-translate-y-1 hover:border-white/25" : ""}`}
+          // Row cards lift 4 px on hover from lg only: on phones a touch
+          // leaves :hover stuck on the card and the lift would knock it out
+          // of line with its neighbours in the swipe strip.
+          className={`relative rounded-2xl overflow-hidden bg-[#141414] border border-[#2A2A2A] aspect-[9/16] w-full ${!isHero && !lightbox ? "lg:transition-[transform,border-color] lg:duration-150 lg:hover:-translate-y-1 lg:hover:border-white/25" : ""}`}
           style={lightbox ? { height: lightbox.height, width: "auto", maxWidth: "calc(100vw - 48px)" } : undefined}
         >
           {sources.map((s, i) => (

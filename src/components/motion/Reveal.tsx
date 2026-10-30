@@ -32,7 +32,11 @@ export function Reveal({ children, step = 0, className = "" }: { children: React
       if (entry.isIntersecting) { el.classList.add("is-visible"); io.disconnect(); }
     }, { rootMargin: desktop ? "0px 0px -10% 0px" : "0px 0px 15% 0px" });
     io.observe(el);
-    return () => io.disconnect();
+    // Once revealed the wrapper is static, so give up its compositing layer:
+    // a video kept inside a will-change layer lags its clip on iOS.
+    const onEnd = (e: TransitionEvent) => { if (e.target === el && e.propertyName === "transform") el.style.willChange = "auto"; };
+    el.addEventListener("transitionend", onEnd);
+    return () => { io.disconnect(); el.removeEventListener("transitionend", onEnd); };
   }, [step]);
   return (
     <div ref={ref} className={`reveal ${className}`}>
